@@ -1,0 +1,17 @@
+# SAM deploy defaults. Fill in region/account-specific values on first `sam deploy --guided`.
+version = 0.1
+
+[default.global.parameters]
+stack_name = "spending-tracker"
+
+[default.build.parameters]
+# pillow-heif (Phase 2) ships native libs — build in a Lambda-matching container so the
+# binaries match the runtime (plan §4 packaging note). Harmless now, required later.
+use_container = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+# region = "us-east-1"          # set to your region
+# parameter_overrides = "SsmParamPrefix=/spending-tracker CorsAllowOrigins='[\"https://your-frontend\"]'"

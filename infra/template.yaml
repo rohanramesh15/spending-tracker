@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Spending Tracker backend (Phase 1). API Lambda behind a Function URL, an SQS-driven
+  worker Lambda, a job queue + DLQ, and an EventBridge schedule — all wired from day
+  one even though the worker is idle in Phase 1 (plan §4, §9). All on AWS always-free
+  allowances; never add a NAT Gateway or Elastic IP.
+
+Parameters:
+  SsmParamPrefix:
+    Type: String
+    Default: /spending-tracker
+    Description: >
+      Path prefix for SecureString parameters (SUPABASE_DB_URL, SUPABASE_JWT_SECRET,
+      later Gemini/Plaid/Kroger keys). The functions read these at init and never store
+      secrets as plaintext env vars (CLAUDE.md #11).
+  CorsAllowOrigins:
+    Type: String
+    Default: '["http://localhost:5173"]'
+    Description: JSON array (as a string) of frontend origins allowed by the API's CORS.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        SSM_PARAM_PREFIX: !Ref SsmParamPrefix
+
+Resources:
+  # --- Background jobs: queue + dead-letter queue (poison messages) ---
+  JobsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: spending-tracker-jobs-dlq
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  JobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: spending-tracker-jobs
+      VisibilityTimeout: 180 # >= worker Timeout; chunked one-message-per-store jobs
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt JobsDLQ.Arn
+        maxReceiveCount: 5
+
+  # --- API Lambda (FastAPI via Mangum) behind a Function URL (no API Gateway) ---
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: spending-tracker-api
+      CodeUri: ../backend
+      Handler: app.main.handler
+      Description: FastAPI app; source-agnostic ingest, charts, reconciliation.
+      Environment:
+        Variables:
+          SSM_PARAM_PREFIX: !Ref SsmParamPrefix
+          CORS_ALLOW_ORIGINS: !Ref CorsAllowOrigins
+          JOBS_QUEUE_URL: !Ref JobsQueue
+      FunctionUrlConfig:
+        AuthType: NONE # public URL; the app verifies the Supabase JWT itself
+        Cors:
+          AllowOrigins: ["*"] # tighten to the frontend origin post-deploy
+          AllowMethods: ["*"]
+          AllowHeaders: ["authorization", "content-type"]
+      Policies:
+        - Statement:
+            - Sid: ReadSecureParams
+              Effect: Allow
+              Action: [ssm:GetParametersByPath, ssm:GetParameter, ssm:GetParameters]
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}/*
+            - Sid: DecryptSecureParams
+              Effect: Allow
+              Action: [kms:Decrypt]
+              Resource: "*"
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt JobsQueue.QueueName
+
+  # --- Worker Lambda (drains the job queue; idle in Phase 1) ---
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: spending-tracker-worker
+      CodeUri: ../backend
+      Handler: app.worker.handler
+      Description: SQS-driven jobs — price refresh, Plaid re-sync, recurring recompute.
+      Timeout: 120
+      Events:
+        JobQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt JobsQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+      Policies:
+        - Statement:
+            - Sid: ReadSecureParams
+              Effect: Allow
+              Action: [ssm:GetParametersByPath, ssm:GetParameter, ssm:GetParameters]
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}/*
+            - Sid: DecryptSecureParams
+              Effect: Allow
+              Action: [kms:Decrypt]
+              Resource: "*"
+
+  # --- EventBridge Scheduler: daily price refresh (DISABLED until Phase 5) ---
+  SchedulerInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeWorker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt WorkerFunction.Arn
+
+  PriceRefreshSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: spending-tracker-price-refresh
+      State: DISABLED # present from day one; enabled in Phase 5 (plan §9)
+      ScheduleExpression: cron(0 9 * * ? *) # 09:00 UTC daily
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt WorkerFunction.Arn
+        RoleArn: !GetAtt SchedulerInvokeRole.Arn
+
+Outputs:
+  ApiFunctionUrl:
+    Description: Public Function URL of the API Lambda (set as the frontend's VITE_API_BASE_URL).
+    Value: !GetAtt ApiFunctionUrl.FunctionUrl
+  JobsQueueUrl:
+    Description: SQS job queue URL.
+    Value: !Ref JobsQueue
+  JobsDLQUrl:
+    Description: Dead-letter queue URL.
+    Value: !Ref JobsDLQ
