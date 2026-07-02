@@ -136,6 +136,32 @@ export interface ReviewResolveResult {
   transaction_id: string;
 }
 
+// --- Bank sync (Plaid) --------------------------------------------------------
+export type AccountStatus = "active" | "needs_reauth" | "disconnected";
+
+export interface LinkedAccount {
+  id: string;
+  institution: string;
+  status: AccountStatus;
+  is_apple_card: boolean;
+  last_synced_at: string | null;
+}
+
+export interface LinkTokenOut {
+  link_token: string;
+}
+
+export interface SyncSummary {
+  added: number;
+  needs_review: number;
+  removed: number;
+}
+
+export interface ExchangeResult {
+  account: LinkedAccount;
+  synced: SyncSummary;
+}
+
 export interface ReceiptDraftItem {
   raw_name: string;
   normalized_name: string | null;

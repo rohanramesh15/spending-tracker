@@ -2,13 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, apiUpload } from "./client";
 import type {
   Category,
+  ExchangeResult,
   IngestRequest,
   IngestResult,
+  LinkedAccount,
+  LinkTokenOut,
   ReceiptDraft,
   Resolution,
   Review,
   ReviewResolveResult,
   SpendingResponse,
+  SyncSummary,
   TransactionDetail,
   TransactionListItem,
 } from "./types";
@@ -101,6 +105,54 @@ export function useResolveReview() {
       // Resolving drains the queue and moves the transaction into the charts.
       qc.invalidateQueries({ queryKey: ["reviews"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}
+
+// --- Bank sync (Plaid) --------------------------------------------------------
+
+export function useLinkedAccounts() {
+  return useQuery({
+    queryKey: ["linked-accounts"],
+    queryFn: () => apiFetch<LinkedAccount[]>("/api/plaid/accounts"),
+  });
+}
+
+export function useCreateLinkToken() {
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<LinkTokenOut>("/api/plaid/link-token", { method: "POST", body: "{}" }),
+  });
+}
+
+/** Exchange Plaid Link's public_token for a stored Item; the initial sync runs server-side. */
+export function useExchangePublicToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (public_token: string) =>
+      apiFetch<ExchangeResult>("/api/plaid/exchange", {
+        method: "POST",
+        body: JSON.stringify({ public_token }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["linked-accounts"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}
+
+export function useSyncBank() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<SyncSummary>("/api/plaid/sync", { method: "POST", body: "{}" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["linked-accounts"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
       qc.invalidateQueries({ queryKey: ["spending"] });
     },
   });
