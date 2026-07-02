@@ -6,8 +6,12 @@ from this list (fallback ``Other``), never invent categories. Renames are safe l
 source of truth. The migration's seed function mirrors this list.
 """
 
-# Regular categories the LLM assigns to line items.
+# Regular categories the LLM assigns to line items (and used at transaction level for
+# unitemized bank charges). "Other" stays last as the fallback. The grocery aisles are
+# populated by scanned receipts; the life-spending buckets below cover bank-synced
+# transactions so they don't all fall into "Other"/"Uncategorized".
 REGULAR_CATEGORIES: tuple[str, ...] = (
+    # Grocery aisles (itemized from receipts)
     "Produce",
     "Dairy",
     "Meat & Seafood",
@@ -16,6 +20,7 @@ REGULAR_CATEGORIES: tuple[str, ...] = (
     "Frozen",
     "Beverages",
     "Snacks",
+    # Everyday / retail
     "Household",
     "Personal Care",
     "Health/Pharmacy",
@@ -23,6 +28,13 @@ REGULAR_CATEGORIES: tuple[str, ...] = (
     "Dining Out",
     "Electronics",
     "Clothing",
+    # Life-spending (mostly bank-synced)
+    "Transportation & Gas",
+    "Housing & Rent",
+    "Utilities & Bills",
+    "Entertainment & Subscriptions",
+    "Travel",
+    # Fallback — must stay last
     "Other",
 )
 

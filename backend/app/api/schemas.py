@@ -18,6 +18,7 @@ class LineItemIn(BaseModel):
     raw_name: str
     normalized_name: str | None = None
     category_id: str | None = None
+    # Line-extended total in cents (quantity x unit price) — matches what receipts print.
     price_cents: int
     quantity: Decimal = Decimal(1)
     unit_size: Decimal | None = None

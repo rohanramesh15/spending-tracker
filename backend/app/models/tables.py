@@ -7,6 +7,12 @@ Global rules (plan §5 header):
   ``user_id`` from their parent so each can have a simple ``user_id = auth.uid()`` policy.
 - ``purchased_on`` is a local calendar DATE plus optional ``purchased_time`` — never a
   fake-precision UTC timestamp.
+
+Ownership integrity: child rows are tied to their parent's owner via **composite,
+owner-scoped foreign keys** ``(user_id, parent_id) → parent(user_id, id)``, defined in
+migration 0001 (SQLModel can't express composite FKs cleanly, so the per-column
+``ForeignKey`` here is ORM metadata only — the migration is authoritative; do not blindly
+`alembic revision --autogenerate` against these models).
 """
 
 from __future__ import annotations
@@ -90,11 +96,21 @@ class Transaction(SQLModel, table=True):
 
     __tablename__ = "transactions"
     __table_args__ = (
-        UniqueConstraint("source", "external_id", name="uq_transactions_source_external_id"),
+        # Per-user idempotency (multi-tenant safe).
+        UniqueConstraint(
+            "user_id", "source", "external_id", name="uq_transactions_user_source_external"
+        ),
+        # Owner-scoped composite key target for child FKs (see migration).
+        UniqueConstraint("user_id", "id", name="uq_transactions_user_id"),
     )
 
     id: uuid.UUID = uuid_pk()
     user_id: uuid.UUID = user_id_col()
+    # Which connected account this came from (nullable; §5 deviation for the Settings
+    # view + per-account filtering in Phase 3). SET NULL if the account is removed.
+    linked_account_id: uuid.UUID | None = Field(
+        default=None, sa_column=_fk("linked_accounts.id", nullable=True, ondelete="SET NULL")
+    )
     vendor: str = Field(sa_column=Column(String, nullable=False))
     purchased_on: date = Field(sa_column=Column(Date, nullable=False, index=True))
     purchased_time: time | None = Field(default=None, sa_column=Column(Time, nullable=True))
@@ -126,11 +142,15 @@ class LineItem(SQLModel, table=True):
     id: uuid.UUID = uuid_pk()
     user_id: uuid.UUID = user_id_col()
     transaction_id: uuid.UUID = Field(sa_column=_fk("transactions.id"))
+    # Order on the receipt (UUID PKs don't sort by insertion). Assigned in ingest.
+    position: int = Field(default=0, sa_column=Column(Integer, nullable=False, server_default="0"))
     raw_name: str = Field(sa_column=Column(String, nullable=False))
     normalized_name: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     category_id: uuid.UUID | None = Field(
         default=None, sa_column=_fk("categories.id", nullable=True, ondelete="SET NULL")
     )
+    # LINE-EXTENDED total (quantity x unit price). Unit price is derived as
+    # price_cents / quantity / unit_size for recurring comparisons (plan §6.8).
     price_cents: int = money_cents(nullable=False)
     quantity: Decimal = Field(
         default=Decimal(1),
@@ -145,7 +165,10 @@ class Category(SQLModel, table=True):
     Tax and Tip are ``is_system`` categories. The LLM must pick from this list."""
 
     __tablename__ = "categories"
-    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_categories_user_name"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_categories_user_name"),
+        UniqueConstraint("user_id", "id", name="uq_categories_user_id"),
+    )
 
     id: uuid.UUID = uuid_pk()
     user_id: uuid.UUID = user_id_col()
@@ -193,7 +216,10 @@ class RecurringItem(SQLModel, table=True):
     """Detected repeat purchase, keyed on ``canonical_name`` (plan §5, §6.8)."""
 
     __tablename__ = "recurring_items"
-    __table_args__ = (UniqueConstraint("user_id", "canonical_name", name="uq_recurring_user_name"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "canonical_name", name="uq_recurring_user_name"),
+        UniqueConstraint("user_id", "id", name="uq_recurring_user_id"),
+    )
 
     id: uuid.UUID = uuid_pk()
     user_id: uuid.UUID = user_id_col()
@@ -214,6 +240,7 @@ class ComparableSpec(SQLModel, table=True):
     denormalized for RLS."""
 
     __tablename__ = "comparable_specs"
+    __table_args__ = (UniqueConstraint("user_id", "id", name="uq_comparable_specs_user_id"),)
 
     id: uuid.UUID = uuid_pk()
     user_id: uuid.UUID = user_id_col()

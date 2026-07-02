@@ -43,15 +43,16 @@ def ingest(
     db.add(txn)
     db.flush()  # assign txn.id within the request transaction
 
-    for item in payload.line_items:
+    for position, item in enumerate(payload.line_items):
         db.add(
             LineItem(
                 user_id=user_id,
                 transaction_id=txn.id,
+                position=position,  # preserve the order the items arrived in
                 raw_name=item.raw_name,
                 normalized_name=item.normalized_name,
                 category_id=item.category_id,
-                price_cents=item.price_cents,
+                price_cents=item.price_cents,  # line-extended total (qty x unit)
                 quantity=item.quantity,
                 unit_size=item.unit_size,
                 unit=item.unit,
