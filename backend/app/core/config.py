@@ -5,11 +5,37 @@ environment variables the SAM template populates from SSM Parameter Store
 (SecureString). Nothing secret is ever hard-coded — see CLAUDE.md convention #11.
 """
 
+import json
+import re
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.secrets import hydrate_env_from_ssm
+
+
+def _parse_origins(raw: str) -> list[str]:
+    """Parse the CORS allow-list from a plain string.
+
+    Accepts a comma/whitespace-separated list ("https://a,http://b") OR a JSON array
+    ('["https://a","http://b"]', kept for local .env back-compat). Stored as a raw str
+    rather than a pydantic ``list[str]`` on purpose: pydantic-settings JSON-decodes
+    complex env fields, but SAM's parameter_overrides shlex-parsing strips the
+    double-quotes a JSON array needs — the Lambda received a bare "[" and 502'd at init.
+    Parsing here means the deployed value carries no quotes at all (infra/samconfig.toml).
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return []
+    if raw.startswith("["):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                return [str(o).strip() for o in parsed if str(o).strip()]
+        except json.JSONDecodeError:
+            pass
+    return [o.strip() for o in re.split(r"[,\s]+", raw) if o.strip()]
 
 
 class Settings(BaseSettings):
@@ -31,7 +57,15 @@ class Settings(BaseSettings):
     supabase_jwt_aud: str = "authenticated"
 
     # --- CORS: the frontend origin(s) allowed to call the Function URL ---
-    cors_allow_origins: list[str] = ["http://localhost:5173"]
+    # Raw string (comma/space list or JSON array); parsed by ``cors_allow_origins``.
+    cors_allow_origins_raw: str = Field(
+        default="http://localhost:5173",
+        validation_alias="CORS_ALLOW_ORIGINS",
+    )
+
+    @property
+    def cors_allow_origins(self) -> list[str]:
+        return _parse_origins(self.cors_allow_origins_raw)
 
     # --- Background jobs ---
     jobs_queue_url: str | None = None  # SQS queue URL, injected by SAM in Lambda

@@ -16,8 +16,12 @@ Parameters:
       secrets as plaintext env vars (CLAUDE.md #11).
   CorsAllowOrigins:
     Type: String
-    Default: '["http://localhost:5173"]'
-    Description: JSON array (as a string) of frontend origins allowed by the API's CORS.
+    Default: http://localhost:5173
+    Description: >
+      Comma-separated frontend origins allowed by the API's CORS — NOT a JSON array.
+      No quotes/brackets: SAM shlex-parses parameter_overrides and would strip a JSON
+      array's quotes, leaving a bare "[" that 502s the app at init. The app parses this
+      plain string (config._parse_origins).
 
 Globals:
   Function:
@@ -61,10 +65,12 @@ Resources:
           JOBS_QUEUE_URL: !Ref JobsQueue
       FunctionUrlConfig:
         AuthType: NONE # public URL; the app verifies the Supabase JWT itself
-        Cors:
-          AllowOrigins: ["*"] # tighten to the frontend origin post-deploy
-          AllowMethods: ["*"]
-          AllowHeaders: ["authorization", "content-type"]
+        # No Cors block on purpose. The FastAPI app's CORSMiddleware (app/main.py) is the
+        # SINGLE CORS authority, driven by the real origin allow-list (CorsAllowOrigins →
+        # config.cors_allow_origins). A Function-URL Cors block here would *also* emit an
+        # Access-Control-Allow-Origin header — two identical ACAO headers, which browsers
+        # reject — and AllowOrigins:["*"] would echo any origin, defeating the allow-list.
+        # OPTIONS preflight is forwarded to the app, which answers it.
       Policies:
         - Statement:
             - Sid: ReadSecureParams
