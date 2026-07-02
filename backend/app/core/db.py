@@ -37,11 +37,15 @@ _settings = get_settings()
 _request_active: ContextVar[bool] = ContextVar("rls_request_active", default=False)
 
 # NullPool + Supavisor: one connection per invocation, handed straight back.
+# prepare_threshold=None disables psycopg's automatic (named) prepared statements —
+# they break on Supavisor's transaction pooler (port 6543), where each transaction may
+# land on a different backend connection (Supabase best practice: conn-prepared-statements).
 engine = create_engine(
     _settings.supabase_db_url,
     poolclass=NullPool,
     pool_pre_ping=True,
     future=True,
+    connect_args={"prepare_threshold": None},
 )
 
 

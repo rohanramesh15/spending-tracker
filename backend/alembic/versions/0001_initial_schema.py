@@ -272,7 +272,9 @@ CREATE INDEX ix_price_quotes_spec          ON price_quotes(user_id, comparable_s
 
 # RLS policy body: the row's user_id must equal the 'sub' claim on the request.
 # This is exactly what Supabase's auth.uid() resolves to, written portably.
-CLAIM_UID = "(current_setting('request.jwt.claims', true)::json ->> 'sub')::uuid"
+# Wrapped in a scalar subquery so Postgres evaluates it ONCE per query (InitPlan)
+# rather than once per row — Supabase's documented RLS-performance rule.
+CLAIM_UID = "(SELECT (current_setting('request.jwt.claims', true)::json ->> 'sub')::uuid)"
 
 SEED_FUNCTIONS = f"""
 -- Seed the fixed taxonomy for one user. SECURITY DEFINER so it can insert past RLS.
