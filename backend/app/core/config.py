@@ -62,6 +62,15 @@ class Settings(BaseSettings):
             return self.plaid_production_secret
         return self.plaid_sandbox_secret
 
+    # --- Cheaper-store finder (Phase 5) ---
+    # Kroger Products/Location API (OAuth2 client-credentials) is the only live price
+    # source; Google Places finds nearby non-Kroger stores (mapped without prices). If
+    # unset, the finder reports "not configured". The frontend Maps JS key is separate
+    # (VITE_GOOGLE_MAPS_API_KEY); location comes from the browser at request time.
+    kroger_client_id: str | None = None
+    kroger_client_secret: str | None = None
+    google_places_api_key: str | None = None
+
     # Set true only in local/dev to relax auth for manual testing. Never in prod.
     auth_dev_bypass: bool = False
 
