@@ -1,22 +1,25 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { useReviews, useSpending, useTransactions } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
+import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
-import { toISODate, parseISODate } from "@/lib/dates";
+import { parseISODate, rangePresets, formatRangeLabel } from "@/lib/dates";
 
 /**
- * Home — the daily loop (user-flow §2): this-month total + pie, recent transactions,
- * and a friendly empty state when there's no data yet.
+ * Home — the daily loop (user-flow §2): spending total + pie for a selectable date range
+ * (defaults to this month), recent transactions, and a friendly empty state.
  */
 export default function HomePage() {
-  const now = new Date();
-  const start = toISODate(startOfMonth(now));
-  const end = toISODate(endOfMonth(now));
+  const [range, setRange] = useState<DateRangeValue>(() => {
+    const p = rangePresets()[0]; // This month
+    return { start: p.start, end: p.end };
+  });
 
-  const spending = useSpending(start, end);
+  const spending = useSpending(range.start, range.end);
   const recent = useTransactions();
   const reviews = useReviews();
 
@@ -36,19 +39,23 @@ export default function HomePage() {
         </Link>
       )}
 
-      <div>
-        <h1 className="text-xl font-semibold">{format(now, "MMMM yyyy")}</h1>
-        <p className="text-3xl font-bold tracking-tight">
-          {formatCents(spending.data?.total_cents ?? 0)}
-        </p>
-        <p className="text-sm text-muted-foreground">spent this month</p>
+      <div className="space-y-2">
+        <div>
+          <p className="text-3xl font-bold tracking-tight">
+            {formatCents(spending.data?.total_cents ?? 0)}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            spent · {formatRangeLabel(range.start, range.end)}
+          </p>
+        </div>
+        <DateRangePicker value={range} onChange={setRange} />
       </div>
 
       {hasSpending ? (
         <SpendingPie slices={spending.data!.slices} />
       ) : (
         <div className="rounded-xl border bg-muted/30 p-6 text-center">
-          <p className="text-sm text-muted-foreground">Nothing tracked yet this month.</p>
+          <p className="text-sm text-muted-foreground">Nothing tracked in this range.</p>
           <Button asChild variant="link" className="mt-1">
             <Link to="/add">Add a purchase</Link>
           </Button>

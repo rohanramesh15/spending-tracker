@@ -1,51 +1,36 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { format } from "date-fns";
 import { Repeat } from "lucide-react";
 import { useRecurring, useSpending } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
 import { Sparkline } from "@/components/Sparkline";
-import { rangePresets, parseISODate } from "@/lib/dates";
-import { formatCents, cn } from "@/lib/utils";
+import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
+import { rangePresets, formatRangeLabel } from "@/lib/dates";
+import { formatCents } from "@/lib/utils";
 import type { RecurringItem } from "@/api/types";
 
+const initialRange = (): DateRangeValue => {
+  const p = rangePresets()[0]; // This month
+  return { start: p.start, end: p.end };
+};
+
 /**
- * Insights — spending chart (user-flow §8a) + recurring items (§8b). The cheaper-store
- * finder (§8c) is Phase 5.
+ * Insights — spending chart (user-flow §8a) + recurring items (§8b) + finder link (§8c).
+ * The date range (presets or custom) drives the chart.
  */
 export default function InsightsPage() {
-  const presets = rangePresets();
-  const [active, setActive] = useState(0);
-  const range = presets[active];
+  const [range, setRange] = useState<DateRangeValue>(initialRange);
   const { data, isLoading } = useSpending(range.start, range.end);
   const recurring = useRecurring();
 
   const hasData = (data?.slices.length ?? 0) > 0;
-  const rangeLabel =
-    range.start === range.end
-      ? format(parseISODate(range.start), "MMM d, yyyy")
-      : `${format(parseISODate(range.start), "MMM d")} – ${format(parseISODate(range.end), "MMM d")}`;
+  const rangeLabel = formatRangeLabel(range.start, range.end);
 
   return (
     <section className="space-y-5">
       <h1 className="text-xl font-semibold">Insights</h1>
 
-      <div className="flex flex-wrap gap-2">
-        {presets.map((p, i) => (
-          <button
-            key={p.label}
-            onClick={() => setActive(i)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm",
-              i === active
-                ? "border-primary bg-primary text-primary-foreground"
-                : "text-muted-foreground",
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <DateRangePicker value={range} onChange={setRange} />
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
