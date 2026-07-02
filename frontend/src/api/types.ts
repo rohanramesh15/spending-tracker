@@ -185,6 +185,39 @@ export interface RecurringItem {
   price_history: PricePoint[];
 }
 
+// --- Cheaper-store finder (Phase 5) -------------------------------------------
+export type Tightness = "strict" | "medium" | "loose";
+
+export interface FinderProduct {
+  title: string;
+  price_cents: number;
+  unit_price_cents: number | null;
+  size: string | null;
+}
+
+export interface FinderStore {
+  name: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  has_prices: boolean;
+}
+
+export interface FinderResult {
+  item: string;
+  search_term: string;
+  dimension: string;
+  base_unit: string;
+  attributes: string[];
+  tightness: Tightness;
+  kroger_configured: boolean;
+  places_configured: boolean;
+  searched_store: FinderStore | null;
+  results: FinderProduct[];
+  nearby_stores: FinderStore[];
+  as_of: string;
+}
+
 export interface ReceiptDraftItem {
   raw_name: string;
   normalized_name: string | null;

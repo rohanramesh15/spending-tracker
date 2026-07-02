@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Repeat } from "lucide-react";
 import { useRecurring, useSpending } from "@/api/hooks";
@@ -90,6 +91,16 @@ function RecurringRow({ item }: { item: RecurringItem }) {
         <p className="text-xs text-muted-foreground">
           bought {item.occurrences}×{item.category_name ? ` · ${item.category_name}` : ""}
         </p>
+        <Link
+          to={`/finder?item=${encodeURIComponent(item.canonical_name)}${
+            item.category_name
+              ? `&category=${encodeURIComponent(item.category_name)}`
+              : ""
+          }`}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Find it cheaper →
+        </Link>
       </div>
       <div className="flex items-center gap-3">
         <Sparkline values={item.price_history.map((p) => p.unit_price_cents)} />
