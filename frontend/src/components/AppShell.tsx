@@ -4,6 +4,7 @@ import { Home, Receipt, PieChart, Settings, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { setPendingReceipt } from "@/lib/scanFile";
+import { useReviews } from "@/api/hooks";
 
 const TABS = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -21,6 +22,8 @@ const TABS = [
 export function AppShell() {
   const navigate = useNavigate();
   const scanInput = useRef<HTMLInputElement>(null);
+  const reviews = useReviews();
+  const reviewCount = reviews.data?.length ?? 0;
 
   function onCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -65,12 +68,22 @@ export function AppShell() {
                 end={end}
                 className={({ isActive }) =>
                   cn(
-                    "flex flex-col items-center gap-1 py-2 text-xs",
+                    "relative flex flex-col items-center gap-1 py-2 text-xs",
                     isActive ? "text-primary" : "text-muted-foreground",
                   )
                 }
               >
-                <Icon className="h-5 w-5" />
+                <span className="relative">
+                  <Icon className="h-5 w-5" />
+                  {to === "/" && reviewCount > 0 && (
+                    <span
+                      aria-label={`${reviewCount} need review`}
+                      className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold leading-none text-warning-foreground"
+                    >
+                      {reviewCount}
+                    </span>
+                  )}
+                </span>
                 {label}
               </NavLink>
             </li>

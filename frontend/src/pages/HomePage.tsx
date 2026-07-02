@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { startOfMonth, endOfMonth, format } from "date-fns";
-import { useSpending, useTransactions } from "@/api/hooks";
+import { AlertTriangle } from "lucide-react";
+import { useReviews, useSpending, useTransactions } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
@@ -17,11 +18,24 @@ export default function HomePage() {
 
   const spending = useSpending(start, end);
   const recent = useTransactions();
+  const reviews = useReviews();
 
   const hasSpending = (spending.data?.slices.length ?? 0) > 0;
+  const reviewCount = reviews.data?.length ?? 0;
 
   return (
     <section className="space-y-6">
+      {reviewCount > 0 && (
+        <Link
+          to="/review"
+          className="flex items-center gap-2 rounded-lg bg-warning/15 px-3 py-2 text-sm font-medium text-warning-foreground"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {reviewCount} transaction{reviewCount === 1 ? "" : "s"} need review
+          <span className="ml-auto">→</span>
+        </Link>
+      )}
+
       <div>
         <h1 className="text-xl font-semibold">{format(now, "MMMM yyyy")}</h1>
         <p className="text-3xl font-bold tracking-tight">
@@ -44,7 +58,10 @@ export default function HomePage() {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-medium">Recent</h2>
-          <Link to="/transactions" className="text-sm text-muted-foreground hover:underline">
+          <Link
+            to="/transactions"
+            className="text-sm text-muted-foreground hover:underline"
+          >
             See all →
           </Link>
         </div>
@@ -67,7 +84,9 @@ export default function HomePage() {
                         : "Uncategorized"}
                     </p>
                   </div>
-                  <span className="font-medium">{formatCents(t.total_cents, t.currency)}</span>
+                  <span className="font-medium">
+                    {formatCents(t.total_cents, t.currency)}
+                  </span>
                 </Link>
               </li>
             ))}

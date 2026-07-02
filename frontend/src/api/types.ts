@@ -104,9 +104,36 @@ export interface ReconcileMatch {
 
 /** The ingest door's outcome. `needs_decision` carries `match` and writes nothing. */
 export interface IngestResult {
-  status: "created" | "resolved" | "skipped" | "needs_decision";
+  status:
+    "created" | "resolved" | "skipped" | "needs_decision" | "needs_review" | "exists";
   transaction: TransactionOut | null;
   match: ReconcileMatch | null;
+}
+
+/** One side of a reconciliation review card (plan §6.3, user-flow §6). */
+export interface ReviewTxn {
+  id: string;
+  vendor: string;
+  purchased_on: string;
+  source: TransactionSource;
+  total_cents: number;
+  review_status: ReviewStatus;
+  item_count: number;
+}
+
+export interface Review {
+  id: string;
+  created_at: string;
+  match_score: string | null; // Decimal serialized as string
+  reason: string;
+  incoming: ReviewTxn;
+  matched: ReviewTxn;
+}
+
+export interface ReviewResolveResult {
+  status: "resolved";
+  resolution: Resolution;
+  transaction_id: string;
 }
 
 export interface ReceiptDraftItem {

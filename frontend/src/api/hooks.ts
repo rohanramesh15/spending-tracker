@@ -5,6 +5,9 @@ import type {
   IngestRequest,
   IngestResult,
   ReceiptDraft,
+  Resolution,
+  Review,
+  ReviewResolveResult,
   SpendingResponse,
   TransactionDetail,
   TransactionListItem,
@@ -69,6 +72,36 @@ export function useExtractReceipt() {
       const form = new FormData();
       form.append("file", file);
       return apiUpload<ReceiptDraft>("/api/receipts/extract", form);
+    },
+  });
+}
+
+export function useReviews() {
+  return useQuery({
+    queryKey: ["reviews"],
+    queryFn: () => apiFetch<Review[]>("/api/reviews"),
+  });
+}
+
+export function useResolveReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      reviewId,
+      resolution,
+    }: {
+      reviewId: string;
+      resolution: Resolution;
+    }) =>
+      apiFetch<ReviewResolveResult>(`/api/reviews/${reviewId}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({ resolution }),
+      }),
+    onSuccess: () => {
+      // Resolving drains the queue and moves the transaction into the charts.
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
     },
   });
 }

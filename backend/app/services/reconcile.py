@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, timedelta
+from decimal import Decimal
 
 from sqlmodel import Session, select
 
@@ -114,3 +115,36 @@ def find_match(
         )
     )
     return candidates[0]
+
+
+def match_score(
+    date_a: date, total_a_cents: int, date_b: date, total_b_cents: int
+) -> Decimal:
+    """A 0–1 confidence for a matched pair, for the ``reconciliation_reviews`` row.
+
+    1.0 = same day and identical total; small linear penalties within the (already
+    conservative) match window. Both inputs are assumed to have passed ``find_match``,
+    so the score stays high — it just orders the queue by how sure we are.
+    """
+    cents_off = min(abs(total_a_cents - total_b_cents), CENT_TOLERANCE)
+    day_penalty = Decimal(abs((date_a - date_b).days)) * Decimal("0.05")
+    cent_penalty = Decimal(cents_off) * Decimal("0.02")
+    return max(Decimal("0"), Decimal("1") - day_penalty - cent_penalty)
+
+
+def match_reason(
+    *,
+    vendor_a: str,
+    date_a: date,
+    total_a_cents: int,
+    vendor_b: str,
+    date_b: date,
+    total_b_cents: int,
+) -> str:
+    """Human phrase for the review card, e.g. 'same vendor, 1 day apart, same total'."""
+    same_vendor = normalize_vendor(vendor_a) == normalize_vendor(vendor_b)
+    vendor = "same vendor" if same_vendor else "similar vendor"
+    days = abs((date_a - date_b).days)
+    when = "same day" if days == 0 else f"{days} day{'s' if days != 1 else ''} apart"
+    total = "same total" if total_a_cents == total_b_cents else "total within a cent"
+    return f"{vendor}, {when}, {total}"

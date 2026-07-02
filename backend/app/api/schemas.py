@@ -6,7 +6,7 @@ by 100 only at the render edge.
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
@@ -80,10 +80,15 @@ class IngestResult(BaseModel):
     - ``created``  — inserted a new transaction (no match, or keep-both).
     - ``resolved`` — applied a merge or replace against ``match``.
     - ``skipped``  — user discarded the incoming; the existing transaction is returned.
-    - ``needs_decision`` — a semantic duplicate was found; nothing saved yet.
+    - ``needs_decision`` — an *attended* semantic duplicate was found; nothing saved yet.
+    - ``needs_review`` — an *unattended* (Plaid) match; the incoming was saved as
+      needs_review and parked in the reconciliation queue (never auto-merged).
+    - ``exists`` — idempotent redelivery; the already-stored transaction is returned.
     """
 
-    status: Literal["created", "resolved", "skipped", "needs_decision"]
+    status: Literal[
+        "created", "resolved", "skipped", "needs_decision", "needs_review", "exists"
+    ]
     transaction: TransactionOut | None = None
     match: ReconcileMatch | None = None
 
@@ -169,3 +174,41 @@ class ReceiptDraft(BaseModel):
     currency: str
     line_items: list[ReceiptDraftItem]
     raw_extraction_json: dict
+
+
+# --- Reconciliation review queue (Phase 3, unattended) -------------------------
+
+
+class ReviewTxn(BaseModel):
+    """A transaction as it appears on a review card (both sides of the match)."""
+
+    id: str
+    vendor: str
+    purchased_on: date
+    source: TransactionSource
+    total_cents: int
+    review_status: ReviewStatus
+    item_count: int
+
+
+class ReviewOut(BaseModel):
+    """One open review: the incoming (unattended) transaction vs. its matched existing
+    one, with a human-readable match reason for the card."""
+
+    id: str
+    created_at: datetime
+    match_score: Decimal | None
+    reason: str
+    incoming: ReviewTxn
+    matched: ReviewTxn
+
+
+class ReviewResolveRequest(BaseModel):
+    resolution: Resolution
+
+
+class ReviewResolveResult(BaseModel):
+    status: Literal["resolved"]
+    resolution: Resolution
+    # The surviving transaction (the merged/kept row), for the client to navigate to.
+    transaction_id: str

@@ -25,8 +25,8 @@ from sqlmodel import Session, select
 from app.api.schemas import IngestRequest, IngestResult, ReconcileMatch, TransactionOut
 from app.core.auth import current_user_id, get_db
 from app.models.enums import Resolution, ReviewStatus, TransactionSource
-from app.models.tables import LineItem, Transaction
-from app.services.reconcile import find_match
+from app.models.tables import LineItem, ReconciliationReview, Transaction
+from app.services.reconcile import find_match, match_score
 
 router = APIRouter(prefix="/api", tags=["ingest"])
 
@@ -45,18 +45,40 @@ def ingest(
     if payload.resolution is not None:
         return _apply_resolution(db, user_id, payload)
 
-    # First pass: for attended sources, surface a semantic duplicate before saving.
-    if payload.source in _ATTENDED_SOURCES:
-        match = find_match(
-            db,
-            user_id,
-            vendor=payload.vendor,
-            purchased_on=payload.purchased_on,
-            total_cents=payload.total_cents,
-        )
-        if match is not None:
-            # Nothing has been written; return the collision for the dialog.
+    # Idempotency: a source carrying an external_id (Plaid, future Apple Card) may
+    # redeliver the same transaction (webhook retries, re-sync). Return the existing row
+    # rather than duplicating. The (user, source, external_id) unique index is the hard
+    # backstop; this makes the redelivery a clean 200 instead of a constraint error.
+    if payload.external_id is not None:
+        existing = db.exec(
+            select(Transaction).where(
+                Transaction.user_id == user_id,
+                Transaction.source == payload.source,
+                Transaction.external_id == payload.external_id,
+            )
+        ).first()
+        if existing is not None:
+            return IngestResult(status="exists", transaction=_to_out(existing))
+
+    match = find_match(
+        db,
+        user_id,
+        vendor=payload.vendor,
+        purchased_on=payload.purchased_on,
+        total_cents=payload.total_cents,
+    )
+    if match is not None:
+        if payload.source in _ATTENDED_SOURCES:
+            # You're present → resolve via the immediate dialog; write nothing yet.
             return IngestResult(status="needs_decision", match=_match_out(db, user_id, match))
+        # Unattended (Plaid webhook / scheduled sync) → NEVER auto-merge (CLAUDE.md #5).
+        # Save the incoming as needs_review and open a reconciliation_reviews row; it's
+        # excluded from charts until you resolve it from the queue.
+        txn = _insert_transaction(
+            db, user_id, payload, review_status=ReviewStatus.needs_review
+        )
+        _open_review(db, user_id, incoming=txn, matched=match)
+        return IngestResult(status="needs_review", transaction=_to_out(txn))
 
     txn = _insert_transaction(db, user_id, payload)
     return IngestResult(status="created", transaction=_to_out(txn))
@@ -133,7 +155,12 @@ def _merge_into(
     _add_line_items(db, user_id, matched.id, payload)
 
 
-def _insert_transaction(db: Session, user_id: str, payload: IngestRequest) -> Transaction:
+def _insert_transaction(
+    db: Session,
+    user_id: str,
+    payload: IngestRequest,
+    review_status: ReviewStatus = ReviewStatus.confirmed,
+) -> Transaction:
     txn = Transaction(
         user_id=user_id,
         vendor=payload.vendor,
@@ -147,11 +174,31 @@ def _insert_transaction(db: Session, user_id: str, payload: IngestRequest) -> Tr
         total_cents=payload.total_cents,
         currency=payload.currency,
         raw_extraction_json=payload.raw_extraction_json,
+        review_status=review_status,
     )
     db.add(txn)
     db.flush()  # assign txn.id within the request transaction
     _add_line_items(db, user_id, txn.id, payload)
     return txn
+
+
+def _open_review(
+    db: Session, user_id: str, *, incoming: Transaction, matched: Transaction
+) -> None:
+    """Record a pending unattended match for the needs-review queue (plan §6.3)."""
+    db.add(
+        ReconciliationReview(
+            user_id=user_id,
+            incoming_transaction_id=incoming.id,
+            matched_transaction_id=matched.id,
+            match_score=match_score(
+                incoming.purchased_on,
+                incoming.total_cents,
+                matched.purchased_on,
+                matched.total_cents,
+            ),
+        )
+    )
 
 
 def _add_line_items(db: Session, user_id: str, transaction_id, payload: IngestRequest) -> None:
