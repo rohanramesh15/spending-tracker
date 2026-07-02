@@ -6,8 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/components/CategorySelect";
+import { ReconcileDialog } from "@/components/ReconcileDialog";
 import { useExtractReceipt, useIngest } from "@/api/hooks";
-import type { ReceiptDraft } from "@/api/types";
+import type {
+  IngestRequest,
+  IngestResult,
+  ReceiptDraft,
+  ReconcileMatch,
+  Resolution,
+} from "@/api/types";
 import { dollarsToCents, formatCents } from "@/lib/utils";
 import { takePendingReceipt } from "@/lib/scanFile";
 
@@ -40,6 +47,7 @@ export default function ScanPage() {
   const [tax, setTax] = useState("");
   const [tip, setTip] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingMatch, setPendingMatch] = useState<ReconcileMatch | null>(null);
 
   function loadDraft(d: ReceiptDraft) {
     setDraft(d);
@@ -82,33 +90,74 @@ export default function ScanPage() {
   const extractedTotal = draft?.total_cents ?? 0;
   const mismatch = draft ? Math.abs(total - extractedTotal) > 1 : false;
 
-  async function save() {
+  function buildPayload(): IngestRequest | null {
     const items = rows.filter((r) => r.name.trim() && dollarsToCents(r.amount));
     if (!vendor.trim() || items.length === 0) {
       setError("Add a vendor and at least one item.");
-      return;
+      return null;
     }
+    return {
+      source: "receipt",
+      vendor: vendor.trim(),
+      purchased_on: date,
+      subtotal_cents: itemsCents,
+      tax_cents: taxCents,
+      tip_cents: tipCents,
+      total_cents: total,
+      line_items: items.map((r) => ({
+        raw_name: r.name.trim(),
+        category_id: r.categoryId,
+        price_cents: dollarsToCents(r.amount)!,
+      })),
+      raw_extraction_json: draft?.raw_extraction_json ?? null,
+    };
+  }
+
+  function announce(result: IngestResult, resolution?: Resolution) {
+    const msg =
+      resolution === "merge"
+        ? "Added to your existing entry"
+        : resolution === "replace"
+          ? "Replaced your existing entry"
+          : result.status === "skipped"
+            ? "Kept your existing entry"
+            : `Saved — ${vendor}, ${formatCents(total)}`;
+    toast.success(msg);
+    navigate("/transactions");
+  }
+
+  async function submit(payload: IngestRequest, resolution?: Resolution) {
     try {
-      await ingest.mutateAsync({
-        source: "receipt",
-        vendor: vendor.trim(),
-        purchased_on: date,
-        subtotal_cents: itemsCents,
-        tax_cents: taxCents,
-        tip_cents: tipCents,
-        total_cents: total,
-        line_items: items.map((r) => ({
-          raw_name: r.name.trim(),
-          category_id: r.categoryId,
-          price_cents: dollarsToCents(r.amount)!,
-        })),
-        raw_extraction_json: draft?.raw_extraction_json ?? null,
-      });
-      toast.success(`Saved — ${vendor}, ${formatCents(total)}`);
-      navigate("/transactions");
+      const result = await ingest.mutateAsync(payload);
+      if (result.status === "needs_decision" && result.match) {
+        setPendingMatch(result.match);
+        return;
+      }
+      setPendingMatch(null);
+      announce(result, resolution);
     } catch (e) {
+      setPendingMatch(null);
       setError(e instanceof Error ? e.message : "Failed to save");
     }
+  }
+
+  async function save() {
+    setError(null);
+    const payload = buildPayload();
+    if (payload) await submit(payload);
+  }
+
+  async function resolve(resolution: Resolution) {
+    const payload = buildPayload();
+    if (!payload || !pendingMatch) return;
+    await submit(
+      {
+        ...payload,
+        resolution,
+        matched_transaction_id: pendingMatch.matched_transaction_id,
+      },
+      resolution,
+    );
   }
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -119,7 +168,12 @@ export default function ScanPage() {
   return (
     <section className="space-y-5">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-xl font-semibold">Scan receipt</h1>
@@ -181,11 +235,20 @@ export default function ScanPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-2">
               <Label htmlFor="vendor">Vendor</Label>
-              <Input id="vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} />
+              <Input
+                id="vendor"
+                value={vendor}
+                onChange={(e) => setVendor(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="date">Date</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
             </div>
           </div>
 
@@ -196,14 +259,18 @@ export default function ScanPage() {
                 <Input
                   value={r.name}
                   onChange={(e) =>
-                    setRows((rs) => rs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                    setRows((rs) =>
+                      rs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                    )
                   }
                 />
                 <Input
                   inputMode="decimal"
                   value={r.amount}
                   onChange={(e) =>
-                    setRows((rs) => rs.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))
+                    setRows((rs) =>
+                      rs.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)),
+                    )
                   }
                 />
                 <Button
@@ -218,7 +285,9 @@ export default function ScanPage() {
                   <CategorySelect
                     value={r.categoryId}
                     onChange={(id) =>
-                      setRows((rs) => rs.map((x, j) => (j === i ? { ...x, categoryId: id } : x)))
+                      setRows((rs) =>
+                        rs.map((x, j) => (j === i ? { ...x, categoryId: id } : x)),
+                      )
                     }
                   />
                 </div>
@@ -227,7 +296,9 @@ export default function ScanPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setRows((rs) => [...rs, { name: "", amount: "", categoryId: null }])}
+              onClick={() =>
+                setRows((rs) => [...rs, { name: "", amount: "", categoryId: null }])
+              }
             >
               <Plus className="mr-1 h-4 w-4" /> Add item
             </Button>
@@ -236,18 +307,29 @@ export default function ScanPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="tax">Tax</Label>
-              <Input id="tax" inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} />
+              <Input
+                id="tax"
+                inputMode="decimal"
+                value={tax}
+                onChange={(e) => setTax(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="tip">Tip</Label>
-              <Input id="tip" inputMode="decimal" value={tip} onChange={(e) => setTip(e.target.value)} />
+              <Input
+                id="tip"
+                inputMode="decimal"
+                value={tip}
+                onChange={(e) => setTip(e.target.value)}
+              />
             </div>
           </div>
 
           {mismatch && (
             <p className="rounded-lg bg-warning/15 px-3 py-2 text-sm text-warning-foreground">
-              Numbers don't add up by {formatCents(Math.abs(total - extractedTotal))} — the
-              receipt total was {formatCents(extractedTotal)}. Check the highlighted rows.
+              Numbers don't add up by {formatCents(Math.abs(total - extractedTotal))} —
+              the receipt total was {formatCents(extractedTotal)}. Check the highlighted
+              rows.
             </p>
           )}
           <div className="flex justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm font-medium">
@@ -266,6 +348,14 @@ export default function ScanPage() {
           </div>
         </div>
       )}
+
+      <ReconcileDialog
+        match={pendingMatch}
+        incoming={{ vendor: vendor.trim(), total_cents: total }}
+        busy={ingest.isPending}
+        onResolve={resolve}
+        onCancel={() => setPendingMatch(null)}
+      />
     </section>
   );
 }

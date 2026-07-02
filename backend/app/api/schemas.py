@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from datetime import date, time
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import ReviewStatus, TransactionSource
+from app.models.enums import Resolution, ReviewStatus, TransactionSource
 
 
 class LineItemIn(BaseModel):
@@ -26,7 +27,12 @@ class LineItemIn(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    """The one ingest door (plan §6.3). Every source posts this shape."""
+    """The one ingest door (plan §6.3). Every source posts this shape.
+
+    ``resolution`` + ``matched_transaction_id`` are set only on the *second* call of an
+    attended reconciliation: the first call returns a ``needs_decision`` match, the user
+    picks merge/skip/replace/keep-both, and the client re-POSTs the same payload with the
+    chosen resolution attached (CLAUDE.md #4/#5)."""
 
     source: TransactionSource
     external_id: str | None = None
@@ -41,6 +47,9 @@ class IngestRequest(BaseModel):
     line_items: list[LineItemIn] = Field(default_factory=list)
     raw_extraction_json: dict | None = None
 
+    resolution: Resolution | None = None
+    matched_transaction_id: str | None = None
+
 
 class TransactionOut(BaseModel):
     id: str
@@ -50,6 +59,33 @@ class TransactionOut(BaseModel):
     total_cents: int
     currency: str
     review_status: ReviewStatus
+
+
+class ReconcileMatch(BaseModel):
+    """The existing transaction a fresh attended ingest collided with — enough for the
+    client to render the merge/skip/replace/keep-both dialog."""
+
+    matched_transaction_id: str
+    vendor: str
+    purchased_on: date
+    source: TransactionSource
+    total_cents: int
+    item_count: int
+
+
+class IngestResult(BaseModel):
+    """The ingest door's outcome. ``needs_decision`` writes nothing and carries ``match``
+    for the attended dialog; every other status carries the resulting ``transaction``.
+
+    - ``created``  — inserted a new transaction (no match, or keep-both).
+    - ``resolved`` — applied a merge or replace against ``match``.
+    - ``skipped``  — user discarded the incoming; the existing transaction is returned.
+    - ``needs_decision`` — a semantic duplicate was found; nothing saved yet.
+    """
+
+    status: Literal["created", "resolved", "skipped", "needs_decision"]
+    transaction: TransactionOut | None = None
+    match: ReconcileMatch | None = None
 
 
 # --- Read models ---------------------------------------------------------------

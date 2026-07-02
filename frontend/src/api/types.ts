@@ -6,6 +6,7 @@
 
 export type TransactionSource = "receipt" | "manual" | "plaid";
 export type ReviewStatus = "confirmed" | "needs_review";
+export type Resolution = "merge" | "skip" | "replace" | "keep_both";
 
 export interface Category {
   id: string;
@@ -85,6 +86,27 @@ export interface IngestRequest {
   currency?: string;
   line_items?: LineItemIn[];
   raw_extraction_json?: Record<string, unknown> | null;
+  // Set only on the second call of an attended reconciliation (after the user picks in
+  // the merge/skip/replace/keep-both dialog).
+  resolution?: Resolution;
+  matched_transaction_id?: string | null;
+}
+
+/** The existing transaction a fresh attended ingest collided with (plan §6.3). */
+export interface ReconcileMatch {
+  matched_transaction_id: string;
+  vendor: string;
+  purchased_on: string;
+  source: TransactionSource;
+  total_cents: number;
+  item_count: number;
+}
+
+/** The ingest door's outcome. `needs_decision` carries `match` and writes nothing. */
+export interface IngestResult {
+  status: "created" | "resolved" | "skipped" | "needs_decision";
+  transaction: TransactionOut | null;
+  match: ReconcileMatch | null;
 }
 
 export interface ReceiptDraftItem {

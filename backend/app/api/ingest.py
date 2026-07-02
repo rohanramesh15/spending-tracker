@@ -1,31 +1,139 @@
 """The single source-agnostic ingest door: ``POST /api/ingest`` (plan §6.3).
 
-Manual, receipt, Plaid, and the future Apple Card agent all post here. This scaffold
-implements the idempotent insert path (dedupe on ``(source, external_id)``); attended
-reconciliation, the needs-review queue, and item matching are wired in Phases 2–3.
+Manual, receipt, Plaid, and the future Apple Card agent all post here. Two paths:
+
+- **Fresh ingest** (no ``resolution``): for attended sources (receipt/manual) we first
+  look for a semantic duplicate (``services.reconcile.find_match``). If one is found we
+  write *nothing* and return ``needs_decision`` + the match, so the client shows the
+  merge/skip/replace/keep-both dialog immediately (CLAUDE.md #5 — never auto-merge). No
+  match → insert normally.
+- **Resolution** (``resolution`` set): the user has chosen. We apply merge / skip /
+  replace / keep-both against ``matched_transaction_id`` and return the surviving row.
+
+Idempotency on ``(source, external_id)`` is enforced by the DB unique constraint;
+receipt/manual carry a NULL ``external_id`` (Postgres treats NULLs as distinct, so
+re-scanning is deduped by reconciliation, not the constraint). The *unattended*
+needs-review queue for Plaid webhooks lands in Phase 3.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
+from sqlmodel import Session, select
 
-from app.api.schemas import IngestRequest, TransactionOut
+from app.api.schemas import IngestRequest, IngestResult, ReconcileMatch, TransactionOut
 from app.core.auth import current_user_id, get_db
+from app.models.enums import Resolution, ReviewStatus, TransactionSource
 from app.models.tables import LineItem, Transaction
+from app.services.reconcile import find_match
 
 router = APIRouter(prefix="/api", tags=["ingest"])
 
+# Sources where a human is present at save time, so a match is resolved via the immediate
+# dialog rather than parked in the needs-review queue (plan §6.3).
+_ATTENDED_SOURCES = {TransactionSource.receipt, TransactionSource.manual}
 
-@router.post("/ingest", response_model=TransactionOut, status_code=201)
+
+@router.post("/ingest", response_model=IngestResult)
 def ingest(
     payload: IngestRequest,
     db: Session = Depends(get_db),
     user_id: str = Depends(current_user_id),
-) -> TransactionOut:
-    # NOTE: reconciliation (attended dialog / unattended needs-review queue) lands in
-    # Phases 2–3. Idempotency on (source, external_id) is enforced by the DB unique
-    # constraint; a full upsert-or-return path is added with reconciliation.
+) -> IngestResult:
+    # Second pass: the user already picked a resolution in the attended dialog.
+    if payload.resolution is not None:
+        return _apply_resolution(db, user_id, payload)
+
+    # First pass: for attended sources, surface a semantic duplicate before saving.
+    if payload.source in _ATTENDED_SOURCES:
+        match = find_match(
+            db,
+            user_id,
+            vendor=payload.vendor,
+            purchased_on=payload.purchased_on,
+            total_cents=payload.total_cents,
+        )
+        if match is not None:
+            # Nothing has been written; return the collision for the dialog.
+            return IngestResult(status="needs_decision", match=_match_out(db, user_id, match))
+
+    txn = _insert_transaction(db, user_id, payload)
+    return IngestResult(status="created", transaction=_to_out(txn))
+
+
+def _apply_resolution(db: Session, user_id: str, payload: IngestRequest) -> IngestResult:
+    """Carry out the user's merge/skip/replace/keep-both choice from the dialog."""
+    resolution = payload.resolution
+
+    # Keep-both needs no target: just insert the incoming alongside the existing one.
+    if resolution == Resolution.keep_both:
+        txn = _insert_transaction(db, user_id, payload)
+        return IngestResult(status="created", transaction=_to_out(txn))
+
+    if not payload.matched_transaction_id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "matched_transaction_id is required for merge/skip/replace",
+        )
+    matched = db.exec(
+        select(Transaction).where(
+            Transaction.id == payload.matched_transaction_id,
+            Transaction.user_id == user_id,
+        )
+    ).first()
+    if matched is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Matched transaction not found")
+
+    if resolution == Resolution.skip:
+        # Discard the incoming; the existing transaction stands unchanged.
+        return IngestResult(status="skipped", transaction=_to_out(matched))
+
+    if resolution == Resolution.replace:
+        # The incoming wins outright: drop the old row (line items cascade) and re-insert.
+        db.delete(matched)
+        db.flush()
+        txn = _insert_transaction(db, user_id, payload)
+        return IngestResult(status="resolved", transaction=_to_out(txn))
+
+    if resolution == Resolution.merge:
+        _merge_into(db, user_id, matched, payload)
+        return IngestResult(status="resolved", transaction=_to_out(matched))
+
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown resolution: {resolution}")
+
+
+def _merge_into(
+    db: Session, user_id: str, matched: Transaction, payload: IngestRequest
+) -> None:
+    """Attach the incoming receipt's itemization onto the existing transaction.
+
+    Plan §6.3 merge default: the existing transaction is authoritative for total / date /
+    vendor / source (in the card+receipt case the card is the source of truth); the
+    incoming receipt supplies the line items + tax/tip + raw extraction. We replace the
+    existing line items so the receipt's itemization is the record.
+    """
+    for li in db.exec(
+        select(LineItem).where(
+            LineItem.transaction_id == matched.id,
+            LineItem.user_id == user_id,
+        )
+    ).all():
+        db.delete(li)
+    db.flush()
+
+    matched.subtotal_cents = payload.subtotal_cents
+    matched.tax_cents = payload.tax_cents
+    matched.tip_cents = payload.tip_cents
+    if payload.raw_extraction_json is not None:
+        matched.raw_extraction_json = payload.raw_extraction_json
+    matched.review_status = ReviewStatus.confirmed
+    db.add(matched)
+
+    _add_line_items(db, user_id, matched.id, payload)
+
+
+def _insert_transaction(db: Session, user_id: str, payload: IngestRequest) -> Transaction:
     txn = Transaction(
         user_id=user_id,
         vendor=payload.vendor,
@@ -42,12 +150,16 @@ def ingest(
     )
     db.add(txn)
     db.flush()  # assign txn.id within the request transaction
+    _add_line_items(db, user_id, txn.id, payload)
+    return txn
 
+
+def _add_line_items(db: Session, user_id: str, transaction_id, payload: IngestRequest) -> None:
     for position, item in enumerate(payload.line_items):
         db.add(
             LineItem(
                 user_id=user_id,
-                transaction_id=txn.id,
+                transaction_id=transaction_id,
                 position=position,  # preserve the order the items arrived in
                 raw_name=item.raw_name,
                 normalized_name=item.normalized_name,
@@ -59,6 +171,8 @@ def ingest(
             )
         )
 
+
+def _to_out(txn: Transaction) -> TransactionOut:
     return TransactionOut(
         id=str(txn.id),
         vendor=txn.vendor,
@@ -67,4 +181,20 @@ def ingest(
         total_cents=txn.total_cents,
         currency=txn.currency,
         review_status=txn.review_status,
+    )
+
+
+def _match_out(db: Session, user_id: str, matched: Transaction) -> ReconcileMatch:
+    item_count = db.exec(
+        select(func.count())
+        .select_from(LineItem)
+        .where(LineItem.transaction_id == matched.id, LineItem.user_id == user_id)
+    ).one()
+    return ReconcileMatch(
+        matched_transaction_id=str(matched.id),
+        vendor=matched.vendor,
+        purchased_on=matched.purchased_on,
+        source=matched.source,
+        total_cents=matched.total_cents,
+        item_count=item_count,
     )

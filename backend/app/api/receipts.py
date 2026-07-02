@@ -13,6 +13,8 @@ image after extraction.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlmodel import Session, select
 
@@ -21,6 +23,8 @@ from app.core.auth import current_user_id, get_db
 from app.models.tables import Category
 from app.services.extract import extract_receipt
 from app.services.images import normalize_image
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["receipts"])
 
@@ -44,7 +48,17 @@ async def extract(
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Couldn't read this image") from exc
 
-    receipt = extract_receipt(normalized, mime_type="image/jpeg")
+    # Extraction talks to Gemini (or the mock). Network/API/parse failures become a clean
+    # 502 so the SPA shows the user-flow §3 "Couldn't read this receipt" state (retake /
+    # enter manually) instead of a raw 500.
+    try:
+        receipt = extract_receipt(normalized, mime_type="image/jpeg")
+    except Exception as exc:  # noqa: BLE001 - any extraction failure is surfaced uniformly
+        logger.exception("Receipt extraction failed")
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "Couldn't read this receipt — try again, or enter it manually.",
+        ) from exc
 
     # Resolve category names -> the user's seeded category ids.
     name_to_id = {

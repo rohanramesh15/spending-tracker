@@ -11,7 +11,6 @@ again here by a Pydantic validator.
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import date
 from decimal import Decimal
@@ -65,6 +64,8 @@ def _prompt() -> str:
         "'Other'. Do NOT invent categories. Tax and tip are NOT line items.\n"
         "- normalized_name: lowercase, generic noun first (e.g. 'GV MILK 2%' -> "
         "'milk, 2%') so the same product matches across vendors and brands.\n"
+        "- quantity: how many units of that line were bought (a number, default 1); "
+        "price_cents is the total for all of them.\n"
         "- Handle edge cases (no tax, restaurant tip, multi-item, deposits, BOGO) by "
         "reading what's printed, not by guessing."
     )
@@ -77,6 +78,34 @@ def extract_receipt(image_bytes: bytes, mime_type: str = "image/jpeg") -> Extrac
         logger.info("GEMINI_API_KEY unset — using mock extractor")
         return _extract_mock()
     return _extract_gemini(image_bytes, mime_type, settings.gemini_api_key, settings.gemini_model)
+
+
+# --- Gemini wire schema -------------------------------------------------------------
+# Gemini's controlled generation (response_schema) reliably supports only primitive JSON
+# types — OBJECT/STRING/INTEGER/NUMBER/ARRAY/BOOL and string enums. It does NOT support
+# ``Decimal`` (renders as a STRING with a regex ``pattern``) or ``date`` (a ``format``),
+# so handing it the public ``ExtractedReceipt`` risks a rejected request. We give Gemini a
+# clean primitive schema, then convert into the domain model (Decimal/date + the category
+# whitelist) here, so no Gemini/SDK type ever leaks past this module (CLAUDE.md §extract).
+
+
+class _WireLineItem(BaseModel):
+    raw_name: str
+    normalized_name: str | None = None
+    category: str = "Other"
+    price_cents: int
+    quantity: float = 1.0  # NUMBER on the wire; converted to Decimal on the way out
+
+
+class _WireReceipt(BaseModel):
+    vendor: str
+    purchased_on: str  # "YYYY-MM-DD" string; parsed to a local date on the way out
+    subtotal_cents: int | None = None
+    tax_cents: int = 0
+    tip_cents: int = 0
+    total_cents: int
+    currency: str = "USD"
+    line_items: list[_WireLineItem] = Field(default_factory=list)
 
 
 def _extract_gemini(
@@ -94,15 +123,50 @@ def _extract_gemini(
         ],
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=ExtractedReceipt,
+            response_schema=_WireReceipt,
             temperature=0.0,
         ),
     )
-    # Prefer the SDK's parsed object; fall back to parsing the raw text.
+    return _to_extracted(_parse_wire(response))
+
+
+def _parse_wire(response: object) -> _WireReceipt:
+    """Pull a ``_WireReceipt`` out of the SDK response (parsed object, else raw JSON)."""
     parsed = getattr(response, "parsed", None)
-    if isinstance(parsed, ExtractedReceipt):
+    if isinstance(parsed, _WireReceipt):
         return parsed
-    return ExtractedReceipt.model_validate(json.loads(response.text))
+    text = getattr(response, "text", None)
+    if not text:
+        raise ValueError("Gemini returned no usable content")
+    return _WireReceipt.model_validate_json(text)
+
+
+def _to_extracted(w: _WireReceipt) -> ExtractedReceipt:
+    """Convert the primitive wire model into the domain model.
+
+    Pydantic coerces the ``purchased_on`` string to a local ``date``; quantities go through
+    ``Decimal(str(...))`` to avoid binary-float drift; the ``category`` validator on
+    ``ExtractedLineItem`` coerces anything outside the taxonomy to ``Other``.
+    """
+    return ExtractedReceipt(
+        vendor=w.vendor,
+        purchased_on=w.purchased_on,
+        subtotal_cents=w.subtotal_cents,
+        tax_cents=w.tax_cents,
+        tip_cents=w.tip_cents,
+        total_cents=w.total_cents,
+        currency=w.currency,
+        line_items=[
+            ExtractedLineItem(
+                raw_name=li.raw_name,
+                normalized_name=li.normalized_name,
+                category=li.category,
+                price_cents=li.price_cents,
+                quantity=Decimal(str(li.quantity)),
+            )
+            for li in w.line_items
+        ],
+    )
 
 
 def _extract_mock() -> ExtractedReceipt:

@@ -3,11 +3,11 @@ import { apiFetch, apiUpload } from "./client";
 import type {
   Category,
   IngestRequest,
+  IngestResult,
   ReceiptDraft,
   SpendingResponse,
   TransactionDetail,
   TransactionListItem,
-  TransactionOut,
 } from "./types";
 
 export function useCategories() {
@@ -50,11 +50,13 @@ export function useIngest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: IngestRequest) =>
-      apiFetch<TransactionOut>("/api/ingest", {
+      apiFetch<IngestResult>("/api/ingest", {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // needs_decision writes nothing; the others change the ledger/chart.
+      if (result.status === "needs_decision") return;
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["spending"] });
     },
