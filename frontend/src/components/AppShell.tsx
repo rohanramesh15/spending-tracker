@@ -1,5 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { Home, Receipt, PieChart, Settings, Camera } from "lucide-react";
+import { NavLink, Outlet, Link } from "react-router-dom";
+import { Home, Receipt, PieChart, Settings, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -23,14 +23,15 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      {/* Scan FAB — opens the camera directly (user-flow §3), wired in Phase 2. */}
-      <button
-        type="button"
-        aria-label="Scan a receipt"
+      {/* FAB — Phase 1: add a purchase manually. Phase 2 swaps this for the Scan
+          camera flow (user-flow §3). */}
+      <Link
+        to="/add"
+        aria-label="Add a purchase"
         className="fixed bottom-16 left-1/2 z-20 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
       >
-        <Camera className="h-6 w-6" />
-      </button>
+        <Plus className="h-6 w-6" />
+      </Link>
 
       <nav className="fixed inset-x-0 bottom-0 z-10 border-t bg-background">
         <ul className="mx-auto flex max-w-3xl items-stretch justify-around">

@@ -57,7 +57,10 @@ def rls_session(claims: dict) -> Iterator[Session]:
     claims are scoped with ``is_local => true`` so they last exactly for this
     transaction and never leak to the next pooled use of the connection.
     """
-    token = _request_active.set(True)
+    # Best-effort guard flag for admin_session(). We set/clear (not reset-by-token):
+    # FastAPI runs sync generator dependencies across threadpool contexts, so a
+    # ContextVar token from set() may not be resettable in the exit context.
+    _request_active.set(True)
     try:
         with Session(engine) as session:
             with session.begin():
@@ -65,7 +68,7 @@ def rls_session(claims: dict) -> Iterator[Session]:
                 yield session
             # session.begin() commits on clean exit, rolls back on exception.
     finally:
-        _request_active.reset(token)
+        _request_active.set(False)
 
 
 def _apply_claims(session: Session, claims: dict) -> None:

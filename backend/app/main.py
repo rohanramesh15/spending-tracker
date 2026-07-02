@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
-from app.api import health, ingest
+from app.api import categories, health, ingest, insights, transactions
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -30,6 +30,9 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(ingest.router)
+app.include_router(categories.router)
+app.include_router(transactions.router)
+app.include_router(insights.router)
 
 # Lambda handler (imported by the SAM template's ApiFunction). No-op locally.
 handler = Mangum(app)

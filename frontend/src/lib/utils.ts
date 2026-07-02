@@ -16,3 +16,14 @@ export function formatCents(cents: number, currency = "USD"): string {
     currency,
   }).format(cents / 100);
 }
+
+/**
+ * Parse a user-typed dollar amount into integer cents. Rounds to the nearest cent
+ * so floating-point never leaks into stored money (CLAUDE.md #1). Returns null for
+ * un-parseable input.
+ */
+export function dollarsToCents(input: string): number | null {
+  const cleaned = input.replace(/[$,\s]/g, "");
+  if (cleaned === "" || Number.isNaN(Number(cleaned))) return null;
+  return Math.round(Number(cleaned) * 100);
+}
