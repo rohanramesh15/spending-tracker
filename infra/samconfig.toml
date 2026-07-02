@@ -13,5 +13,5 @@ use_container = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
-# region = "us-east-1"          # set to your region
+region = "ca-central-1"
 # parameter_overrides = "SsmParamPrefix=/spending-tracker CorsAllowOrigins='[\"https://your-frontend\"]'"
