@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Home, Receipt, PieChart, Settings, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
 
 const TABS = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -52,6 +53,9 @@ export function AppShell() {
           ))}
         </ul>
       </nav>
+
+      {/* Global toasts — "Saved", "3 transactions synced", etc. (user-flow §0). */}
+      <Toaster position="top-center" richColors />
     </div>
   );
 }
