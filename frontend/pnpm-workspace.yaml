@@ -1,0 +1,4 @@
+# pnpm 11 reads build-script approvals here (moved out of package.json).
+# esbuild (a vite/vitest dependency) needs its postinstall to fetch its native binary.
+allowBuilds:
+  esbuild: true

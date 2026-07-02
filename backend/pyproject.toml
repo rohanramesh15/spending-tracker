@@ -1,0 +1,50 @@
+[project]
+name = "spending-tracker-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Spending Tracker (AWS Lambda via Mangum)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "mangum>=0.19.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "sqlmodel>=0.0.22",
+    "sqlalchemy>=2.0.35",
+    "alembic>=1.13.0",
+    "psycopg[binary]>=3.2.0",
+    "pyjwt[crypto]>=2.9.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.12",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.7.0",
+    "black>=24.10.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+# Phase 2+ adds: google-genai, pillow, pillow-heif (native libs → container build).
+# Phase 3+ adds: plaid-python.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's Depends()/Header() in argument defaults is the intended pattern.
+ignore = ["B008"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.uv]
+package = false
