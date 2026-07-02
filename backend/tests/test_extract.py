@@ -7,7 +7,7 @@ import io
 from PIL import Image
 
 from app.core.taxonomy import REGULAR_CATEGORIES
-from app.services.extract import ExtractedLineItem, extract_receipt
+from app.services.extract import ExtractedLineItem, _extract_mock
 from app.services.images import normalize_image
 
 
@@ -33,7 +33,9 @@ def test_normalize_rejects_non_image() -> None:
 
 
 def test_mock_extraction_is_valid() -> None:
-    receipt = extract_receipt(b"", mime_type="image/jpeg")  # no key -> mock
+    # Test the mock directly so the result is deterministic regardless of whether a
+    # GEMINI_API_KEY happens to be set in the environment.
+    receipt = _extract_mock()
     assert receipt.vendor
     assert receipt.line_items
     # Every category must be a valid taxonomy member; money is integer cents.
