@@ -30,6 +30,14 @@ router = APIRouter(prefix="/api", tags=["finder"])
 
 _MAX_RESULTS = 15
 
+# Kroger-family banners: Places returns these too, but they're already pinned (with prices)
+# from the Kroger API, so drop them from the "other nearby stores" (no-price) pins.
+_KROGER_BANNERS = (
+    "kroger", "ralphs", "fry's", "king soopers", "smith's", "fred meyer", "qfc",
+    "harris teeter", "food 4 less", "foods co", "mariano", "pick 'n save",
+    "metro market", "dillons", "baker's", "city market", "gerbes", "fresh fare",
+)
+
 
 @router.get("/finder", response_model=FinderResult)
 def finder(
@@ -96,14 +104,25 @@ def finder(
 
     if places.is_configured():
         stores = _safe(lambda: places.find_stores(lat, lng, radius_miles=radius), [])
-        kroger_names = {s.name for s in nearby}
-        nearby.extend(
-            FinderStore(
-                name=s["name"], address=s["address"], lat=s["lat"], lng=s["lng"], has_prices=False
+        for s in stores:
+            if s["lat"] is None or s["lng"] is None:
+                continue
+            # Kroger-family stores are already pinned (with prices) from the Kroger API —
+            # drop them here by banner name (Places names them differently) or proximity.
+            name_low = (s["name"] or "").lower()
+            if any(b in name_low for b in _KROGER_BANNERS):
+                continue
+            if any(_same_place(s, existing) for existing in nearby):
+                continue
+            nearby.append(
+                FinderStore(
+                    name=s["name"],
+                    address=s["address"],
+                    lat=s["lat"],
+                    lng=s["lng"],
+                    has_prices=False,
+                )
             )
-            for s in stores
-            if s["name"] not in kroger_names  # don't double-pin a Kroger already found
-        )
 
     return FinderResult(
         item=item,
@@ -119,6 +138,13 @@ def finder(
         nearby_stores=nearby,
         as_of=datetime.now(UTC),
     )
+
+
+def _same_place(store: dict, pinned: FinderStore) -> bool:
+    """True if a Places result is the same store as one already pinned (within ~150 m)."""
+    if pinned.lat is None or pinned.lng is None:
+        return False
+    return abs(store["lat"] - pinned.lat) < 0.0015 and abs(store["lng"] - pinned.lng) < 0.0015
 
 
 def _safe(fn, default):
