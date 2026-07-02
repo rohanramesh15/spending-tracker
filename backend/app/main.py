@@ -11,6 +11,7 @@ from mangum import Mangum
 
 from app.api import (
     categories,
+    finder,
     health,
     imports,
     ingest,
@@ -49,6 +50,7 @@ app.include_router(reviews.router)
 app.include_router(plaid.router)
 app.include_router(imports.router)
 app.include_router(recurring.router)
+app.include_router(finder.router)
 
 # Lambda handler (imported by the SAM template's ApiFunction). No-op locally.
 handler = Mangum(app)

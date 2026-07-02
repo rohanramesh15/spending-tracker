@@ -80,10 +80,12 @@ def _prompt(canonical_name: str, category: str | None) -> str:
         "- typical_size_value / typical_size_unit: a common package size (e.g. 1 'gal', "
         "16 'oz', 12 'ct'); null if it truly varies.\n"
         "- attributes: a few short human facets (e.g. '2% fat', 'dairy').\n"
-        "- exclude_terms: words that would CROSS A HARD LINE and must not be substituted "
-        "in a strict match — e.g. for dairy 2% milk: 'almond','soy','oat','coconut',"
-        "'organic','lactose free','whole','skim','fat free'. Never cross dairy↔plant or "
-        "organic↔non-organic."
+        "- exclude_terms: every variant that makes it a DIFFERENT product for a strict "
+        "shopper — OTHER fat levels or types, flavors, plant alternatives, and organic vs "
+        "not. For '2% milk' that means: 'whole','skim','fat free','nonfat','1%',"
+        "'chocolate','strawberry','flavored','almond','soy','oat','coconut','organic',"
+        "'lactose free'. Never cross dairy↔plant, organic↔non-organic, or one fat level "
+        "into another."
     )
 
 
@@ -135,8 +137,9 @@ def _build_mock(canonical_name: str) -> ComparableSpec:
             size_unit="gal",
             attributes=["2% fat", "dairy"],
             exclude_terms=[
-                "almond", "soy", "oat", "coconut", "organic",
-                "lactose free", "whole", "skim", "fat free",
+                "almond", "soy", "oat", "coconut", "organic", "lactose free",
+                "whole", "skim", "fat free", "nonfat", "1%", "chocolate",
+                "strawberry", "flavored",
             ],
         )
     return ComparableSpec(

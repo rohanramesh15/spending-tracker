@@ -87,9 +87,7 @@ class IngestResult(BaseModel):
     - ``exists`` — idempotent redelivery; the already-stored transaction is returned.
     """
 
-    status: Literal[
-        "created", "resolved", "skipped", "needs_decision", "needs_review", "exists"
-    ]
+    status: Literal["created", "resolved", "skipped", "needs_decision", "needs_review", "exists"]
     transaction: TransactionOut | None = None
     match: ReconcileMatch | None = None
 
@@ -275,3 +273,39 @@ class RecurringItemOut(BaseModel):
     first_seen: date
     last_seen: date
     price_history: list[PricePoint]  # per-day avg unit price, oldest first (sparkline)
+
+
+# --- Cheaper-store finder (Phase 5) --------------------------------------------
+
+
+class FinderProduct(BaseModel):
+    title: str
+    price_cents: int
+    unit_price_cents: int | None  # per base unit; None if the size couldn't be parsed
+    size: str | None
+
+
+class FinderStore(BaseModel):
+    name: str | None
+    address: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    has_prices: bool  # True for the Kroger store we priced; False for map-only pins
+
+
+class FinderResult(BaseModel):
+    """A finder run: the comparable spec, the Kroger store we priced + its ranked shelf,
+    nearby store pins, and 'as of' the moment we fetched (plan §6.9 step 5)."""
+
+    item: str
+    search_term: str
+    dimension: str
+    base_unit: str
+    attributes: list[str]
+    tightness: str
+    kroger_configured: bool
+    places_configured: bool
+    searched_store: FinderStore | None
+    results: list[FinderProduct]  # ranked, cheapest per base unit first
+    nearby_stores: list[FinderStore]
+    as_of: datetime
