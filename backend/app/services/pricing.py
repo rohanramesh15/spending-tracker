@@ -44,8 +44,10 @@ _UNIT_ALTS = sorted(
     key=len,
     reverse=True,
 )
+# Number is a fraction ("1/2") or a decimal ("1", "1.5"). Fraction is tried first so
+# "1/2 gal" reads as 0.5 gal, not "2 gal".
 _SIZE_RE = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(" + "|".join(re.escape(u) for u in _UNIT_ALTS) + r")\b",
+    r"(\d+\s*/\s*\d+|\d+(?:\.\d+)?)\s*(" + "|".join(re.escape(u) for u in _UNIT_ALTS) + r")\b",
     re.IGNORECASE,
 )
 
@@ -56,13 +58,21 @@ class ParsedSize:
     unit: str  # as written (lowercased)
 
 
+def _parse_number(text: str) -> Decimal:
+    text = text.replace(" ", "")
+    if "/" in text:
+        num, den = text.split("/", 1)
+        return Decimal(num) / Decimal(den)
+    return Decimal(text)
+
+
 def parse_size(title: str) -> ParsedSize | None:
     """Pull the last ``<number> <unit>`` out of a product title (titles trail the size)."""
     matches = _SIZE_RE.findall(title)
     if not matches:
         return None
-    value, unit = matches[-1]
-    return ParsedSize(value=Decimal(value), unit=unit.lower())
+    value_str, unit = matches[-1]
+    return ParsedSize(value=_parse_number(value_str), unit=unit.lower())
 
 
 def normalize_to_base(size: ParsedSize, dimension: str) -> Decimal | None:

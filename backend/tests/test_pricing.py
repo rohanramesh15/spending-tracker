@@ -20,6 +20,13 @@ def test_parse_size_takes_the_trailing_size() -> None:
     assert parse_size("Just a name with no size") is None
 
 
+def test_parse_size_handles_fractions() -> None:
+    # Kroger writes half-gallons as "1/2 gal" — must be 0.5, not "2".
+    s = parse_size("Kroger 2% Reduced Fat Milk Half Gallon, 1/2 gal")
+    assert s is not None and s.value == Decimal("0.5") and s.unit == "gal"
+    assert normalize_to_base(s, "volume") == Decimal("64.0")  # 0.5 gal → 64 fl oz
+
+
 def test_normalize_to_base_across_units() -> None:
     assert normalize_to_base(parse_size("1 gal"), "volume") == Decimal(128)
     assert normalize_to_base(parse_size("1 qt"), "volume") == Decimal(32)
