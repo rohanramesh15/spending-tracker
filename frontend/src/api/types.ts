@@ -84,4 +84,26 @@ export interface IngestRequest {
   total_cents: number;
   currency?: string;
   line_items?: LineItemIn[];
+  raw_extraction_json?: Record<string, unknown> | null;
+}
+
+export interface ReceiptDraftItem {
+  raw_name: string;
+  normalized_name: string | null;
+  category_id: string | null;
+  category_name: string | null;
+  price_cents: number;
+  quantity: string;
+}
+
+export interface ReceiptDraft {
+  vendor: string;
+  purchased_on: string;
+  subtotal_cents: number | null;
+  tax_cents: number;
+  tip_cents: number;
+  total_cents: number;
+  currency: string;
+  line_items: ReceiptDraftItem[];
+  raw_extraction_json: Record<string, unknown>;
 }

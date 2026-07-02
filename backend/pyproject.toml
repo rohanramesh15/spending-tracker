@@ -15,6 +15,10 @@ dependencies = [
     "pyjwt[crypto]>=2.9.0",
     "httpx>=0.27.0",
     "python-multipart>=0.0.12",
+    # Phase 2 — receipt scanning
+    "pillow>=11.0.0",
+    "pillow-heif>=0.18.0",
+    "google-genai>=1.0.0",
 ]
 
 [dependency-groups]

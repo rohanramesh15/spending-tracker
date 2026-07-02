@@ -1,7 +1,9 @@
-import { NavLink, Outlet, Link } from "react-router-dom";
-import { Home, Receipt, PieChart, Settings, Plus } from "lucide-react";
+import { useRef } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Home, Receipt, PieChart, Settings, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
+import { setPendingReceipt } from "@/lib/scanFile";
 
 const TABS = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -17,21 +19,42 @@ const TABS = [
  * single most important control and is reachable from every tab.
  */
 export function AppShell() {
+  const navigate = useNavigate();
+  const scanInput = useRef<HTMLInputElement>(null);
+
+  function onCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (file) {
+      setPendingReceipt(file);
+      navigate("/scan");
+    }
+  }
+
   return (
     <div className="mx-auto flex h-full min-h-dvh w-full max-w-3xl flex-col">
       <main className="flex-1 overflow-y-auto px-4 pb-28 pt-4">
         <Outlet />
       </main>
 
-      {/* FAB — Phase 1: add a purchase manually. Phase 2 swaps this for the Scan
-          camera flow (user-flow §3). */}
-      <Link
-        to="/add"
-        aria-label="Add a purchase"
+      {/* Scan FAB — opens the camera directly (user-flow §3): the tap is the user
+          gesture that lets the capture input open the camera on mobile. */}
+      <input
+        ref={scanInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={onCapture}
+      />
+      <button
+        type="button"
+        aria-label="Scan a receipt"
+        onClick={() => scanInput.current?.click()}
         className="fixed bottom-16 left-1/2 z-20 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
       >
-        <Plus className="h-6 w-6" />
-      </Link>
+        <Camera className="h-6 w-6" />
+      </button>
 
       <nav className="fixed inset-x-0 bottom-0 z-10 border-t bg-background">
         <ul className="mx-auto flex max-w-3xl items-stretch justify-around">

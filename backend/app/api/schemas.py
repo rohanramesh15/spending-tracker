@@ -105,3 +105,31 @@ class SpendingResponse(BaseModel):
     end: date
     total_cents: int
     slices: list[SpendingSlice]
+
+
+# --- Receipt extraction (Phase 2) ----------------------------------------------
+
+
+class ReceiptDraftItem(BaseModel):
+    raw_name: str
+    normalized_name: str | None
+    category_id: str | None
+    category_name: str | None
+    price_cents: int
+    quantity: Decimal
+
+
+class ReceiptDraft(BaseModel):
+    """The extraction result, resolved against the user's categories, ready to prefill
+    the confirm screen. `raw_extraction_json` is echoed back on confirm and becomes the
+    permanent record (the photo is not retained)."""
+
+    vendor: str
+    purchased_on: date
+    subtotal_cents: int | None
+    tax_cents: int
+    tip_cents: int
+    total_cents: int
+    currency: str
+    line_items: list[ReceiptDraftItem]
+    raw_extraction_json: dict

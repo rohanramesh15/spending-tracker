@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { apiFetch, apiUpload } from "./client";
 import type {
   Category,
   IngestRequest,
+  ReceiptDraft,
   SpendingResponse,
   TransactionDetail,
   TransactionListItem,
@@ -56,6 +57,16 @@ export function useIngest() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}
+
+export function useExtractReceipt() {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiUpload<ReceiptDraft>("/api/receipts/extract", form);
     },
   });
 }

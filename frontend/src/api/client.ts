@@ -41,3 +41,18 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+/** Upload multipart form data (e.g. a receipt photo). Lets the browser set the
+ * multipart Content-Type/boundary — never set it manually. */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const token = getAccessToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const res = await fetch(`${API_BASE}${path}`, { method: "POST", body: form, headers });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new ApiError(res.status, body || res.statusText);
+  }
+  return (await res.json()) as T;
+}

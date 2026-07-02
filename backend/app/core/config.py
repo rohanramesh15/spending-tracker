@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     # --- Background jobs ---
     jobs_queue_url: str | None = None  # SQS queue URL, injected by SAM in Lambda
 
+    # --- Receipt extraction (Phase 2) ---
+    # Gemini API key (free tier for now). If unset, extract_receipt() falls back to a
+    # deterministic mock so the scan/confirm flow is fully testable without a key.
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
+
     # Set true only in local/dev to relax auth for manual testing. Never in prod.
     auth_dev_bypass: bool = False
 
