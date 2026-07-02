@@ -169,6 +169,22 @@ export interface ImportSummary {
   skipped: number;
 }
 
+// --- Recurring items (Phase 4) ------------------------------------------------
+export interface PricePoint {
+  purchased_on: string;
+  unit_price_cents: number;
+}
+
+export interface RecurringItem {
+  canonical_name: string;
+  category_name: string | null;
+  occurrences: number;
+  avg_unit_price_cents: number;
+  first_seen: string;
+  last_seen: string;
+  price_history: PricePoint[];
+}
+
 export interface ReceiptDraftItem {
   raw_name: string;
   normalized_name: string | null;

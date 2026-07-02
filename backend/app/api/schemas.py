@@ -255,3 +255,23 @@ class ImportSummary(BaseModel):
     needs_review: int  # matched an existing entry → parked in the review queue
     duplicates: int  # already imported (idempotent re-upload)
     skipped: int  # non-purchase rows (payments, credits, unparseable)
+
+
+# --- Recurring items (Phase 4) -------------------------------------------------
+
+
+class PricePoint(BaseModel):
+    purchased_on: date
+    unit_price_cents: int
+
+
+class RecurringItemOut(BaseModel):
+    """A repeatedly-bought item, keyed on canonical name (plan §6.8)."""
+
+    canonical_name: str
+    category_name: str | None
+    occurrences: int  # distinct shopping trips in the window
+    avg_unit_price_cents: int
+    first_seen: date
+    last_seen: date
+    price_history: list[PricePoint]  # per-day avg unit price, oldest first (sparkline)

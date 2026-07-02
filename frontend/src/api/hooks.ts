@@ -9,6 +9,7 @@ import type {
   LinkedAccount,
   LinkTokenOut,
   ReceiptDraft,
+  RecurringItem,
   Resolution,
   Review,
   ReviewResolveResult,
@@ -78,6 +79,14 @@ export function useExtractReceipt() {
       form.append("file", file);
       return apiUpload<ReceiptDraft>("/api/receipts/extract", form);
     },
+  });
+}
+
+export function useRecurring() {
+  return useQuery({
+    queryKey: ["recurring"],
+    queryFn: () => apiFetch<RecurringItem[]>("/api/recurring"),
+    staleTime: 60_000,
   });
 }
 
