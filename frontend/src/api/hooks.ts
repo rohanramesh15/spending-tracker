@@ -3,6 +3,7 @@ import { apiFetch, apiUpload } from "./client";
 import type {
   Category,
   ExchangeResult,
+  ImportSummary,
   IngestRequest,
   IngestResult,
   LinkedAccount,
@@ -154,6 +155,24 @@ export function useSyncBank() {
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["reviews"] });
       qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}
+
+/** Apple Card CSV import → the ingest door (matches land in the review queue). */
+export function useImportAppleCard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiUpload<ImportSummary>("/api/import/apple-card", form);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+      qc.invalidateQueries({ queryKey: ["linked-accounts"] });
     },
   });
 }

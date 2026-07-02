@@ -1,10 +1,11 @@
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectBankButton } from "@/components/ConnectBankButton";
-import { useLinkedAccounts, useSyncBank } from "@/api/hooks";
+import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@/api/hooks";
 import type { AccountStatus } from "@/api/types";
 import { signOut } from "@/lib/useAuth";
 
@@ -22,10 +23,31 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const accounts = useLinkedAccounts();
   const sync = useSyncBank();
+  const importCsv = useImportAppleCard();
+  const csvInput = useRef<HTMLInputElement>(null);
 
   async function handleSignOut() {
     await signOut();
     navigate("/login", { replace: true });
+  }
+
+  async function onCsvPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    try {
+      const r = await importCsv.mutateAsync(file);
+      const parts = [
+        r.imported && `${r.imported} added`,
+        r.needs_review && `${r.needs_review} to review`,
+        r.duplicates && `${r.duplicates} already imported`,
+      ].filter(Boolean);
+      toast.success(
+        parts.length ? `Imported — ${parts.join(", ")}` : "Nothing new to import",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't import that file");
+    }
   }
 
   async function handleSync() {
@@ -101,6 +123,29 @@ export default function SettingsPage() {
             <ConnectBankButton />
           </div>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="text-sm font-medium">Import</h2>
+        <p className="text-sm text-muted-foreground">
+          Upload an Apple Card statement CSV. Purchases are added; anything matching an
+          existing entry goes to your review queue.
+        </p>
+        <input
+          ref={csvInput}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          onChange={onCsvPicked}
+        />
+        <Button
+          variant="outline"
+          onClick={() => csvInput.current?.click()}
+          disabled={importCsv.isPending}
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          {importCsv.isPending ? "Importing…" : "Import Apple Card CSV"}
+        </Button>
       </div>
 
       <div className="space-y-1 text-sm">

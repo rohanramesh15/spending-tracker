@@ -162,6 +162,13 @@ export interface ExchangeResult {
   synced: SyncSummary;
 }
 
+export interface ImportSummary {
+  imported: number;
+  needs_review: number;
+  duplicates: number;
+  skipped: number;
+}
+
 export interface ReceiptDraftItem {
   raw_name: string;
   normalized_name: string | null;

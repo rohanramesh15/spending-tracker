@@ -246,3 +246,12 @@ class SyncSummary(BaseModel):
 class ExchangeResult(BaseModel):
     account: LinkedAccountOut
     synced: SyncSummary
+
+
+class ImportSummary(BaseModel):
+    """Outcome of a CSV import (Apple Card), through the one ingest door."""
+
+    imported: int  # new transactions added straight in (no match)
+    needs_review: int  # matched an existing entry → parked in the review queue
+    duplicates: int  # already imported (idempotent re-upload)
+    skipped: int  # non-purchase rows (payments, credits, unparseable)
