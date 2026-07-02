@@ -70,7 +70,11 @@ Resources:
             - Sid: ReadSecureParams
               Effect: Allow
               Action: [ssm:GetParametersByPath, ssm:GetParameter, ssm:GetParameters]
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}/*
+              # GetParametersByPath is authorized against the path node itself, not just
+              # the children — grant both, or a recursive fetch is AccessDenied.
+              Resource:
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}/*
             - Sid: DecryptSecureParams
               Effect: Allow
               Action: [kms:Decrypt]
@@ -99,7 +103,11 @@ Resources:
             - Sid: ReadSecureParams
               Effect: Allow
               Action: [ssm:GetParametersByPath, ssm:GetParameter, ssm:GetParameters]
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}/*
+              # GetParametersByPath is authorized against the path node itself, not just
+              # the children — grant both, or a recursive fetch is AccessDenied.
+              Resource:
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmParamPrefix}/*
             - Sid: DecryptSecureParams
               Effect: Allow
               Action: [kms:Decrypt]
