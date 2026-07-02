@@ -168,6 +168,7 @@ def _insert_transaction(
         purchased_time=payload.purchased_time,
         source=payload.source,
         external_id=payload.external_id,
+        linked_account_id=payload.linked_account_id,
         subtotal_cents=payload.subtotal_cents,
         tax_cents=payload.tax_cents,
         tip_cents=payload.tip_cents,

@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import Resolution, ReviewStatus, TransactionSource
+from app.models.enums import AccountStatus, Resolution, ReviewStatus, TransactionSource
 
 
 class LineItemIn(BaseModel):
@@ -36,6 +36,7 @@ class IngestRequest(BaseModel):
 
     source: TransactionSource
     external_id: str | None = None
+    linked_account_id: str | None = None
     vendor: str
     purchased_on: date
     purchased_time: time | None = None
@@ -212,3 +213,36 @@ class ReviewResolveResult(BaseModel):
     resolution: Resolution
     # The surviving transaction (the merged/kept row), for the client to navigate to.
     transaction_id: str
+
+
+# --- Bank sync (Phase 3, Plaid) ------------------------------------------------
+
+
+class LinkTokenOut(BaseModel):
+    link_token: str
+
+
+class ExchangeRequest(BaseModel):
+    public_token: str
+
+
+class LinkedAccountOut(BaseModel):
+    """A connected account for the Settings list (labeled 'Connected accounts', never
+    'Plaid' — CLAUDE.md)."""
+
+    id: str
+    institution: str
+    status: AccountStatus
+    is_apple_card: bool
+    last_synced_at: datetime | None
+
+
+class SyncSummary(BaseModel):
+    added: int  # confirmed straight in (no match)
+    needs_review: int  # parked in the reconciliation queue (matched an existing entry)
+    removed: int  # deleted because Plaid dropped them (e.g. a pending txn that cleared)
+
+
+class ExchangeResult(BaseModel):
+    account: LinkedAccountOut
+    synced: SyncSummary

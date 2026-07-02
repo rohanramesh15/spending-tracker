@@ -42,6 +42,26 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
 
+    # --- Bank sync (Phase 3, Plaid) ---
+    # Names mirror the Plaid dashboard (Developers → Keys): one client_id shared across
+    # environments, plus a separate secret per environment. plaid_env selects which secret
+    # is used. Sandbox while developing (real accounts linked once, at the end). If the
+    # active client_id/secret are unset, bank-sync reports "not configured", never fails.
+    plaid_client_id: str | None = None
+    plaid_sandbox_secret: str | None = None
+    plaid_production_secret: str | None = None
+    plaid_env: str = "sandbox"
+    # Public HTTPS URL Plaid POSTs webhooks to (the deployed /api/plaid/webhook). Unset
+    # locally → no webhook registered, so you sync manually / via the initial exchange.
+    plaid_webhook_url: str | None = None
+
+    @property
+    def plaid_secret(self) -> str | None:
+        """The Plaid secret for the active environment (``plaid_env`` picks it)."""
+        if self.plaid_env == "production":
+            return self.plaid_production_secret
+        return self.plaid_sandbox_secret
+
     # Set true only in local/dev to relax auth for manual testing. Never in prod.
     auth_dev_bypass: bool = False
 

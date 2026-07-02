@@ -86,6 +86,17 @@ class LinkedAccount(SQLModel, table=True):
         default=AccountStatus.active,
         sa_column=Column(String, nullable=False, server_default="active"),
     )
+    # Plaid Item state (Phase 3, migration 0002). access_token is the per-Item secret,
+    # stored on the row (RLS-protected, disk-encrypted) rather than SSM — a deliberate
+    # deviation from the plan's §6.7 SSM note (dynamic per-user tokens don't fit boot-time
+    # SSM hydration and can't work in local dev). item_id is Plaid's Item id; the cursor
+    # drives incremental /transactions/sync.
+    access_token: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    item_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    transactions_cursor: str | None = Field(
+        default=None, sa_column=Column(String, nullable=True)
+    )
+    last_synced_at: datetime | None = nullable_timestamp()
     created_at: datetime = created_at_col()
 
 

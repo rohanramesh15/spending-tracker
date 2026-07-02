@@ -14,6 +14,7 @@ from app.api import (
     health,
     ingest,
     insights,
+    plaid,
     receipts,
     reviews,
     transactions,
@@ -43,6 +44,7 @@ app.include_router(transactions.router)
 app.include_router(insights.router)
 app.include_router(receipts.router)
 app.include_router(reviews.router)
+app.include_router(plaid.router)
 
 # Lambda handler (imported by the SAM template's ApiFunction). No-op locally.
 handler = Mangum(app)
