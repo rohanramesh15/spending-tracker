@@ -11,6 +11,16 @@ export function toISODate(d: Date): string {
   return format(d, "yyyy-MM-dd");
 }
 
+/**
+ * Parse a YYYY-MM-DD string as a LOCAL calendar date. Never use `new Date("2026-07-02")`
+ * for a purchased_on value — that parses as UTC midnight and renders a day early in
+ * behind-UTC timezones (plan §6.6 / §10: purchased_on is a local date, never via UTC).
+ */
+export function parseISODate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function todayISO(): string {
   return toISODate(new Date());
 }

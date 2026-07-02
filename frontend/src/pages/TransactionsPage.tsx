@@ -4,6 +4,7 @@ import { Plus, Camera, Pencil, Landmark } from "lucide-react";
 import { useTransactions } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
+import { parseISODate } from "@/lib/dates";
 import type { TransactionListItem, TransactionSource } from "@/api/types";
 
 const SOURCE_ICON: Record<TransactionSource, typeof Camera> = {
@@ -53,7 +54,7 @@ export default function TransactionsPage() {
           {groups.map(([day, items]) => (
             <div key={day}>
               <h2 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {format(new Date(day), "EEEE, MMM d")}
+                {format(parseISODate(day), "EEEE, MMM d")}
               </h2>
               <ul className="divide-y rounded-xl border">
                 {items.map((t) => {
@@ -69,7 +70,9 @@ export default function TransactionsPage() {
                           <div>
                             <p className="font-medium">{t.vendor}</p>
                             <p className="text-xs text-muted-foreground">
-                              {t.item_count > 0 ? `${t.item_count} items` : "Uncategorized"}
+                              {t.item_count > 0
+                                ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
+                                : "Uncategorized"}
                               {t.review_status === "needs_review" && " · needs review"}
                             </p>
                           </div>

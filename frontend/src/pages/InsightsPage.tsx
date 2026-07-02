@@ -2,7 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { useSpending } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
-import { rangePresets } from "@/lib/dates";
+import { rangePresets, parseISODate } from "@/lib/dates";
 import { formatCents, cn } from "@/lib/utils";
 
 /**
@@ -18,8 +18,8 @@ export default function InsightsPage() {
   const hasData = (data?.slices.length ?? 0) > 0;
   const rangeLabel =
     range.start === range.end
-      ? format(new Date(range.start), "MMM d, yyyy")
-      : `${format(new Date(range.start), "MMM d")} – ${format(new Date(range.end), "MMM d")}`;
+      ? format(parseISODate(range.start), "MMM d, yyyy")
+      : `${format(parseISODate(range.start), "MMM d")} – ${format(parseISODate(range.end), "MMM d")}`;
 
   return (
     <section className="space-y-5">

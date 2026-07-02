@@ -5,6 +5,7 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { useTransaction, useDeleteTransaction } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
+import { parseISODate } from "@/lib/dates";
 
 /**
  * Transaction detail (user-flow §7): header + line-item table. No photo is ever
@@ -35,7 +36,7 @@ export default function TransactionDetailPage() {
         <div className="flex-1">
           <h1 className="text-xl font-semibold">{txn.vendor}</h1>
           <p className="text-sm text-muted-foreground">
-            {format(new Date(txn.purchased_on), "EEEE, MMM d, yyyy")} · {txn.source}
+            {format(parseISODate(txn.purchased_on), "EEEE, MMM d, yyyy")} · {txn.source}
           </p>
         </div>
         <Button variant="ghost" size="icon" onClick={remove} aria-label="Delete" disabled={del.isPending}>

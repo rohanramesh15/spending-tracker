@@ -4,7 +4,7 @@ import { useSpending, useTransactions } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
-import { toISODate } from "@/lib/dates";
+import { toISODate, parseISODate } from "@/lib/dates";
 
 /**
  * Home — the daily loop (user-flow §2): this-month total + pie, recent transactions,
@@ -61,8 +61,10 @@ export default function HomePage() {
                   <div>
                     <p className="font-medium">{t.vendor}</p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(t.purchased_on), "MMM d")} ·{" "}
-                      {t.item_count > 0 ? `${t.item_count} items` : "Uncategorized"}
+                      {format(parseISODate(t.purchased_on), "MMM d")} ·{" "}
+                      {t.item_count > 0
+                        ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
+                        : "Uncategorized"}
                     </p>
                   </div>
                   <span className="font-medium">{formatCents(t.total_cents, t.currency)}</span>
