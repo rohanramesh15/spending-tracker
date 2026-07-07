@@ -79,6 +79,11 @@ const SelectContent = React.forwardRef<
         className
       )}
       position={position}
+      // Always open below the trigger: pin the side and disable Radix's collision
+      // flip (which otherwise opens upward when the trigger is near the viewport
+      // bottom). The panel stays height-constrained + scrollable via the CSS vars above.
+      side="bottom"
+      avoidCollisions={false}
       {...props}
     >
       <SelectScrollUpButton />

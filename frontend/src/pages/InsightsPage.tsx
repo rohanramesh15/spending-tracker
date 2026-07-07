@@ -28,9 +28,10 @@ export default function InsightsPage() {
 
   return (
     <section className="space-y-5">
-      <h1 className="text-xl font-semibold">Insights</h1>
-
-      <DateRangePicker value={range} onChange={setRange} />
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Insights</h1>
+        <DateRangePicker value={range} onChange={setRange} />
+      </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

@@ -1,13 +1,21 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { RefreshCw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ConnectBankButton } from "@/components/ConnectBankButton";
 import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@/api/hooks";
 import type { AccountStatus } from "@/api/types";
-import { signOut } from "@/lib/useAuth";
+import { signOut, useAuth } from "@/lib/useAuth";
 
 const statusLabel: Record<AccountStatus, string> = {
   active: "Syncing",
@@ -16,7 +24,7 @@ const statusLabel: Record<AccountStatus, string> = {
 };
 
 /**
- * Settings — connected accounts, extraction provider, sign out (user-flow §9).
+ * Settings — connected accounts, Apple Card import, account email, sign out (user-flow §9).
  * "Connected accounts" is the user-facing label; we never say "Plaid".
  */
 export default function SettingsPage() {
@@ -25,6 +33,9 @@ export default function SettingsPage() {
   const sync = useSyncBank();
   const importCsv = useImportAppleCard();
   const csvInput = useRef<HTMLInputElement>(null);
+  const { session } = useAuth();
+  const email = session?.user?.email ?? null;
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   async function handleSignOut() {
     await signOut();
@@ -149,13 +160,33 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-1 text-sm">
-        <p className="font-medium">Extraction provider</p>
-        <p className="text-muted-foreground">Gemini — free tier</p>
+        <h2 className="font-medium">Account</h2>
+        <p className="text-muted-foreground">
+          Signed in as{" "}
+          <span className="font-medium text-foreground">{email ?? "—"}</span>
+        </p>
       </div>
 
-      <Button variant="outline" onClick={handleSignOut}>
+      <Button variant="outline" onClick={() => setConfirmSignOut(true)}>
         Sign out
       </Button>
+
+      <Dialog open={confirmSignOut} onOpenChange={setConfirmSignOut}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Sign out?</DialogTitle>
+            <DialogDescription>
+              You'll need a new magic link sent to your email to sign back in.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmSignOut(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSignOut}>Sign out</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

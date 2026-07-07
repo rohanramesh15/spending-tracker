@@ -39,7 +39,7 @@ export default function HomePage() {
         </Link>
       )}
 
-      <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-3xl font-bold tracking-tight">
             {formatCents(spending.data?.total_cents ?? 0)}
