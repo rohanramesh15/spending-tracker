@@ -7,17 +7,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 /**
- * First-run / login (user-flow §1): email → magic link (Supabase Auth). No password.
- * On click, Supabase emails a link that returns to the app; the session is then
- * picked up by detectSessionInUrl (see lib/supabase.ts).
+ * Login (user-flow §1). Primary: Google OAuth via Supabase Auth
+ * (`signInWithOAuth`) — the browser bounces to Google and back, and the session is
+ * picked up by detectSessionInUrl (see lib/supabase.ts). Fallback: email magic link,
+ * kept so sign-in still works if the Google provider isn't configured. Either way the
+ * result is a Supabase JWT, so the backend's verification + RLS are unchanged.
  */
 export default function LoginPage() {
   const { session, loading } = useAuth();
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "google" | "sending" | "sent" | "error">(
+    "idle",
+  );
   const [error, setError] = useState<string | null>(null);
 
   if (!loading && session) return <Navigate to="/" replace />;
+
+  async function signInWithGoogle() {
+    setStatus("google");
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    // On success the browser redirects to Google, so this component unmounts. We only
+    // reach here on an error (e.g. the Google provider isn't enabled in Supabase yet).
+    if (error) {
+      setError(error.message);
+      setStatus("error");
+    }
+  }
 
   async function sendLink(e: React.FormEvent) {
     e.preventDefault();
@@ -38,35 +57,83 @@ export default function LoginPage() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6">
       <h1 className="text-2xl font-semibold tracking-tight">Spending Tracker</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Sign in with a magic link — no password.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">Sign in to continue.</p>
 
-      {status === "sent" ? (
-        <div className="mt-8 rounded-lg border bg-muted/40 p-4 text-sm">
-          Check <span className="font-medium">{email}</span> for a sign-in link, then
-          come back here.
-        </div>
-      ) : (
-        <form onSubmit={sendLink} className="mt-8 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+      <div className="mt-8 space-y-4">
+        <Button
+          variant="outline"
+          className="w-full gap-2"
+          onClick={signInWithGoogle}
+          disabled={status === "google"}
+        >
+          <GoogleIcon />
+          {status === "google" ? "Redirecting…" : "Continue with Google"}
+        </Button>
+
+        {status === "sent" ? (
+          <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+            Check <span className="font-medium">{email}</span> for a sign-in link, then
+            come back here.
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={status === "sending"}>
-            {status === "sending" ? "Sending…" : "Send magic link"}
-          </Button>
-        </form>
-      )}
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-grow bg-border" />
+              <span className="text-xs text-muted-foreground">or</span>
+              <div className="h-px flex-grow bg-border" />
+            </div>
+
+            <form onSubmit={sendLink} className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="ghost"
+                className="w-full"
+                disabled={status === "sending"}
+              >
+                {status === "sending" ? "Sending…" : "Email me a magic link"}
+              </Button>
+            </form>
+          </>
+        )}
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
     </div>
+  );
+}
+
+/** The Google "G" mark (inline so it works under the artifact/CSP — no external asset). */
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.06 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h6.19a5.29 5.29 0 0 1-2.3 3.47v2.88h3.72c2.18-2 3.45-4.96 3.45-8.36z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.12 0 5.74-1.03 7.66-2.79l-3.72-2.88c-1.03.69-2.35 1.1-3.94 1.1-3.03 0-5.6-2.05-6.51-4.8H1.64v2.97A12 12 0 0 0 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.49 14.63a7.2 7.2 0 0 1 0-4.6V7.06H1.64a12 12 0 0 0 0 10.54l3.85-2.97z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.7 0 3.23.59 4.43 1.74l3.3-3.3C17.73 1.2 15.11 0 12 0A12 12 0 0 0 1.64 7.06l3.85 2.97C6.4 6.8 8.97 4.75 12 4.75z"
+      />
+    </svg>
   );
 }
