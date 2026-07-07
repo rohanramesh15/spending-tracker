@@ -42,32 +42,6 @@ interface SliceLabelProps {
   payload: { name: string };
 }
 
-// Percentage centered in each slice's ring. Thin slivers (<4%) are skipped so labels
-// don't collide/overflow — their exact share still shows in the tooltip on hover.
-function renderSlicePercent(props: unknown) {
-  const { cx, cy, midAngle, innerRadius, outerRadius, percent, index, payload } =
-    props as SliceLabelProps;
-  if (!percent || percent < 0.04) return <g />;
-  const r = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + r * Math.cos(-midAngle * RADIAN);
-  const y = cy + r * Math.sin(-midAngle * RADIAN);
-  return (
-    <text
-      x={x}
-      y={y}
-      fill={labelInkFor(colorFor(payload?.name ?? "", index))}
-      fontSize={11}
-      fontWeight={600}
-      textAnchor="middle"
-      dominantBaseline="central"
-    >
-      {`${Math.round(percent * 100)}%`}
-    </text>
-  );
-}
-
-// Selected-slice highlight: trace the slice's own arc (a Sector, not a bounding box) with
-// a stroke and a small radius bump — so clicking outlines the portion, never a square.
 interface ActiveSliceProps {
   cx: number;
   cy: number;
@@ -77,6 +51,9 @@ interface ActiveSliceProps {
   endAngle: number;
   fill: string;
 }
+
+// Selected-slice highlight: trace the slice's own arc (a Sector, not a bounding box) with
+// a stroke and a small radius bump — so clicking outlines the portion, never a square.
 function renderActiveSlice(props: unknown) {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } =
     props as ActiveSliceProps;
@@ -98,9 +75,31 @@ function renderActiveSlice(props: unknown) {
 
 export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
   const data = slices.map((s) => ({ name: s.category, value: s.cents }));
-  const total = data.reduce((sum, d) => sum + d.value, 0);
   // -1 = nothing selected. Clicking a slice selects it; clicking it again clears.
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+
+  // The percentage shows ONLY on the slice the user has clicked — centered in its ring.
+  const renderSelectedPercent = (props: unknown) => {
+    const p = props as SliceLabelProps;
+    if (p.index !== activeIndex || !p.percent) return <g />;
+    const r = p.innerRadius + (p.outerRadius - p.innerRadius) * 0.5;
+    const x = p.cx + r * Math.cos(-p.midAngle * RADIAN);
+    const y = p.cy + r * Math.sin(-p.midAngle * RADIAN);
+    return (
+      <text
+        x={x}
+        y={y}
+        fill={labelInkFor(colorFor(p.payload?.name ?? "", p.index))}
+        fontSize={12}
+        fontWeight={700}
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        {`${Math.round(p.percent * 100)}%`}
+      </text>
+    );
+  };
+
   return (
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
@@ -112,7 +111,7 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
           outerRadius={95}
           paddingAngle={1}
           labelLine={false}
-          label={renderSlicePercent}
+          label={renderSelectedPercent}
           activeIndex={activeIndex}
           activeShape={renderActiveSlice}
           onClick={(_, index) =>
@@ -124,13 +123,7 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
             <Cell key={entry.name} fill={colorFor(entry.name, i)} />
           ))}
         </Pie>
-        <Tooltip
-          formatter={(value: number) =>
-            total
-              ? `${formatCents(value)} · ${((value / total) * 100).toFixed(1)}%`
-              : formatCents(value)
-          }
-        />
+        <Tooltip formatter={(value: number) => formatCents(value)} />
         <Legend
           verticalAlign="bottom"
           height={36}

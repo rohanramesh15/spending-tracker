@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { useReviews, useSpending, useTransactions } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
+import { TotalSkeleton, ChartSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
 import { parseISODate, rangePresets, formatRangeLabel } from "@/lib/dates";
@@ -41,17 +42,25 @@ export default function HomePage() {
 
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-3xl font-bold tracking-tight">
-            {formatCents(spending.data?.total_cents ?? 0)}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            spent · {formatRangeLabel(range.start, range.end)}
-          </p>
+          {spending.isLoading ? (
+            <TotalSkeleton />
+          ) : (
+            <>
+              <p className="text-3xl font-bold tracking-tight">
+                {formatCents(spending.data?.total_cents ?? 0)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                spent · {formatRangeLabel(range.start, range.end)}
+              </p>
+            </>
+          )}
         </div>
         <DateRangePicker value={range} onChange={setRange} />
       </div>
 
-      {hasSpending ? (
+      {spending.isLoading ? (
+        <ChartSkeleton />
+      ) : hasSpending ? (
         <SpendingPie slices={spending.data!.slices} />
       ) : (
         <div className="rounded-xl border bg-muted/30 p-6 text-center">
@@ -73,7 +82,7 @@ export default function HomePage() {
           </Link>
         </div>
         {recent.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <ListSkeleton rows={4} />
         ) : recent.data && recent.data.length > 0 ? (
           <ul className="divide-y rounded-xl border">
             {recent.data.slice(0, 6).map((t) => (

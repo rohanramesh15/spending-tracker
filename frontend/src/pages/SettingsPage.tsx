@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConnectBankButton } from "@/components/ConnectBankButton";
+import { ListSkeleton } from "@/components/Skeletons";
 import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@/api/hooks";
 import type { AccountStatus } from "@/api/types";
 import { signOut, useAuth } from "@/lib/useAuth";
@@ -80,6 +81,14 @@ export default function SettingsPage() {
     <section className="space-y-8">
       <h1 className="text-xl font-semibold">Settings</h1>
 
+      <div className="space-y-1 text-sm">
+        <h2 className="font-medium">Account</h2>
+        <p className="text-muted-foreground">
+          Signed in as{" "}
+          <span className="font-medium text-foreground">{email ?? "—"}</span>
+        </p>
+      </div>
+
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">Connected accounts</h2>
@@ -99,7 +108,7 @@ export default function SettingsPage() {
         </div>
 
         {accounts.isLoading ? (
-          <div className="h-16 animate-pulse rounded-xl bg-muted" />
+          <ListSkeleton rows={2} />
         ) : hasAccounts ? (
           <>
             <ul className="divide-y rounded-xl border">
@@ -157,14 +166,6 @@ export default function SettingsPage() {
           <Upload className="mr-2 h-4 w-4" />
           {importCsv.isPending ? "Importing…" : "Import Apple Card CSV"}
         </Button>
-      </div>
-
-      <div className="space-y-1 text-sm">
-        <h2 className="font-medium">Account</h2>
-        <p className="text-muted-foreground">
-          Signed in as{" "}
-          <span className="font-medium text-foreground">{email ?? "—"}</span>
-        </p>
       </div>
 
       <Button variant="outline" onClick={() => setConfirmSignOut(true)}>
