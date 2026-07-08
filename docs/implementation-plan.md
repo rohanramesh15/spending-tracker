@@ -79,7 +79,7 @@ These five decisions shape everything below:
 - Supabase Postgres — primary DB
 - SQLModel (SQLAlchemy 2.0 + Pydantic) + Alembic — typed models, migrations, aggregate queries; **`NullPool` + Supavisor, always**
 - **Money is integer cents everywhere** (`*_cents BIGINT` columns, Python `Decimal`/`int`, never `float`); reconciliation's "within a cent" is integer math: `abs(a - b) <= 1`
-- Supabase Auth — magic link / email (financial data must be auth-gated)
+- Supabase Auth — **Google OAuth (primary) + email magic link (fallback)**, both via Supabase Auth's providers so the result is always a Supabase JWT and the backend's JWT verification + RLS are unchanged (financial data must be auth-gated). Google sign-in requires a Google Cloud OAuth client whose secret is set on the Supabase Google provider; the OAuth redirect URI is Supabase's `/auth/v1/callback`.
 - Supabase Storage — receipt images, **transient only**: held between upload and confirm, deleted after confirm (see §6.1)
 - **Row-Level Security enforced for real**: policies scoped to `user_id` on every table, made effective from Lambda by setting JWT claims per request (see Backend above) — not the bypassed-by-service-role illusion
 
