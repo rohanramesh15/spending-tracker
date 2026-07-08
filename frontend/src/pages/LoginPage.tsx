@@ -3,22 +3,16 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/useAuth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 /**
- * Login (user-flow §1). Primary: Google OAuth via Supabase Auth
- * (`signInWithOAuth`) — the browser bounces to Google and back, and the session is
- * picked up by detectSessionInUrl (see lib/supabase.ts). Fallback: email magic link,
- * kept so sign-in still works if the Google provider isn't configured. Either way the
- * result is a Supabase JWT, so the backend's verification + RLS are unchanged.
+ * Login (user-flow §1): Google OAuth via Supabase Auth (`signInWithOAuth`). The browser
+ * bounces to Google and back; the session is picked up by detectSessionInUrl (see
+ * lib/supabase.ts). The result is a Supabase JWT, so the backend's JWT verification + RLS
+ * are unchanged.
  */
 export default function LoginPage() {
   const { session, loading } = useAuth();
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "google" | "sending" | "sent" | "error">(
-    "idle",
-  );
+  const [status, setStatus] = useState<"idle" | "google" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
   if (!loading && session) return <Navigate to="/" replace />;
@@ -31,26 +25,10 @@ export default function LoginPage() {
       options: { redirectTo: window.location.origin },
     });
     // On success the browser redirects to Google, so this component unmounts. We only
-    // reach here on an error (e.g. the Google provider isn't enabled in Supabase yet).
+    // reach here on an error (e.g. the Google provider isn't enabled in Supabase).
     if (error) {
       setError(error.message);
       setStatus("error");
-    }
-  }
-
-  async function sendLink(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus("sending");
-    setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    if (error) {
-      setError(error.message);
-      setStatus("error");
-    } else {
-      setStatus("sent");
     }
   }
 
@@ -69,52 +47,13 @@ export default function LoginPage() {
           <GoogleIcon />
           {status === "google" ? "Redirecting…" : "Continue with Google"}
         </Button>
-
-        {status === "sent" ? (
-          <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-            Check <span className="font-medium">{email}</span> for a sign-in link, then
-            come back here.
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-grow bg-border" />
-              <span className="text-xs text-muted-foreground">or</span>
-              <div className="h-px flex-grow bg-border" />
-            </div>
-
-            <form onSubmit={sendLink} className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <Button
-                type="submit"
-                variant="ghost"
-                className="w-full"
-                disabled={status === "sending"}
-              >
-                {status === "sending" ? "Sending…" : "Email me a magic link"}
-              </Button>
-            </form>
-          </>
-        )}
-
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
     </div>
   );
 }
 
-/** The Google "G" mark (inline so it works under the artifact/CSP — no external asset). */
+/** The Google "G" mark (inline — no external asset). */
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
