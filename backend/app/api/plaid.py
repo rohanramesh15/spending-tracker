@@ -69,8 +69,12 @@ def _require_configured() -> None:
 @router.post("/link-token", response_model=LinkTokenOut)
 def create_link_token(user_id: str = Depends(current_user_id)) -> LinkTokenOut:
     _require_configured()
-    webhook = get_settings().plaid_webhook_url
-    return LinkTokenOut(link_token=plaid_client.create_link_token(user_id, webhook=webhook))
+    s = get_settings()
+    return LinkTokenOut(
+        link_token=plaid_client.create_link_token(
+            user_id, webhook=s.plaid_webhook_url, redirect_uri=s.plaid_redirect_uri
+        )
+    )
 
 
 @router.post("/exchange", response_model=ExchangeResult)

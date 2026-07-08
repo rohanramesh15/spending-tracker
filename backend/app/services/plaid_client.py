@@ -40,8 +40,15 @@ def _client():
     return plaid_api.PlaidApi(plaid.ApiClient(config))
 
 
-def create_link_token(user_id: str, *, webhook: str | None = None) -> str:
-    """A short-lived token the frontend hands to Plaid Link to start the connect flow."""
+def create_link_token(
+    user_id: str, *, webhook: str | None = None, redirect_uri: str | None = None
+) -> str:
+    """A short-lived token the frontend hands to Plaid Link to start the connect flow.
+
+    ``redirect_uri`` is required for OAuth institutions (most major US banks in
+    production — Chase, BofA, Amex…): Plaid sends the user to the bank's site and back to
+    this URL. It must be registered in the Plaid dashboard and match exactly.
+    """
     from plaid.model.country_code import CountryCode
     from plaid.model.link_token_create_request import LinkTokenCreateRequest
     from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
@@ -54,6 +61,7 @@ def create_link_token(user_id: str, *, webhook: str | None = None) -> str:
         country_codes=[CountryCode("US")],
         language="en",
         **({"webhook": webhook} if webhook else {}),
+        **({"redirect_uri": redirect_uri} if redirect_uri else {}),
     )
     return _client().link_token_create(req).link_token
 
@@ -186,9 +194,7 @@ def _webhook_key(kid: str) -> dict | None:
     )
 
     try:
-        resp = _client().webhook_verification_key_get(
-            WebhookVerificationKeyGetRequest(key_id=kid)
-        )
+        resp = _client().webhook_verification_key_get(WebhookVerificationKeyGetRequest(key_id=kid))
         return resp.key.to_dict()
     except Exception:  # noqa: BLE001 - unknown/unreachable key → verification fails
         return None

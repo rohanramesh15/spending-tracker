@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     # Public HTTPS URL Plaid POSTs webhooks to (the deployed /api/plaid/webhook). Unset
     # locally → no webhook registered, so you sync manually / via the initial exchange.
     plaid_webhook_url: str | None = None
+    # Public HTTPS URL Plaid returns to after an OAuth bank login (major US banks in
+    # production). Must be registered in the Plaid dashboard (Team Settings → API →
+    # Allowed redirect URIs) and match exactly. Unset → OAuth banks can't be linked.
+    plaid_redirect_uri: str | None = None
 
     @property
     def plaid_secret(self) -> str | None:
