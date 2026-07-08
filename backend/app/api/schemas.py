@@ -224,6 +224,12 @@ class ExchangeRequest(BaseModel):
     public_token: str
 
 
+class UpdateLinkTokenRequest(BaseModel):
+    """Which existing connection to open in Plaid update mode (reconnect / add accounts)."""
+
+    linked_account_id: str
+
+
 class LinkedAccountOut(BaseModel):
     """A connected account for the Settings list (labeled 'Connected accounts', never
     'Plaid' — CLAUDE.md)."""

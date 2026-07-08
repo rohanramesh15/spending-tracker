@@ -40,6 +40,7 @@ from app.api.schemas import (
     LinkedAccountOut,
     LinkTokenOut,
     SyncSummary,
+    UpdateLinkTokenRequest,
 )
 from app.core.auth import current_user_id, get_db
 from app.core.config import get_settings
@@ -75,6 +76,52 @@ def create_link_token(user_id: str = Depends(current_user_id)) -> LinkTokenOut:
             user_id, webhook=s.plaid_webhook_url, redirect_uri=s.plaid_redirect_uri
         )
     )
+
+
+@router.post("/link-token/update", response_model=LinkTokenOut)
+def create_update_link_token_route(
+    body: UpdateLinkTokenRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+) -> LinkTokenOut:
+    """Update-mode Link token for an existing connection — reconnect a bank that needs
+    reauth, or add newly-available accounts, without consuming a new Plaid Item."""
+    _require_configured()
+    account = db.exec(
+        select(LinkedAccount).where(
+            LinkedAccount.id == body.linked_account_id,
+            LinkedAccount.user_id == user_id,
+        )
+    ).first()
+    if account is None or not account.access_token:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
+    token = plaid_client.create_update_link_token(
+        user_id, account.access_token, redirect_uri=get_settings().plaid_redirect_uri
+    )
+    return LinkTokenOut(link_token=token)
+
+
+@router.post("/accounts/{account_id}/reconnected", response_model=SyncSummary)
+def account_reconnected(
+    account_id: str,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+) -> SyncSummary:
+    """Called after a successful update-mode Link. The existing access token stays valid
+    (no exchange in update mode), so mark the account active again and pull anything new —
+    including transactions from any accounts just added to the connection."""
+    _require_configured()
+    account = db.exec(
+        select(LinkedAccount).where(
+            LinkedAccount.id == account_id, LinkedAccount.user_id == user_id
+        )
+    ).first()
+    if account is None or not account.access_token:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
+    account.status = AccountStatus.active
+    db.add(account)
+    db.flush()
+    return _sync_account(db, user_id, account)
 
 
 @router.post("/exchange", response_model=ExchangeResult)
