@@ -1,0 +1,100 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # assume the AWS deploy role via OIDC — no stored AWS keys
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.f.outputs.backend }}
+      frontend: ${{ steps.f.outputs.frontend }}
+      infra: ${{ steps.f.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            backend: ['backend/**']
+            frontend: ['frontend/**']
+            infra: ['infra/**']
+
+  backend:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production # add a required reviewer here for a manual gate
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ca-central-1
+      - uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      - run: sam build --use-container
+      - run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+
+  frontend:
+    needs: [changes, backend]
+    # run even if backend was skipped, as long as frontend changed
+    if: ${{ always() && needs.changes.outputs.frontend == 'true' && !contains(needs.backend.result, 'failure') }}
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Build (VITE_* injected from GitHub vars/secrets)
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+        run: pnpm build
+      - name: Guard — the bundle must contain the API URL (never ship a blank app)
+        run: grep -rq "${{ vars.VITE_API_BASE_URL }}" dist/assets/*.js
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=spending-tracker --branch=main
+
+  smoke:
+    needs: [backend, frontend]
+    if: ${{ always() && (needs.backend.result == 'success' || needs.frontend.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post-deploy smoke (health, auth gate, single CORS header)
+        env:
+          API: ${{ vars.VITE_API_BASE_URL }}
+          ORIGIN: https://spending-tracker-1o6.pages.dev
+        run: |
+          set -e
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$API/healthz")" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$API/api/transactions")" = 401
+          n=$(curl -s -D- -o /dev/null "$API/api/transactions" -H "Origin: $ORIGIN" \
+              | grep -ci 'access-control-allow-origin: https')
+          test "$n" = 1  # exactly one ACAO header (browsers reject duplicates)
