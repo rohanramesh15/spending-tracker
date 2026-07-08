@@ -21,6 +21,7 @@ from sqlmodel import Session, select
 from app.api.schemas import ReceiptDraft, ReceiptDraftItem
 from app.core.auth import current_user_id, get_db
 from app.models.tables import Category
+from app.services.categorize import categorize
 from app.services.extract import extract_receipt
 from app.services.images import normalize_image
 
@@ -66,11 +67,17 @@ async def extract(
         for c in db.exec(select(Category).where(Category.user_id == user_id)).all()
     }
 
+    # Pre-fill each item's category from the model's guess; if that name doesn't resolve,
+    # fall back to the deterministic classifier so the confirm screen is never blank (the
+    # user can still change it). categorize() always returns a seeded category name.
+    def _resolve(li) -> str | None:
+        return name_to_id.get(li.category) or name_to_id.get(categorize(name=li.raw_name))
+
     items = [
         ReceiptDraftItem(
             raw_name=li.raw_name,
             normalized_name=li.normalized_name,
-            category_id=name_to_id.get(li.category),
+            category_id=_resolve(li),
             category_name=li.category,
             price_cents=li.price_cents,
             quantity=li.quantity,

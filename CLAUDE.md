@@ -69,6 +69,7 @@ New code must never silently break existing functionality. This is enforced, not
 4. **Layers:** pure unit for logic (reconcile, pricing, recurring, taxonomy, extract, images, auth, CORS parsing); integration against a real disposable Postgres for anything touching DB/RLS/ingest/reconcile (the RLS smoke test is the crown jewel); frontend vitest for UI logic + key components/flows.
 5. **Never hit real external services in a test** — Gemini/Plaid/Kroger/Places are mocked or faked; a real API call in a test is a bug (flaky, costly, and Plaid Items are lifetime-capped).
 6. **Fix a bug → write the failing test first**, then fix (e.g. the config-CORS parse and migration-drift regressions).
+7. **Run the full suite locally after implementing ANY feature — before commit/PR/deploy.** Don't rely on CI to catch a regression after the fact. Backend: spin a throwaway `postgres:16`, `SUPABASE_DB_URL=<it> uv run alembic upgrade head && uv run pytest` (unit + integration). Frontend: `pnpm lint && pnpm test && pnpm build`. Green locally → then ship.
 
 ## Definition of done (each phase)
 
