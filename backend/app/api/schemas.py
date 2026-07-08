@@ -19,6 +19,9 @@ class LineItemIn(BaseModel):
     raw_name: str
     normalized_name: str | None = None
     category_id: str | None = None
+    # Transient categorization hint (Plaid PFC primary); NOT stored — when category_id is
+    # absent, ingest uses this + the item name to auto-assign a category via categorize().
+    plaid_pfc: str | None = None
     # Line-extended total in cents (quantity x unit price) — matches what receipts print.
     price_cents: int
     quantity: Decimal = Decimal(1)

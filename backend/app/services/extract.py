@@ -18,7 +18,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import get_settings
-from app.core.taxonomy import REGULAR_CATEGORIES
+from app.core.taxonomy import CATEGORY_DESCRIPTIONS, REGULAR_CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class ExtractedReceipt(BaseModel):
 
 
 def _prompt() -> str:
-    cats = ", ".join(REGULAR_CATEGORIES)
+    cats = "; ".join(f"{c} ({CATEGORY_DESCRIPTIONS[c]})" for c in REGULAR_CATEGORIES)
     return (
         "You are a receipt-extraction engine. Read this receipt image and return JSON "
         "matching the schema. Rules:\n"
@@ -183,28 +183,28 @@ def _extract_mock() -> ExtractedReceipt:
             ExtractedLineItem(
                 raw_name="GV MILK 2% GAL",
                 normalized_name="milk, 2%",
-                category="Dairy",
+                category="Food & Drink",
                 price_cents=399,
                 quantity=Decimal(1),
             ),
             ExtractedLineItem(
                 raw_name="ORG BANANAS",
                 normalized_name="bananas",
-                category="Produce",
+                category="Food & Drink",
                 price_cents=129,
                 quantity=Decimal(1),
             ),
             ExtractedLineItem(
                 raw_name="SOURDOUGH LOAF",
                 normalized_name="bread, sourdough",
-                category="Bakery",
+                category="Food & Drink",
                 price_cents=449,
                 quantity=Decimal(1),
             ),
             ExtractedLineItem(
                 raw_name="PAPER TOWELS 6PK",
                 normalized_name="paper towels",
-                category="Household",
+                category="Shopping",
                 price_cents=200,
                 quantity=Decimal(1),
             ),
