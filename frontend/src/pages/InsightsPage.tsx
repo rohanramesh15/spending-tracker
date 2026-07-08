@@ -5,6 +5,7 @@ import { useRecurring, useSpending } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
 import { Sparkline } from "@/components/Sparkline";
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
+import { ChartSkeleton, ListSkeleton, Skeleton } from "@/components/Skeletons";
 import { rangePresets, formatRangeLabel } from "@/lib/dates";
 import { formatCents } from "@/lib/utils";
 import type { RecurringItem } from "@/api/types";
@@ -28,12 +29,16 @@ export default function InsightsPage() {
 
   return (
     <section className="space-y-5">
-      <h1 className="text-xl font-semibold">Insights</h1>
-
-      <DateRangePicker value={range} onChange={setRange} />
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Insights</h1>
+        <DateRangePicker value={range} onChange={setRange} />
+      </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <div className="space-y-4">
+          <Skeleton className="h-7 w-32" />
+          <ChartSkeleton />
+        </div>
       ) : hasData ? (
         <>
           <p className="text-2xl font-bold">{formatCents(data!.total_cents)}</p>
@@ -51,7 +56,7 @@ export default function InsightsPage() {
           <h2 className="text-sm font-medium">Recurring items</h2>
         </div>
         {recurring.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <ListSkeleton rows={3} />
         ) : recurring.data && recurring.data.length > 0 ? (
           <ul className="divide-y rounded-xl border">
             {recurring.data.map((item) => (
