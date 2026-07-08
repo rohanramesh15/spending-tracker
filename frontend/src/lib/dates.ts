@@ -1,10 +1,4 @@
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  subMonths,
-  subDays,
-} from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, subDays } from "date-fns";
 
 /** Local calendar dates as YYYY-MM-DD (matches the backend's local `purchased_on`). */
 export function toISODate(d: Date): string {
@@ -23,6 +17,14 @@ export function parseISODate(iso: string): Date {
 
 export function todayISO(): string {
   return toISODate(new Date());
+}
+
+/** Human label for a range, e.g. "Mar 3 – Apr 1, 2026" (or a single day). */
+export function formatRangeLabel(start: string, end: string): string {
+  const s = parseISODate(start);
+  const e = parseISODate(end);
+  if (start === end) return format(s, "MMM d, yyyy");
+  return `${format(s, "MMM d")} – ${format(e, "MMM d, yyyy")}`;
 }
 
 export interface DateRange {

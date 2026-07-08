@@ -13,5 +13,9 @@ use_container = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
-# region = "us-east-1"          # set to your region
-# parameter_overrides = "SsmParamPrefix=/spending-tracker CorsAllowOrigins='[\"https://your-frontend\"]'"
+region = "ca-central-1"
+# CORS allow-list: the Cloudflare Pages origin + localhost for dev. Plain COMMA-separated,
+# no quotes/brackets — SAM shlex-parses this string and would eat a JSON array's quotes
+# (leaving a bare "[" that 502s the Lambda at init). The app parses it (config._parse_origins).
+# SsmParamPrefix keeps its /spending-tracker default (matches the pushed SecureString params).
+parameter_overrides = "CorsAllowOrigins=https://spending-tracker-1o6.pages.dev,http://localhost:5173,http://localhost:5174"

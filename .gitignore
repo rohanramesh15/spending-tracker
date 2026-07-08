@@ -30,3 +30,6 @@ packaged.yaml
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Cloudflare deploy token (local only, never committed)
+.cf-secrets

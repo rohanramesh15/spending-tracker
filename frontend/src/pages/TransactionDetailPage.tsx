@@ -1,11 +1,13 @@
+import { useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, Camera } from "lucide-react";
 import { useTransaction, useDeleteTransaction } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
 import { parseISODate } from "@/lib/dates";
+import { setPendingReceipt } from "@/lib/scanFile";
 
 /**
  * Transaction detail (user-flow §7): header + line-item table. No photo is ever
@@ -16,6 +18,7 @@ export default function TransactionDetailPage() {
   const navigate = useNavigate();
   const { data: txn, isLoading } = useTransaction(id);
   const del = useDeleteTransaction();
+  const scanInput = useRef<HTMLInputElement>(null);
 
   async function remove() {
     if (!id) return;
@@ -24,13 +27,29 @@ export default function TransactionDetailPage() {
     navigate("/transactions");
   }
 
+  // Scan a receipt for an unitemized (bank/imported) transaction. On save, attended
+  // reconciliation finds this same purchase and offers Merge — attaching the itemization.
+  function onScanPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) {
+      setPendingReceipt(file);
+      navigate("/scan");
+    }
+  }
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!txn) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
   return (
     <section className="space-y-5">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -39,7 +58,13 @@ export default function TransactionDetailPage() {
             {format(parseISODate(txn.purchased_on), "EEEE, MMM d, yyyy")} · {txn.source}
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={remove} aria-label="Delete" disabled={del.isPending}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={remove}
+          aria-label="Delete"
+          disabled={del.isPending}
+        >
           <Trash2 className="h-4 w-4 text-destructive" />
         </Button>
       </div>
@@ -50,7 +75,9 @@ export default function TransactionDetailPage() {
             {txn.line_items.map((li) => (
               <li key={li.id} className="flex items-center justify-between px-4 py-2.5">
                 <div>
-                  <p className="text-sm font-medium">{li.normalized_name ?? li.raw_name}</p>
+                  <p className="text-sm font-medium">
+                    {li.normalized_name ?? li.raw_name}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {li.category_name ?? "Uncategorized"}
                   </p>
@@ -61,9 +88,27 @@ export default function TransactionDetailPage() {
           </ul>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          No itemized detail — charted under Uncategorized.
-        </p>
+        <div className="rounded-xl border bg-muted/30 p-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            No itemized detail — charted under Uncategorized.
+          </p>
+          <input
+            ref={scanInput}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={onScanPicked}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => scanInput.current?.click()}
+          >
+            <Camera className="mr-2 h-4 w-4" /> Scan a receipt to itemize
+          </Button>
+        </div>
       )}
 
       <dl className="space-y-1 rounded-xl bg-muted/40 px-4 py-3 text-sm">

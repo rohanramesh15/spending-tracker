@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/components/CategorySelect";
+import { ReconcileDialog } from "@/components/ReconcileDialog";
 import { useIngest } from "@/api/hooks";
-import type { IngestRequest } from "@/api/types";
+import type {
+  IngestRequest,
+  IngestResult,
+  ReconcileMatch,
+  Resolution,
+} from "@/api/types";
 import { dollarsToCents, formatCents } from "@/lib/utils";
 import { todayISO } from "@/lib/dates";
 
@@ -45,6 +51,9 @@ export default function ManualEntryPage() {
   const itemizedTotal = itemsCents + taxCents + tipCents;
 
   const [error, setError] = useState<string | null>(null);
+  const [pendingMatch, setPendingMatch] = useState<ReconcileMatch | null>(null);
+
+  const incomingTotal = mode === "quick" ? (dollarsToCents(total) ?? 0) : itemizedTotal;
 
   function buildPayload(): IngestRequest | string {
     if (!vendor.trim()) return "Add a vendor.";
@@ -58,7 +67,9 @@ export default function ManualEntryPage() {
         purchased_on: date,
         subtotal_cents: cents,
         total_cents: cents,
-        line_items: [{ raw_name: vendor.trim(), category_id: category, price_cents: cents }],
+        line_items: [
+          { raw_name: vendor.trim(), category_id: category, price_cents: cents },
+        ],
       };
     }
     const items = rows.filter((r) => r.name.trim() && dollarsToCents(r.amount));
@@ -79,6 +90,38 @@ export default function ManualEntryPage() {
     };
   }
 
+  function announce(
+    payload: IngestRequest,
+    result: IngestResult,
+    resolution?: Resolution,
+  ) {
+    const msg =
+      resolution === "merge"
+        ? "Added to your existing entry"
+        : resolution === "replace"
+          ? "Replaced your existing entry"
+          : result.status === "skipped"
+            ? "Kept your existing entry"
+            : `Saved — ${vendor}, ${formatCents(payload.total_cents)}`;
+    toast.success(msg);
+    navigate("/transactions");
+  }
+
+  async function submit(payload: IngestRequest, resolution?: Resolution) {
+    try {
+      const result = await ingest.mutateAsync(payload);
+      if (result.status === "needs_decision" && result.match) {
+        setPendingMatch(result.match);
+        return;
+      }
+      setPendingMatch(null);
+      announce(payload, result, resolution);
+    } catch (e) {
+      setPendingMatch(null);
+      setError(e instanceof Error ? e.message : "Failed to save");
+    }
+  }
+
   async function save() {
     const payload = buildPayload();
     if (typeof payload === "string") {
@@ -86,19 +129,31 @@ export default function ManualEntryPage() {
       return;
     }
     setError(null);
-    try {
-      await ingest.mutateAsync(payload);
-      toast.success(`Saved — ${vendor}, ${formatCents(payload.total_cents)}`);
-      navigate("/transactions");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
-    }
+    await submit(payload);
+  }
+
+  async function resolve(resolution: Resolution) {
+    const payload = buildPayload();
+    if (typeof payload === "string" || !pendingMatch) return;
+    await submit(
+      {
+        ...payload,
+        resolution,
+        matched_transaction_id: pendingMatch.matched_transaction_id,
+      },
+      resolution,
+    );
   }
 
   return (
     <section className="space-y-5">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-xl font-semibold">Add manually</h1>
@@ -112,7 +167,9 @@ export default function ManualEntryPage() {
             onClick={() => setMode(m)}
             className={
               "rounded-md px-3 py-1 capitalize " +
-              (mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground")
+              (mode === m
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground")
             }
           >
             {m}
@@ -123,16 +180,32 @@ export default function ManualEntryPage() {
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 space-y-2">
           <Label htmlFor="vendor">Vendor</Label>
-          <Input id="vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="e.g. Kroger" />
+          <Input
+            id="vendor"
+            value={vendor}
+            onChange={(e) => setVendor(e.target.value)}
+            placeholder="e.g. Kroger"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="date">Date</Label>
-          <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input
+            id="date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </div>
         {mode === "quick" && (
           <div className="space-y-2">
             <Label htmlFor="total">Total</Label>
-            <Input id="total" inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="0.00" />
+            <Input
+              id="total"
+              inputMode="decimal"
+              value={total}
+              onChange={(e) => setTotal(e.target.value)}
+              placeholder="0.00"
+            />
           </div>
         )}
       </div>
@@ -151,7 +224,9 @@ export default function ManualEntryPage() {
                 placeholder="Item"
                 value={r.name}
                 onChange={(e) =>
-                  setRows((rs) => rs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                  setRows((rs) =>
+                    rs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                  )
                 }
               />
               <Input
@@ -159,7 +234,9 @@ export default function ManualEntryPage() {
                 placeholder="0.00"
                 value={r.amount}
                 onChange={(e) =>
-                  setRows((rs) => rs.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))
+                  setRows((rs) =>
+                    rs.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)),
+                  )
                 }
               />
               <Button
@@ -174,7 +251,9 @@ export default function ManualEntryPage() {
                 <CategorySelect
                   value={r.categoryId}
                   onChange={(id) =>
-                    setRows((rs) => rs.map((x, j) => (j === i ? { ...x, categoryId: id } : x)))
+                    setRows((rs) =>
+                      rs.map((x, j) => (j === i ? { ...x, categoryId: id } : x)),
+                    )
                   }
                 />
               </div>
@@ -183,7 +262,9 @@ export default function ManualEntryPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setRows((rs) => [...rs, { name: "", amount: "", categoryId: null }])}
+            onClick={() =>
+              setRows((rs) => [...rs, { name: "", amount: "", categoryId: null }])
+            }
           >
             <Plus className="mr-1 h-4 w-4" /> Add item
           </Button>
@@ -191,11 +272,23 @@ export default function ManualEntryPage() {
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="space-y-2">
               <Label htmlFor="tax">Tax</Label>
-              <Input id="tax" inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="0.00" />
+              <Input
+                id="tax"
+                inputMode="decimal"
+                value={tax}
+                onChange={(e) => setTax(e.target.value)}
+                placeholder="0.00"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="tip">Tip</Label>
-              <Input id="tip" inputMode="decimal" value={tip} onChange={(e) => setTip(e.target.value)} placeholder="0.00" />
+              <Input
+                id="tip"
+                inputMode="decimal"
+                value={tip}
+                onChange={(e) => setTip(e.target.value)}
+                placeholder="0.00"
+              />
             </div>
           </div>
           <div className="flex justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm font-medium">
@@ -209,6 +302,14 @@ export default function ManualEntryPage() {
       <Button className="w-full" onClick={save} disabled={ingest.isPending}>
         {ingest.isPending ? "Saving…" : "Save"}
       </Button>
+
+      <ReconcileDialog
+        match={pendingMatch}
+        incoming={{ vendor: vendor.trim(), total_cents: incomingTotal }}
+        busy={ingest.isPending}
+        onResolve={resolve}
+        onCancel={() => setPendingMatch(null)}
+      />
     </section>
   );
 }

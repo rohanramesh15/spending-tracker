@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Plus, Camera, Pencil, Landmark } from "lucide-react";
 import { useTransactions } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
-import { formatCents } from "@/lib/utils";
+import { cn, formatCents } from "@/lib/utils";
 import { parseISODate } from "@/lib/dates";
 import type { TransactionListItem, TransactionSource } from "@/api/types";
+
+type Filter = "all" | "needs_review";
 
 const SOURCE_ICON: Record<TransactionSource, typeof Camera> = {
   receipt: Camera,
@@ -26,7 +29,15 @@ function groupByDay(txns: TransactionListItem[]): [string, TransactionListItem[]
 /** Transactions — the browsable ledger (user-flow §5), grouped by day. */
 export default function TransactionsPage() {
   const { data, isLoading } = useTransactions();
-  const groups = data ? groupByDay(data) : [];
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const all = data ?? [];
+  const reviewCount = all.filter((t) => t.review_status === "needs_review").length;
+  const visible =
+    filter === "needs_review"
+      ? all.filter((t) => t.review_status === "needs_review")
+      : all;
+  const groups = groupByDay(visible);
 
   return (
     <section className="space-y-4">
@@ -39,15 +50,41 @@ export default function TransactionsPage() {
         </Button>
       </div>
 
+      {/* Filter (user-flow §5). The 'Needs review' toggle only appears when there's a queue. */}
+      {reviewCount > 0 && (
+        <div className="inline-flex rounded-lg border p-1 text-sm">
+          {(["all", "needs_review"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "rounded-md px-3 py-1",
+                filter === f
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              {f === "all" ? "All" : `Needs review (${reviewCount})`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : groups.length === 0 ? (
         <div className="rounded-xl border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-          No transactions yet.{" "}
-          <Link to="/add" className="text-primary hover:underline">
-            Add one
-          </Link>
-          .
+          {filter === "needs_review" ? (
+            "Nothing needs review."
+          ) : (
+            <>
+              No transactions yet.{" "}
+              <Link to="/add" className="text-primary hover:underline">
+                Add one
+              </Link>
+              .
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-5">

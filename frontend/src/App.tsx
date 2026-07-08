@@ -6,7 +6,10 @@ import HomePage from "./pages/HomePage";
 import TransactionsPage from "./pages/TransactionsPage";
 import TransactionDetailPage from "./pages/TransactionDetailPage";
 import ManualEntryPage from "./pages/ManualEntryPage";
+import ScanPage from "./pages/ScanPage";
 import InsightsPage from "./pages/InsightsPage";
+import FinderPage from "./pages/FinderPage";
+import ReviewQueuePage from "./pages/ReviewQueuePage";
 import SettingsPage from "./pages/SettingsPage";
 
 /**
@@ -23,7 +26,10 @@ export default function App() {
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/transactions/:id" element={<TransactionDetailPage />} />
           <Route path="/add" element={<ManualEntryPage />} />
+          <Route path="/scan" element={<ScanPage />} />
           <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/finder" element={<FinderPage />} />
+          <Route path="/review" element={<ReviewQueuePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
