@@ -65,7 +65,7 @@ jobs:
           version: 11.9.0 # explicit: action runs at repo root (no root package.json to read)
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # pnpm 11.9 needs Node >=22.13 (uses node:sqlite); matches local
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
