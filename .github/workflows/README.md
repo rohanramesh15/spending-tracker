@@ -1,12 +1,15 @@
 # CI/CD
 
-Three workflows:
+Workflows:
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| **ci.yml** | every PR + push to `main` | Path-filtered: **backend** (Postgres service → roles → `alembic upgrade` → ruff/black → `pytest`, incl. integration + RLS smoke + the route-inventory guard), **frontend** (`pnpm lint`/`test`/`build`), **infra** (`sam validate --lint`). Gate merges on these. |
-| **deploy.yml** | push to `main` | Path-filtered. **backend**: OIDC → `sam build --use-container` → `sam deploy`. **frontend**: `pnpm build` (VITE_* injected) → **bundle-URL guard** → `wrangler pages deploy`. **smoke**: `/healthz` 200, protected route 401, exactly one CORS header. |
+| **ci.yml** | every PR + push to `main` | Path-filtered: **backend** (Postgres service → roles → `alembic upgrade` → ruff/black → `pytest`, incl. integration + RLS smoke + the route-inventory guard), **frontend** (`pnpm lint`/`test`/`build`), **infra** (`sam validate --lint`). Gate merges on these. Node 22 + pnpm 11.9 pinned. |
+| **codeql.yml** | PR + push to `main` + weekly | **SAST** (static security analysis) for `javascript-typescript` and `python`, `security-extended` queries. Findings land in **Security → Code scanning**. Free on public repos. |
+| **deploy.yml** | push to `main` | Path-filtered. **backend**: OIDC → `sam build --use-container` → `sam deploy`. **frontend**: `pnpm build` (VITE_* injected) → **bundle-URL guard** → `wrangler pages deploy`. **smoke**: `/healthz` 200, protected route 401, exactly one CORS header. Gated by the `production` environment (required reviewer). |
 | **migrate.yml** | manual (`workflow_dispatch`) | Typed `migrate prod` confirmation + separate approver → `alembic upgrade head`. **DB migrations are never automatic.** |
+
+Plus **`dependabot.yml`** (not a workflow): weekly dependency-update PRs for the frontend (pnpm), backend (pip/uv), and the pinned GitHub Actions. **Secret scanning + push protection** are enabled on the repo.
 
 ## One-time setup (only the repo owner can do these)
 

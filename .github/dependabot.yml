@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Frontend deps (pnpm lockfile lives under the 'npm' ecosystem).
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for routine minor/patch bumps instead of a swarm.
+      frontend-minor:
+        update-types: [minor, patch]
+
+  # Backend Python deps (reads backend/pyproject.toml + uv.lock).
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      backend-minor:
+        update-types: [minor, patch]
+
+  # Keep the GitHub Actions we pin (checkout@v4, setup-uv@v5, …) current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
