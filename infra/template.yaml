@@ -149,6 +149,20 @@ Resources:
         Arn: !GetAtt WorkerFunction.Arn
         RoleArn: !GetAtt SchedulerInvokeRole.Arn
 
+  # --- EventBridge Scheduler: Plaid fallback re-sync (webhooks are the fast path; this is
+  #     the safety net for missed/delayed transaction webhooks — industry standard) ---
+  PlaidSyncSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: spending-tracker-plaid-sync
+      State: ENABLED
+      ScheduleExpression: rate(6 hours)
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt WorkerFunction.Arn
+        RoleArn: !GetAtt SchedulerInvokeRole.Arn
+        Input: '{"job":"plaid_sync"}'
+
 Outputs:
   ApiFunctionUrl:
     Description: Public Function URL of the API Lambda (set as the frontend's VITE_API_BASE_URL).

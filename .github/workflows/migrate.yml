@@ -1,0 +1,39 @@
+name: Migrate DB (manual)
+
+# DB migrations are deliberately NOT part of Deploy — schema drift already caused a prod
+# outage here. This is a manual, typed-confirmation, separately-approved job.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "migrate prod" to proceed'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    if: ${{ inputs.confirm == 'migrate prod' }}
+    runs-on: ubuntu-latest
+    environment: production-db # give this its own required reviewer
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --dev
+      - name: Current revision (before)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: uv run alembic current
+      - name: Upgrade to head
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: uv run alembic upgrade head
+      - name: Current revision (after — verify at head)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: uv run alembic current

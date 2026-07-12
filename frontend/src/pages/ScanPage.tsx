@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
+import { ScanLoader } from "@/components/ScanLoader";
 import { useExtractReceipt, useIngest } from "@/api/hooks";
 import type {
   IngestRequest,
@@ -200,17 +201,7 @@ export default function ScanPage() {
         </div>
       )}
 
-      {stage === "extracting" && (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Reading your receipt…</p>
-          <div className="space-y-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">Keep this open — almost done.</p>
-        </div>
-      )}
+      {stage === "extracting" && <ScanLoader />}
 
       {stage === "error" && (
         <div className="rounded-xl border bg-muted/30 p-6 text-center">

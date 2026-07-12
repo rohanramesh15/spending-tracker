@@ -184,6 +184,35 @@ export function useExchangePublicToken() {
   });
 }
 
+/** Update-mode Link token for an existing connection (reconnect / add accounts — no new Item). */
+export function useCreateUpdateLinkToken() {
+  return useMutation({
+    mutationFn: (linkedAccountId: string) =>
+      apiFetch<LinkTokenOut>("/api/plaid/link-token/update", {
+        method: "POST",
+        body: JSON.stringify({ linked_account_id: linkedAccountId }),
+      }),
+  });
+}
+
+/** After a successful update-mode Link: reactivate the account + sync (server-side). */
+export function useAccountReconnected() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: string) =>
+      apiFetch<SyncSummary>(`/api/plaid/accounts/${accountId}/reconnected`, {
+        method: "POST",
+        body: "{}",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["linked-accounts"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}
+
 export function useSyncBank() {
   const qc = useQueryClient();
   return useMutation({
