@@ -98,3 +98,22 @@ jobs:
         with:
           use-installer: true
       - run: sam validate --lint -t infra/template.yaml
+
+  # Single required status check for branch protection. Because the jobs above are
+  # path-filtered (a backend-only PR skips frontend), requiring them individually would
+  # block a PR forever on a skipped job. This gate always runs and fails only if a job
+  # that actually ran ended in failure/cancelled — skipped is fine.
+  ci-success:
+    needs: [changes, backend, frontend, infra]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all triggered jobs to have succeeded
+        run: |
+          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}" "${{ needs.infra.result }}"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "A required CI job did not pass (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} infra=${{ needs.infra.result }})"
+              exit 1
+            fi
+          done
+          echo "CI gate OK (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} infra=${{ needs.infra.result }})"
