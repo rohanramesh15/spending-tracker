@@ -9,7 +9,25 @@ Workflows:
 | **deploy.yml** | push to `main` | Path-filtered. **backend**: OIDC → `sam build --use-container` → `sam deploy`. **frontend**: `pnpm build` (VITE_* injected) → **bundle-URL guard** → `wrangler pages deploy`. **smoke**: `/healthz` 200, protected route 401, exactly one CORS header. Gated by the `production` environment (required reviewer). |
 | **migrate.yml** | manual (`workflow_dispatch`) | Typed `migrate prod` confirmation + separate approver → `alembic upgrade head`. **DB migrations are never automatic.** |
 
-Plus **`dependabot.yml`** (not a workflow): weekly dependency-update PRs for the frontend (pnpm), backend (pip/uv), and the pinned GitHub Actions. **Secret scanning + push protection** are enabled on the repo.
+Plus **`dependabot.yml`** (not a workflow): weekly dependency-update PRs for the frontend (pnpm), backend (pip/uv), and the pinned GitHub Actions. **`dependabot-auto-merge.yml`** auto-merges the minor/patch ones once `ci-success` passes (majors stay manual). **Secret scanning + push protection** are enabled on the repo.
+
+## Observability — knowing when prod breaks
+
+Defined as infrastructure in `infra/template.yaml` (CloudWatch alarms → SNS → email), all within always-free:
+
+| Alarm | Fires when |
+|---|---|
+| `spending-tracker-api-errors` | the API Lambda logs ≥1 error in 5 min |
+| `spending-tracker-worker-errors` | the worker Lambda (Plaid sync / jobs) errors |
+| `spending-tracker-dlq-not-empty` | a background job failed 5× and hit the dead-letter queue |
+
+The email goes to the `AlertEmail` template parameter. **After the first deploy, click the one-time "Confirm subscription" link AWS emails** — otherwise alarms can't reach you.
+
+## Rollback
+
+- **Backend:** a failed `sam deploy`/CloudFormation update rolls the stack back automatically. To undo a *successful-but-bad* deploy, re-run `deploy.yml` on the previous good commit (or `git revert` → merge).
+- **Frontend:** Cloudflare Pages keeps every deployment — roll back instantly from the Pages dashboard (Deployments → previous → "Rollback"), or redeploy the previous commit.
+- **DB:** migrations are reversible (`alembic downgrade -1`) via a manual `migrate.yml`-style run; never auto-rolled.
 
 ## One-time setup (only the repo owner can do these)
 

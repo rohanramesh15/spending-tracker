@@ -22,6 +22,13 @@ Parameters:
       No quotes/brackets: SAM shlex-parses parameter_overrides and would strip a JSON
       array's quotes, leaving a bare "[" that 502s the app at init. The app parses this
       plain string (config._parse_origins).
+  AlertEmail:
+    Type: String
+    Default: rohanramesh15@gmail.com
+    Description: >
+      Where prod alerts go (Lambda errors, dead-letter queue not empty). After the first
+      deploy AWS emails a one-time "Confirm subscription" link — you MUST click it or the
+      alarms can't reach you. $0: CloudWatch alarms + SNS email are within always-free.
 
 Globals:
   Function:
@@ -163,6 +170,77 @@ Resources:
         RoleArn: !GetAtt SchedulerInvokeRole.Arn
         Input: '{"job":"plaid_sync"}'
 
+  # --- Observability: email me when prod breaks (Lambda errors, stuck jobs) ---
+  # CloudWatch alarms → SNS → email. The one thing the pipeline was missing: knowing when
+  # something fails in prod. All within always-free (10 alarms + SNS email free).
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: spending-tracker-alerts
+
+  AlertsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  ApiErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: spending-tracker-api-errors
+      AlarmDescription: The API Lambda returned one or more errors in the last 5 minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching # no invocations ≠ a problem
+      AlarmActions: [!Ref AlertsTopic]
+      OKActions: [!Ref AlertsTopic] # also tell me when it recovers
+
+  WorkerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: spending-tracker-worker-errors
+      AlarmDescription: The worker Lambda (Plaid sync / background jobs) errored in the last 5 minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WorkerFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopic]
+      OKActions: [!Ref AlertsTopic]
+
+  DlqNotEmptyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: spending-tracker-dlq-not-empty
+      AlarmDescription: A background job failed maxReceiveCount times and landed in the dead-letter queue.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt JobsDLQ.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopic]
+
 Outputs:
   ApiFunctionUrl:
     Description: Public Function URL of the API Lambda (set as the frontend's VITE_API_BASE_URL).
@@ -173,3 +251,6 @@ Outputs:
   JobsDLQUrl:
     Description: Dead-letter queue URL.
     Value: !Ref JobsDLQ
+  AlertsTopicArn:
+    Description: SNS topic that fans out prod alarms to email.
+    Value: !Ref AlertsTopic
