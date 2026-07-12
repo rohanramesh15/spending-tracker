@@ -72,8 +72,7 @@ def detect_recurring(rows: list[LineRow], *, min_occurrences: int = 3) -> list[R
         for i in items:
             by_day[i.purchased_on].append(_unit_price_cents(i.price_cents, i.quantity))
         history = [
-            (day, round(sum(prices) / len(prices)))
-            for day, prices in sorted(by_day.items())
+            (day, round(sum(prices) / len(prices))) for day, prices in sorted(by_day.items())
         ]
         avg_unit = round(sum(p for _, p in history) / len(history))
 

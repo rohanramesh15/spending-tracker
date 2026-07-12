@@ -33,9 +33,24 @@ _MAX_RESULTS = 15
 # Kroger-family banners: Places returns these too, but they're already pinned (with prices)
 # from the Kroger API, so drop them from the "other nearby stores" (no-price) pins.
 _KROGER_BANNERS = (
-    "kroger", "ralphs", "fry's", "king soopers", "smith's", "fred meyer", "qfc",
-    "harris teeter", "food 4 less", "foods co", "mariano", "pick 'n save",
-    "metro market", "dillons", "baker's", "city market", "gerbes", "fresh fare",
+    "kroger",
+    "ralphs",
+    "fry's",
+    "king soopers",
+    "smith's",
+    "fred meyer",
+    "qfc",
+    "harris teeter",
+    "food 4 less",
+    "foods co",
+    "mariano",
+    "pick 'n save",
+    "metro market",
+    "dillons",
+    "baker's",
+    "city market",
+    "gerbes",
+    "fresh fare",
 )
 
 

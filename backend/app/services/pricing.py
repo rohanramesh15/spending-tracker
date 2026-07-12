@@ -18,22 +18,43 @@ from decimal import Decimal
 
 # Conversion factors to each dimension's base unit.
 _VOLUME_FLOZ: dict[str, Decimal] = {
-    "fl oz": Decimal(1), "floz": Decimal(1), "oz": Decimal(1),  # "oz" in a volume context
-    "gal": Decimal(128), "gallon": Decimal(128), "gallons": Decimal(128),
-    "qt": Decimal(32), "quart": Decimal(32), "quarts": Decimal(32),
-    "pt": Decimal(16), "pint": Decimal(16), "pints": Decimal(16),
-    "l": Decimal("33.814"), "liter": Decimal("33.814"), "litre": Decimal("33.814"),
+    "fl oz": Decimal(1),
+    "floz": Decimal(1),
+    "oz": Decimal(1),  # "oz" in a volume context
+    "gal": Decimal(128),
+    "gallon": Decimal(128),
+    "gallons": Decimal(128),
+    "qt": Decimal(32),
+    "quart": Decimal(32),
+    "quarts": Decimal(32),
+    "pt": Decimal(16),
+    "pint": Decimal(16),
+    "pints": Decimal(16),
+    "l": Decimal("33.814"),
+    "liter": Decimal("33.814"),
+    "litre": Decimal("33.814"),
     "ml": Decimal("0.033814"),
 }
 _WEIGHT_OZ: dict[str, Decimal] = {
-    "oz": Decimal(1), "lb": Decimal(16), "lbs": Decimal(16),
-    "pound": Decimal(16), "pounds": Decimal(16),
-    "g": Decimal("0.035274"), "gram": Decimal("0.035274"), "grams": Decimal("0.035274"),
+    "oz": Decimal(1),
+    "lb": Decimal(16),
+    "lbs": Decimal(16),
+    "pound": Decimal(16),
+    "pounds": Decimal(16),
+    "g": Decimal("0.035274"),
+    "gram": Decimal("0.035274"),
+    "grams": Decimal("0.035274"),
     "kg": Decimal("35.274"),
 }
 _COUNT: dict[str, Decimal] = {
-    "ct": Decimal(1), "count": Decimal(1), "pk": Decimal(1), "pack": Decimal(1),
-    "ea": Decimal(1), "each": Decimal(1), "rolls": Decimal(1), "roll": Decimal(1),
+    "ct": Decimal(1),
+    "count": Decimal(1),
+    "pk": Decimal(1),
+    "pack": Decimal(1),
+    "ea": Decimal(1),
+    "each": Decimal(1),
+    "rolls": Decimal(1),
+    "roll": Decimal(1),
 }
 _DIMENSIONS = {"volume": _VOLUME_FLOZ, "weight": _WEIGHT_OZ, "count": _COUNT}
 _BASE_UNIT = {"volume": "fl oz", "weight": "oz", "count": "ct"}

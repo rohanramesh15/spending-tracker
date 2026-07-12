@@ -93,9 +93,7 @@ class LinkedAccount(SQLModel, table=True):
     # drives incremental /transactions/sync.
     access_token: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     item_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    transactions_cursor: str | None = Field(
-        default=None, sa_column=Column(String, nullable=True)
-    )
+    transactions_cursor: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     last_synced_at: datetime | None = nullable_timestamp()
     created_at: datetime = created_at_col()
 

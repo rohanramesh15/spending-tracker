@@ -35,9 +35,7 @@ def _get_token() -> str:
         return str(cached)
 
     s = get_settings()
-    basic = base64.b64encode(
-        f"{s.kroger_client_id}:{s.kroger_client_secret}".encode()
-    ).decode()
+    basic = base64.b64encode(f"{s.kroger_client_id}:{s.kroger_client_secret}".encode()).decode()
     resp = httpx.post(
         f"{_BASE}/connect/oauth2/token",
         headers={
