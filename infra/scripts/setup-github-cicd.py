@@ -64,6 +64,16 @@ cf = readenv(".cf-secrets")
 fe = readenv("frontend/.env")
 be = readenv("backend/.env")
 
+# frontend/.env leaves VITE_API_BASE_URL blank on purpose (local dev proxies /api). The
+# prod URL lives in the gitignored .env.production.local — prefer it, and never push a
+# blank (an empty API URL ships a dead app + fails the deploy's bundle guard).
+fe_prod = readenv("frontend/.env.production.local") if os.path.exists(
+    os.path.join(ROOT, "frontend/.env.production.local")
+) else {}
+api_base = fe_prod.get("VITE_API_BASE_URL") or fe.get("VITE_API_BASE_URL")
+if not api_base:
+    raise SystemExit("VITE_API_BASE_URL is blank in both .env.production.local and .env")
+
 secrets = {
     "CLOUDFLARE_API_TOKEN": cf["CLOUDFLARE_API_TOKEN"],
     "CLOUDFLARE_ACCOUNT_ID": cf["CLOUDFLARE_ACCOUNT_ID"],
