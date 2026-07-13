@@ -3,20 +3,26 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Sector } fro
 import type { SpendingSlice } from "@/api/types";
 import { formatCents } from "@/lib/utils";
 
-// Categorical palette (brand-neutral). Tax/Tip/Uncategorized get fixed hues for recall.
-const PALETTE = [
-  "#2563eb", "#16a34a", "#db2777", "#d97706", "#7c3aed",
-  "#0891b2", "#dc2626", "#65a30d", "#c026d3", "#0d9488",
-  "#ea580c", "#4f46e5", "#059669", "#e11d48", "#9333ea",
-];
-const FIXED: Record<string, string> = {
+// Fixed color per category so a category always shows the SAME hue (stable legend/recall),
+// not a color that shifts with slice order. Matches the 7-category taxonomy.
+const CATEGORY_COLORS: Record<string, string> = {
+  "Food and Drinks": "#ea580c", // orange
+  Shopping: "#eab308", // yellow
+  Entertainment: "#db2777", // pink
+  "Travel/Transportation": "#16a34a", // green
+  Health: "#dc2626", // red
+  Services: "#9333ea", // purple
+  Other: "#64748b", // neutral slate
+  // System slices + the unitemized bucket.
   Tax: "#94a3b8",
   Tip: "#cbd5e1",
   Uncategorized: "#e2e8f0",
 };
+// Fallback only for an unexpected label (the fixed taxonomy shouldn't produce one).
+const PALETTE = ["#2563eb", "#0891b2", "#4f46e5", "#0d9488", "#c026d3"];
 
 function colorFor(category: string, i: number): string {
-  return FIXED[category] ?? PALETTE[i % PALETTE.length];
+  return CATEGORY_COLORS[category] ?? PALETTE[i % PALETTE.length];
 }
 
 const RADIAN = Math.PI / 180;
@@ -109,7 +115,8 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
           nameKey="name"
           innerRadius={55}
           outerRadius={95}
-          paddingAngle={1}
+          paddingAngle={0}
+          stroke="none"
           labelLine={false}
           label={renderSelectedPercent}
           activeIndex={activeIndex}

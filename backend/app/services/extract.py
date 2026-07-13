@@ -80,6 +80,55 @@ def extract_receipt(image_bytes: bytes, mime_type: str = "image/jpeg") -> Extrac
     return _extract_gemini(image_bytes, mime_type, settings.gemini_api_key, settings.gemini_model)
 
 
+def classify_category(name: str) -> str:
+    """LLM fallback for the hybrid classifier: given a merchant/item name the deterministic
+    keyword classifier couldn't place, ask Gemini to pick one taxonomy category.
+
+    Returns a valid category, or ``Other`` when no key is configured or the call fails — so
+    the caller (ingest) degrades gracefully to the deterministic result. Same provider seam
+    as extraction; no Gemini types leak out. Keep this side of the ``extract_receipt`` module
+    so ``categorize`` stays pure.
+    """
+    name = (name or "").strip()
+    if not name:
+        return "Other"
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        # No LLM available — the deterministic classifier already ran, so nothing to add.
+        return "Other"
+    try:
+        return _classify_gemini(name, settings.gemini_api_key, settings.gemini_model)
+    except Exception:  # noqa: BLE001 - never let a categorization call break ingest
+        logger.exception("Gemini category fallback failed; using Other")
+        return "Other"
+
+
+def _classify_gemini(name: str, api_key: str, model: str) -> str:
+    from google import genai
+    from google.genai import types
+
+    cats = "; ".join(f"{c} ({CATEGORY_DESCRIPTIONS[c]})" for c in REGULAR_CATEGORIES)
+    prompt = (
+        "Classify a single purchase into exactly one spending category.\n"
+        f"Merchant or item: {name!r}\n"
+        f"Choose the single best category from EXACTLY this list: {cats}.\n"
+        "Reply with ONLY the category name, written exactly as above. If it doesn't clearly "
+        "fit any, reply 'Other'."
+    )
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=model,
+        contents=[prompt],
+        config=types.GenerateContentConfig(temperature=0.0),
+    )
+    answer = (getattr(response, "text", "") or "").strip().strip(".\"'")
+    # Case-insensitive match back onto the canonical taxonomy; anything else → Other.
+    for c in REGULAR_CATEGORIES:
+        if answer.lower() == c.lower():
+            return c
+    return "Other"
+
+
 # --- Gemini wire schema -------------------------------------------------------------
 # Gemini's controlled generation (response_schema) reliably supports only primitive JSON
 # types — OBJECT/STRING/INTEGER/NUMBER/ARRAY/BOOL and string enums. It does NOT support
@@ -183,21 +232,21 @@ def _extract_mock() -> ExtractedReceipt:
             ExtractedLineItem(
                 raw_name="GV MILK 2% GAL",
                 normalized_name="milk, 2%",
-                category="Food & Drink",
+                category="Food and Drinks",
                 price_cents=399,
                 quantity=Decimal(1),
             ),
             ExtractedLineItem(
                 raw_name="ORG BANANAS",
                 normalized_name="bananas",
-                category="Food & Drink",
+                category="Food and Drinks",
                 price_cents=129,
                 quantity=Decimal(1),
             ),
             ExtractedLineItem(
                 raw_name="SOURDOUGH LOAF",
                 normalized_name="bread, sourdough",
-                category="Food & Drink",
+                category="Food and Drinks",
                 price_cents=449,
                 quantity=Decimal(1),
             ),
