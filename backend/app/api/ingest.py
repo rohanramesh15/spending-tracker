@@ -27,6 +27,7 @@ from app.core.auth import current_user_id, get_db
 from app.models.enums import Resolution, ReviewStatus, TransactionSource
 from app.models.tables import Category, LineItem, ReconciliationReview, Transaction
 from app.services.categorize import categorize
+from app.services.extract import classify_category
 from app.services.reconcile import find_match, match_score
 
 router = APIRouter(prefix="/api", tags=["ingest"])
@@ -210,6 +211,15 @@ def _add_line_items(db: Session, user_id: str, transaction_id, payload: IngestRe
                     for c in db.exec(select(Category).where(Category.user_id == user_id)).all()
                 }
             name = categorize(name=item.raw_name, plaid_pfc=item.plaid_pfc)
+            # Hybrid: if the deterministic classifier can't place a MANUAL entry, escalate to
+            # the Gemini fallback (bank rows already have Plaid's strong PFC signal, and a
+            # bulk sync shouldn't fan out LLM calls). Degrades to "Other" if Gemini is off.
+            if (
+                name == "Other"
+                and payload.source == TransactionSource.manual
+                and (item.raw_name or "").strip()
+            ):
+                name = classify_category(item.raw_name)
             category_id = cat_map.get(name) or cat_map.get("Other")
         db.add(
             LineItem(

@@ -1,22 +1,36 @@
-import { useState } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Sector } from "recharts";
+import { useEffect, useRef, useState } from "react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+  Sector,
+} from "recharts";
 import type { SpendingSlice } from "@/api/types";
 import { formatCents } from "@/lib/utils";
 
-// Categorical palette (brand-neutral). Tax/Tip/Uncategorized get fixed hues for recall.
-const PALETTE = [
-  "#2563eb", "#16a34a", "#db2777", "#d97706", "#7c3aed",
-  "#0891b2", "#dc2626", "#65a30d", "#c026d3", "#0d9488",
-  "#ea580c", "#4f46e5", "#059669", "#e11d48", "#9333ea",
-];
-const FIXED: Record<string, string> = {
+// Fixed color per category so a category always shows the SAME hue (stable legend/recall),
+// not a color that shifts with slice order. Matches the 7-category taxonomy.
+const CATEGORY_COLORS: Record<string, string> = {
+  "Food and Drinks": "#ea580c", // orange
+  Shopping: "#eab308", // yellow
+  Entertainment: "#db2777", // pink
+  "Travel/Transportation": "#16a34a", // green
+  Health: "#dc2626", // red
+  Services: "#9333ea", // purple
+  Other: "#64748b", // neutral slate
+  // System slices + the unitemized bucket.
   Tax: "#94a3b8",
   Tip: "#cbd5e1",
   Uncategorized: "#e2e8f0",
 };
+// Fallback only for an unexpected label (the fixed taxonomy shouldn't produce one).
+const PALETTE = ["#2563eb", "#0891b2", "#4f46e5", "#0d9488", "#c026d3"];
 
 function colorFor(category: string, i: number): string {
-  return FIXED[category] ?? PALETTE[i % PALETTE.length];
+  return CATEGORY_COLORS[category] ?? PALETTE[i % PALETTE.length];
 }
 
 const RADIAN = Math.PI / 180;
@@ -77,6 +91,18 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
   const data = slices.map((s) => ({ name: s.category, value: s.cents }));
   // -1 = nothing selected. Clicking a slice selects it; clicking it again clears.
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Clicking anywhere outside the chart clears the selected slice (closes the popup).
+  useEffect(() => {
+    function onDocPointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setActiveIndex(-1);
+      }
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, []);
 
   // The percentage shows ONLY on the slice the user has clicked — centered in its ring.
   const renderSelectedPercent = (props: unknown) => {
@@ -101,35 +127,38 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
   };
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="name"
-          innerRadius={55}
-          outerRadius={95}
-          paddingAngle={1}
-          labelLine={false}
-          label={renderSelectedPercent}
-          activeIndex={activeIndex}
-          activeShape={renderActiveSlice}
-          onClick={(_, index) =>
-            setActiveIndex((cur) => (cur === index ? -1 : index))
-          }
-          className="cursor-pointer focus:outline-none [&_*]:outline-none"
-        >
-          {data.map((entry, i) => (
-            <Cell key={entry.name} fill={colorFor(entry.name, i)} />
-          ))}
-        </Pie>
-        <Tooltip formatter={(value: number) => formatCents(value)} />
-        <Legend
-          verticalAlign="bottom"
-          height={36}
-          formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div ref={containerRef}>
+      <ResponsiveContainer width="100%" height={260}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={55}
+            outerRadius={95}
+            paddingAngle={0}
+            stroke="none"
+            labelLine={false}
+            label={renderSelectedPercent}
+            activeIndex={activeIndex}
+            activeShape={renderActiveSlice}
+            onClick={(_, index) => setActiveIndex((cur) => (cur === index ? -1 : index))}
+            className="cursor-pointer focus:outline-none [&_*]:outline-none"
+          >
+            {data.map((entry, i) => (
+              <Cell key={entry.name} fill={colorFor(entry.name, i)} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(value: number) => formatCents(value)} />
+          <Legend
+            verticalAlign="bottom"
+            height={36}
+            formatter={(value) => (
+              <span className="text-xs text-foreground">{value}</span>
+            )}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
