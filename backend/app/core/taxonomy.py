@@ -1,42 +1,36 @@
 """The fixed category taxonomy (plan §9).
 
-Locked in Phase 1 and embedded in the Phase 2 extraction prompt — the LLM must pick
-from this list (fallback ``Other``), never invent categories. Renames are safe later
-(IDs stable); merges/splits require re-mapping historical rows, so this is the single
-source of truth. The migration's seed function mirrors this list.
+Reworked (2026-07-08) from the original 21 grocery-aisle buckets to 8 broad, life-spending
+categories aligned with how bank/card issuers categorize (Apple Card's model). The LLM must
+pick a category from this list (fallback ``Other``), never invent one; the same list backs
+the deterministic ``categorize()`` service (services/categorize.py) for bank + manual items.
+This is the single source of truth — the migration's seed function mirrors it.
 """
 
-# Regular categories the LLM assigns to line items (and used at transaction level for
-# unitemized bank charges). "Other" stays last as the fallback. The grocery aisles are
-# populated by scanned receipts; the life-spending buckets below cover bank-synced
-# transactions so they don't all fall into "Other"/"Uncategorized".
+# Regular categories assigned to line items (receipts) and to bank/manual transactions.
+# "Other" stays LAST as the fallback.
 REGULAR_CATEGORIES: tuple[str, ...] = (
-    # Grocery aisles (itemized from receipts)
-    "Produce",
-    "Dairy",
-    "Meat & Seafood",
-    "Bakery",
-    "Pantry",
-    "Frozen",
-    "Beverages",
-    "Snacks",
-    # Everyday / retail
-    "Household",
-    "Personal Care",
-    "Health/Pharmacy",
-    "Pet",
-    "Dining Out",
-    "Electronics",
-    "Clothing",
-    # Life-spending (mostly bank-synced)
-    "Transportation & Gas",
-    "Housing & Rent",
-    "Utilities & Bills",
-    "Entertainment & Subscriptions",
+    "Food & Drink",
+    "Shopping",
+    "Entertainment",
+    "Transportation",
     "Travel",
-    # Fallback — must stay last
+    "Health",
+    "Services",
     "Other",
 )
+
+# Short descriptions embedded in the extraction prompt to steer the model (kept terse).
+CATEGORY_DESCRIPTIONS: dict[str, str] = {
+    "Food & Drink": "restaurants, cafes, groceries, bars",
+    "Shopping": "retail and general merchandise, clothing, electronics, household goods",
+    "Entertainment": "streaming, games, events, movies, media",
+    "Transportation": "gas, rideshare, transit, parking, auto",
+    "Travel": "flights, hotels, lodging, and similar",
+    "Health": "pharmacies, medical, dental, wellness",
+    "Services": "subscriptions, utilities, rent/bills, professional services",
+    "Other": "anything that doesn't clearly fit the above",
+}
 
 # System categories, stored at transaction level and shown as their own pie slices.
 SYSTEM_CATEGORIES: tuple[str, ...] = ("Tax", "Tip")

@@ -37,6 +37,7 @@ from app.api.schemas import (
     ExchangeRequest,
     ExchangeResult,
     IngestRequest,
+    LineItemIn,
     LinkedAccountOut,
     LinkTokenOut,
     SyncSummary,
@@ -323,6 +324,16 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> SyncSumm
             purchased_on=txn["purchased_on"],
             total_cents=txn["amount_cents"],
             currency=txn["currency"],
+            # One line item carrying the whole charge + Plaid's category hint, so bank
+            # spending is categorized (via categorize()) instead of "Uncategorized". A
+            # later receipt merge replaces this with the receipt's real itemization.
+            line_items=[
+                LineItemIn(
+                    raw_name=txn["name"],
+                    price_cents=txn["amount_cents"],
+                    plaid_pfc=txn["pfc_primary"],
+                )
+            ],
         )
         outcome = ingest_transaction(payload, db=db, user_id=user_id)
         if outcome.status == "created":

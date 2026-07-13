@@ -59,6 +59,18 @@ This file is the operating summary. If this file and the docs ever disagree, the
 - Prefer boring, testable code over clever; this is a solo-maintained personal app.
 - Update `docs/implementation-plan.md` when reality forces a change, in the same commit as the change.
 
+## Regression testing (MANDATORY)
+
+New code must never silently break existing functionality. This is enforced, not trusted:
+
+1. **Every new feature ships with its regression tests in the same commit/PR.** Nothing merges without tests that pin the new behavior.
+2. **The route-inventory guard is law.** `backend/tests/test_route_inventory.py` fails if any API route lacks a test and isn't in its shrink-only `KNOWN_UNTESTED` backlog — so a new endpoint *cannot* merge untested. When you add/close a route's test, move it from `KNOWN_UNTESTED` into `TESTED`; never grow the backlog.
+3. **CI runs the full suite + coverage on every PR** (see the CI/CD design). Coverage must not drop.
+4. **Layers:** pure unit for logic (reconcile, pricing, recurring, taxonomy, extract, images, auth, CORS parsing); integration against a real disposable Postgres for anything touching DB/RLS/ingest/reconcile (the RLS smoke test is the crown jewel); frontend vitest for UI logic + key components/flows.
+5. **Never hit real external services in a test** — Gemini/Plaid/Kroger/Places are mocked or faked; a real API call in a test is a bug (flaky, costly, and Plaid Items are lifetime-capped).
+6. **Fix a bug → write the failing test first**, then fix (e.g. the config-CORS parse and migration-drift regressions).
+7. **Run the full suite locally after implementing ANY feature — before commit/PR/deploy.** Don't rely on CI to catch a regression after the fact. Backend: spin a throwaway `postgres:16`, `SUPABASE_DB_URL=<it> uv run alembic upgrade head && uv run pytest` (unit + integration). Frontend: `pnpm lint && pnpm test && pnpm build`. Green locally → then ship.
+
 ## Definition of done (each phase)
 
-Deployed and reachable (frontend on Cloudflare Pages, backend via `sam deploy`); pytest + frontend tests pass; the RLS smoke test passes; the plan's relevant user-flow states (loading/empty/error) exist, not just the happy path; and a short note of what changed appended to the phase's section in the plan.
+Deployed and reachable (frontend on Cloudflare Pages, backend via `sam deploy`); pytest + frontend tests pass; the RLS smoke test passes; **the route-inventory guard passes and every new endpoint/behavior has a regression test (see Regression testing)**; the plan's relevant user-flow states (loading/empty/error) exist, not just the happy path; and a short note of what changed appended to the phase's section in the plan.

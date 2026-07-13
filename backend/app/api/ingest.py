@@ -25,7 +25,8 @@ from sqlmodel import Session, select
 from app.api.schemas import IngestRequest, IngestResult, ReconcileMatch, TransactionOut
 from app.core.auth import current_user_id, get_db
 from app.models.enums import Resolution, ReviewStatus, TransactionSource
-from app.models.tables import LineItem, ReconciliationReview, Transaction
+from app.models.tables import Category, LineItem, ReconciliationReview, Transaction
+from app.services.categorize import categorize
 from app.services.reconcile import find_match, match_score
 
 router = APIRouter(prefix="/api", tags=["ingest"])
@@ -74,9 +75,7 @@ def ingest(
         # Unattended (Plaid webhook / scheduled sync) → NEVER auto-merge (CLAUDE.md #5).
         # Save the incoming as needs_review and open a reconciliation_reviews row; it's
         # excluded from charts until you resolve it from the queue.
-        txn = _insert_transaction(
-            db, user_id, payload, review_status=ReviewStatus.needs_review
-        )
+        txn = _insert_transaction(db, user_id, payload, review_status=ReviewStatus.needs_review)
         _open_review(db, user_id, incoming=txn, matched=match)
         return IngestResult(status="needs_review", transaction=_to_out(txn))
 
@@ -125,9 +124,7 @@ def _apply_resolution(db: Session, user_id: str, payload: IngestRequest) -> Inge
     raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown resolution: {resolution}")
 
 
-def _merge_into(
-    db: Session, user_id: str, matched: Transaction, payload: IngestRequest
-) -> None:
+def _merge_into(db: Session, user_id: str, matched: Transaction, payload: IngestRequest) -> None:
     """Attach the incoming receipt's itemization onto the existing transaction.
 
     Plan §6.3 merge default: the existing transaction is authoritative for total / date /
@@ -183,9 +180,7 @@ def _insert_transaction(
     return txn
 
 
-def _open_review(
-    db: Session, user_id: str, *, incoming: Transaction, matched: Transaction
-) -> None:
+def _open_review(db: Session, user_id: str, *, incoming: Transaction, matched: Transaction) -> None:
     """Record a pending unattended match for the needs-review queue (plan §6.3)."""
     db.add(
         ReconciliationReview(
@@ -203,7 +198,19 @@ def _open_review(
 
 
 def _add_line_items(db: Session, user_id: str, transaction_id, payload: IngestRequest) -> None:
+    cat_map: dict[str, str] | None = None  # lazily built name→id for auto-categorization
     for position, item in enumerate(payload.line_items):
+        category_id = item.category_id
+        if category_id is None:
+            # No category supplied (manual entry / bank row) → run the shared classifier
+            # and resolve to this user's category id, falling back to Other.
+            if cat_map is None:
+                cat_map = {
+                    c.name: str(c.id)
+                    for c in db.exec(select(Category).where(Category.user_id == user_id)).all()
+                }
+            name = categorize(name=item.raw_name, plaid_pfc=item.plaid_pfc)
+            category_id = cat_map.get(name) or cat_map.get("Other")
         db.add(
             LineItem(
                 user_id=user_id,
@@ -211,7 +218,7 @@ def _add_line_items(db: Session, user_id: str, transaction_id, payload: IngestRe
                 position=position,  # preserve the order the items arrived in
                 raw_name=item.raw_name,
                 normalized_name=item.normalized_name,
-                category_id=item.category_id,
+                category_id=category_id,
                 price_cents=item.price_cents,  # line-extended total (qty x unit)
                 quantity=item.quantity,
                 unit_size=item.unit_size,

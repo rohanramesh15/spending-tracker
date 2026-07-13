@@ -55,3 +55,37 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* --- Receipt-scan loader (see components/ScanLoader) --- */
+.scan-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 38%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--primary) / 0.16),
+    transparent
+  );
+  animation: scan-sweep 2.2s ease-in-out infinite;
+}
+@keyframes scan-sweep {
+  0% { transform: translateY(-40%); }
+  50% { transform: translateY(185%); }
+  100% { transform: translateY(-40%); }
+}
+.scan-phrase {
+  animation: scan-phrase-in 0.5s ease both;
+}
+@keyframes scan-phrase-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-beam,
+  .scan-phrase {
+    animation: none;
+  }
+}
