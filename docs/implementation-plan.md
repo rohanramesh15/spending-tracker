@@ -148,6 +148,8 @@ This is the exact door the future Apple Card agent will POST to.
 ### 6.4 Categorization
 The LLM assigns each line item a category from a fixed taxonomy. **Tax and tip are their own categories**, stored at transaction level and surfaced as pie slices so the chart reconciles to the exact amount paid. User overrides are saved to `category_overrides` and bias future categorization.
 
+> **Recategorized to 8 broad buckets (2026-07-08).** The original 21 grocery-aisle categories were replaced with 8 life-spending categories (Food & Drink, Shopping, Entertainment, Transportation, Travel, Health, Services, Other) aligned to how card issuers categorize (Tax/Tip stay as system categories). A shared deterministic `categorize()` service (`services/categorize.py`) is the single "robust algorithm" across all three sources: **receipts** (the model picks from the 8 in the prompt), **bank sync** (map Plaid's `personal_finance_category` → the 8; each bank txn now gets one categorized line item instead of charting as "Uncategorized"), and **manual entry / fallback** (keyword+merchant classifier; unresolved → `Other`). Migration `0003` reseeds the 8 per user, remaps existing line items + overrides via a confirmed old→new map, backfills existing bank rows, and is reversible via a backup table.
+
 ### 6.5 Per-purchase table
 Responsive: desktop = real table (item · price · category, with vendor/date/subtotal/tax/tip/total header); phone = stacked cards.
 
