@@ -20,7 +20,7 @@ jobs:
       frontend: ${{ steps.f.outputs.frontend }}
       infra: ${{ steps.f.outputs.infra }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
         id: f
         with:
@@ -48,7 +48,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --dev
       - name: Create Supabase-style roles (migration 0001 also makes 'authenticated')
@@ -74,7 +74,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 11.9.0 # explicit: action runs at repo root (no root package.json to read)
@@ -93,7 +93,7 @@ jobs:
     if: ${{ needs.changes.outputs.infra == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: aws-actions/setup-sam@v2
         with:
           use-installer: true
