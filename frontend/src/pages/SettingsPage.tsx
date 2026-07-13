@@ -12,7 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ConnectBankButton } from "@/components/ConnectBankButton";
+import {
+  ConnectBankButton,
+  AccountUpdateButton,
+  PlaidLinkProvider,
+} from "@/components/PlaidLink";
 import { ListSkeleton } from "@/components/Skeletons";
 import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@/api/hooks";
 import type { AccountStatus } from "@/api/types";
@@ -78,7 +82,8 @@ export default function SettingsPage() {
   const hasAccounts = (accounts.data?.length ?? 0) > 0;
 
   return (
-    <section className="space-y-8">
+    <PlaidLinkProvider>
+      <section className="space-y-8">
       <h1 className="text-xl font-semibold">Settings</h1>
 
       <div className="space-y-1 text-sm">
@@ -123,11 +128,7 @@ export default function SettingsPage() {
                         : " · not yet synced"}
                     </p>
                   </div>
-                  {a.status !== "active" && (
-                    <span className="text-xs font-medium text-warning-foreground">
-                      Action needed
-                    </span>
-                  )}
+                  <AccountUpdateButton accountId={a.id} status={a.status} />
                 </li>
               ))}
             </ul>
@@ -188,6 +189,7 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+      </section>
+    </PlaidLinkProvider>
   );
 }

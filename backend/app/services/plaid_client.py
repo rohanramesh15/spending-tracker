@@ -66,6 +66,31 @@ def create_link_token(
     return _client().link_token_create(req).link_token
 
 
+def create_update_link_token(
+    user_id: str, access_token: str, *, redirect_uri: str | None = None
+) -> str:
+    """A Link token in **update mode** for an existing Item — reconnect a connection that
+    needs reauth, and/or add newly-available accounts — WITHOUT creating a new Item (no
+    extra trial Item consumed). Update mode carries no ``products``;
+    ``account_selection_enabled`` lets the user add/adjust which accounts are shared.
+    ``redirect_uri`` is still required for OAuth banks (Chase/BofA/Amex)."""
+    from plaid.model.country_code import CountryCode
+    from plaid.model.link_token_create_request import LinkTokenCreateRequest
+    from plaid.model.link_token_create_request_update import LinkTokenCreateRequestUpdate
+    from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
+
+    req = LinkTokenCreateRequest(
+        user=LinkTokenCreateRequestUser(client_user_id=user_id),
+        client_name="Spending Tracker",
+        country_codes=[CountryCode("US")],
+        language="en",
+        access_token=access_token,
+        update=LinkTokenCreateRequestUpdate(account_selection_enabled=True),
+        **({"redirect_uri": redirect_uri} if redirect_uri else {}),
+    )
+    return _client().link_token_create(req).link_token
+
+
 def exchange_public_token(public_token: str) -> dict:
     """Trade the short-lived public_token (from Link) for the durable access_token + item_id."""
     from plaid.model.item_public_token_exchange_request import (
