@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Sector } from "recharts";
+import { useEffect, useRef, useState } from "react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+  Sector,
+} from "recharts";
 import type { SpendingSlice } from "@/api/types";
 import { formatCents } from "@/lib/utils";
 
@@ -83,6 +91,18 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
   const data = slices.map((s) => ({ name: s.category, value: s.cents }));
   // -1 = nothing selected. Clicking a slice selects it; clicking it again clears.
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Clicking anywhere outside the chart clears the selected slice (closes the popup).
+  useEffect(() => {
+    function onDocPointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setActiveIndex(-1);
+      }
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, []);
 
   // The percentage shows ONLY on the slice the user has clicked — centered in its ring.
   const renderSelectedPercent = (props: unknown) => {
@@ -107,36 +127,38 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
   };
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="name"
-          innerRadius={55}
-          outerRadius={95}
-          paddingAngle={0}
-          stroke="none"
-          labelLine={false}
-          label={renderSelectedPercent}
-          activeIndex={activeIndex}
-          activeShape={renderActiveSlice}
-          onClick={(_, index) =>
-            setActiveIndex((cur) => (cur === index ? -1 : index))
-          }
-          className="cursor-pointer focus:outline-none [&_*]:outline-none"
-        >
-          {data.map((entry, i) => (
-            <Cell key={entry.name} fill={colorFor(entry.name, i)} />
-          ))}
-        </Pie>
-        <Tooltip formatter={(value: number) => formatCents(value)} />
-        <Legend
-          verticalAlign="bottom"
-          height={36}
-          formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div ref={containerRef}>
+      <ResponsiveContainer width="100%" height={260}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={55}
+            outerRadius={95}
+            paddingAngle={0}
+            stroke="none"
+            labelLine={false}
+            label={renderSelectedPercent}
+            activeIndex={activeIndex}
+            activeShape={renderActiveSlice}
+            onClick={(_, index) => setActiveIndex((cur) => (cur === index ? -1 : index))}
+            className="cursor-pointer focus:outline-none [&_*]:outline-none"
+          >
+            {data.map((entry, i) => (
+              <Cell key={entry.name} fill={colorFor(entry.name, i)} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(value: number) => formatCents(value)} />
+          <Legend
+            verticalAlign="bottom"
+            height={36}
+            formatter={(value) => (
+              <span className="text-xs text-foreground">{value}</span>
+            )}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
