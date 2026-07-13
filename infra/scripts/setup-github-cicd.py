@@ -95,7 +95,7 @@ sealed = public.SealedBox(public.PublicKey(pk["key"].encode(), encoding.Base64En
 for name, val in secrets.items():
     enc = base64.b64encode(sealed.encrypt(val.encode())).decode()
     st, _ = api("PUT", f"/actions/secrets/{name}", {"encrypted_value": enc, "key_id": pk["key_id"]})
-    print(f"  secret   {name}: {'ok' if st in (201, 204) else st}")
+    print(f"  secret   upload: {'ok' if st in (201, 204) else st}")
 
 for name, val in variables.items():
     st, _ = api("POST", "/actions/variables", {"name": name, "value": val})
