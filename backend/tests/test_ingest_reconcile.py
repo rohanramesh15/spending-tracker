@@ -193,3 +193,57 @@ def test_keep_both_inserts_a_second_transaction(client) -> None:
     assert body["status"] == "created"
     assert body["transaction"]["id"] != existing["id"]
     assert _txn_count(uid) == 2
+
+
+# --- Hybrid categorization: manual 'Other' escalates to the Gemini fallback -------------
+
+
+def _seed_categories(uid: uuid.UUID) -> None:
+    with admin_session() as db:
+        db.execute(text("SELECT seed_default_categories(cast(:u as uuid))"), {"u": str(uid)})
+        db.commit()
+
+
+def _first_item_category(txn_id: str) -> str | None:
+    with admin_session() as db:
+        return db.execute(
+            text(
+                "SELECT c.name FROM line_items li JOIN categories c ON c.id = li.category_id "
+                "WHERE li.transaction_id = :t ORDER BY li.position LIMIT 1"
+            ),
+            {"t": txn_id},
+        ).scalar()
+
+
+def _mystery_manual(**overrides) -> dict:
+    # A name the keyword classifier can't place → deterministic result is 'Other'.
+    return _manual_payload(
+        vendor="Zzq Mystery Vendor",
+        line_items=[{"raw_name": "Zzq Mystery Vendor", "price_cents": 500}],
+        subtotal_cents=500,
+        total_cents=500,
+        **overrides,
+    )
+
+
+def test_manual_other_escalates_to_llm_fallback(client, monkeypatch) -> None:
+    import app.api.ingest as ingest_mod
+
+    c, uid = client
+    _seed_categories(uid)
+    # Stand in for Gemini: the deterministic classifier returns Other, so ingest calls this.
+    monkeypatch.setattr(ingest_mod, "classify_category", lambda name: "Health")
+
+    txn = c.post("/api/ingest", json=_mystery_manual()).json()["transaction"]
+    assert _first_item_category(txn["id"]) == "Health"
+
+
+def test_manual_other_stays_other_when_llm_declines(client, monkeypatch) -> None:
+    import app.api.ingest as ingest_mod
+
+    c, uid = client
+    _seed_categories(uid)
+    monkeypatch.setattr(ingest_mod, "classify_category", lambda name: "Other")
+
+    txn = c.post("/api/ingest", json=_mystery_manual()).json()["transaction"]
+    assert _first_item_category(txn["id"]) == "Other"

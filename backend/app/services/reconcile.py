@@ -117,9 +117,7 @@ def find_match(
     return candidates[0]
 
 
-def match_score(
-    date_a: date, total_a_cents: int, date_b: date, total_b_cents: int
-) -> Decimal:
+def match_score(date_a: date, total_a_cents: int, date_b: date, total_b_cents: int) -> Decimal:
     """A 0–1 confidence for a matched pair, for the ``reconciliation_reviews`` row.
 
     1.0 = same day and identical total; small linear penalties within the (already

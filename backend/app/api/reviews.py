@@ -61,15 +61,11 @@ def list_reviews(
     if not reviews:
         return []
 
-    ids = {r.incoming_transaction_id for r in reviews} | {
-        r.matched_transaction_id for r in reviews
-    }
+    ids = {r.incoming_transaction_id for r in reviews} | {r.matched_transaction_id for r in reviews}
     txns = {
         t.id: t
         for t in db.exec(
-            select(Transaction).where(
-                Transaction.user_id == user_id, Transaction.id.in_(ids)
-            )
+            select(Transaction).where(Transaction.user_id == user_id, Transaction.id.in_(ids))
         ).all()
     }
     counts = _item_counts(db, user_id, ids)
@@ -177,9 +173,7 @@ def _overlay_itemization(
     ``source_txn`` (which only cascades its own children).
     """
     for li in db.exec(
-        select(LineItem).where(
-            LineItem.transaction_id == target.id, LineItem.user_id == user_id
-        )
+        select(LineItem).where(LineItem.transaction_id == target.id, LineItem.user_id == user_id)
     ).all():
         db.delete(li)  # a bank transaction has none, but be safe if merging twice
     db.flush()
@@ -216,9 +210,7 @@ def _overlay_itemization(
 
 def _get_txn(db: Session, user_id: str, txn_id) -> Transaction | None:
     return db.exec(
-        select(Transaction).where(
-            Transaction.id == txn_id, Transaction.user_id == user_id
-        )
+        select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id)
     ).first()
 
 

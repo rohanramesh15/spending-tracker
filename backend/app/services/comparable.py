@@ -137,9 +137,20 @@ def _build_mock(canonical_name: str) -> ComparableSpec:
             size_unit="gal",
             attributes=["2% fat", "dairy"],
             exclude_terms=[
-                "almond", "soy", "oat", "coconut", "organic", "lactose free",
-                "whole", "skim", "fat free", "nonfat", "1%", "chocolate",
-                "strawberry", "flavored",
+                "almond",
+                "soy",
+                "oat",
+                "coconut",
+                "organic",
+                "lactose free",
+                "whole",
+                "skim",
+                "fat free",
+                "nonfat",
+                "1%",
+                "chocolate",
+                "strawberry",
+                "flavored",
             ],
         )
     return ComparableSpec(

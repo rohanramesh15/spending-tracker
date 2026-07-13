@@ -11,7 +11,7 @@ from app.services.apple_card_csv import parse_apple_card_csv
 _SAMPLE = (
     "Transaction Date,Clearing Date,Description,Merchant,Category,Type,Amount (USD)\n"
     "07/01/2026,07/02/2026,APPLE.COM/BILL,Apple,Other,Purchase,9.99\n"
-    "07/02/2026,07/03/2026,WHOLEFDS,Whole Foods Market,Grocery,Purchase,\"1,254.20\"\n"
+    '07/02/2026,07/03/2026,WHOLEFDS,Whole Foods Market,Grocery,Purchase,"1,254.20"\n'
     "07/03/2026,07/04/2026,PAYMENT THANK YOU,Apple Card,Payment,Payment,-100.00\n"
     "07/04/2026,07/05/2026,REFUND,Some Store,Shopping,Purchase,-12.00\n"
 )
@@ -37,10 +37,7 @@ def test_external_id_is_stable_and_row_specific() -> None:
 
 def test_tolerates_bom_and_alternate_headers() -> None:
     # A BOM, different date format, and "Amount" instead of "Amount (USD)".
-    csv = (
-        "﻿Date,Description,Type,Amount\n"
-        "2026-07-05,Trader Joe's,Purchase,42.00\n"
-    )
+    csv = "﻿Date,Description,Type,Amount\n" "2026-07-05,Trader Joe's,Purchase,42.00\n"
     rows, skipped = parse_apple_card_csv(csv.encode())
     assert skipped == 0
     assert rows[0].vendor == "Trader Joe's"  # falls back to Description when no Merchant col

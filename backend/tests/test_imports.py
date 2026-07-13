@@ -85,9 +85,9 @@ def test_import_creates_purchases_skips_payments(client) -> None:
     assert body == {"imported": 2, "needs_review": 0, "duplicates": 0, "skipped": 1}
     assert _count("SELECT count(*) FROM transactions WHERE user_id=:u", uid) == 2
     # An Apple Card connected-account was created and rows attached to it.
-    assert _count(
-        "SELECT count(*) FROM linked_accounts WHERE user_id=:u AND is_apple_card", uid
-    ) == 1
+    assert (
+        _count("SELECT count(*) FROM linked_accounts WHERE user_id=:u AND is_apple_card", uid) == 1
+    )
 
 
 def test_reupload_is_idempotent(client) -> None:

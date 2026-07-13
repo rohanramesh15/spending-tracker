@@ -34,7 +34,11 @@ def test_item_login_required_sets_needs_reauth(mock_set):
 
     _handle_item_webhook(
         "item-1",
-        {"webhook_type": "ITEM", "webhook_code": "ERROR", "error": {"error_code": "ITEM_LOGIN_REQUIRED"}},
+        {
+            "webhook_type": "ITEM",
+            "webhook_code": "ERROR",
+            "error": {"error_code": "ITEM_LOGIN_REQUIRED"},
+        },
     )
     mock_set.assert_called_once_with("item-1", AccountStatus.needs_reauth)
 
@@ -51,7 +55,9 @@ def test_pending_expiration_sets_needs_reauth(mock_set):
 def test_permission_revoked_sets_disconnected(mock_set):
     from app.api.plaid import _handle_item_webhook
 
-    _handle_item_webhook("item-1", {"webhook_type": "ITEM", "webhook_code": "USER_PERMISSION_REVOKED"})
+    _handle_item_webhook(
+        "item-1", {"webhook_type": "ITEM", "webhook_code": "USER_PERMISSION_REVOKED"}
+    )
     mock_set.assert_called_once_with("item-1", AccountStatus.disconnected)
 
 
@@ -60,5 +66,7 @@ def test_informational_item_webhook_is_noop(mock_set):
     """A benign ITEM webhook (e.g. acknowledgement) must not change account status."""
     from app.api.plaid import _handle_item_webhook
 
-    _handle_item_webhook("item-1", {"webhook_type": "ITEM", "webhook_code": "WEBHOOK_UPDATE_ACKNOWLEDGED"})
+    _handle_item_webhook(
+        "item-1", {"webhook_type": "ITEM", "webhook_code": "WEBHOOK_UPDATE_ACKNOWLEDGED"}
+    )
     mock_set.assert_not_called()
