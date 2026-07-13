@@ -109,8 +109,8 @@ importers:
         specifier: ^9.17.0
         version: 9.39.4(jiti@1.21.7)(supports-color@10.2.2)
       globals:
-        specifier: ^15.14.0
-        version: 15.15.0
+        specifier: ^17.7.0
+        version: 17.7.0
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1(supports-color@10.2.2)
@@ -1686,8 +1686,8 @@ packages:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
     engines: {node: '>=18'}
 
-  globals@15.15.0:
-    resolution: {integrity: sha512-7ACyT3wmyp3I61S4fG682L0VA2RGD9otkqGJIwNUMF1SWUombIIk+af1unuDYgMm082aHYwD+mzJvv9Iu8dsgg==}
+  globals@17.7.0:
+    resolution: {integrity: sha512-Czmyns5dUsq4seFBR/Kdydhmo8y9kC79hiSkPn0YcGtNnYWnrgt0vjrSjx9tspoDGWm2CMarffRuLjM4xUz8xg==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -4096,7 +4096,7 @@ snapshots:
 
   globals@14.0.0: {}
 
-  globals@15.15.0: {}
+  globals@17.7.0: {}
 
   gopd@1.2.0: {}
 
