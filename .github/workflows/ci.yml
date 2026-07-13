@@ -49,7 +49,7 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --dev
       - name: Create Supabase-style roles (migration 0001 also makes 'authenticated')
         env:
