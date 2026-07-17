@@ -126,6 +126,7 @@ class TransactionListItem(BaseModel):
     currency: str
     review_status: ReviewStatus
     item_count: int
+    categories: list[str] = Field(default_factory=list)  # distinct line-item categories, for chips
 
 
 class TransactionDetail(TransactionListItem):

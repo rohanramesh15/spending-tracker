@@ -247,3 +247,24 @@ def test_manual_other_stays_other_when_llm_declines(client, monkeypatch) -> None
 
     txn = c.post("/api/ingest", json=_mystery_manual()).json()["transaction"]
     assert _first_item_category(txn["id"]) == "Other"
+
+
+def test_transactions_list_carries_distinct_categories(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    # Two line items in different categories → the row shows both, distinct + item-ordered.
+    c.post(
+        "/api/ingest",
+        json=_manual_payload(
+            vendor="Corner Store",
+            line_items=[
+                {"raw_name": "Starbucks coffee", "price_cents": 500},  # Food and Drinks
+                {"raw_name": "Target socks", "price_cents": 300},  # Shopping
+            ],
+            subtotal_cents=800,
+            total_cents=800,
+        ),
+    )
+    rows = c.get("/api/transactions").json()
+    row = next(r for r in rows if r["vendor"] == "Corner Store")
+    assert row["categories"] == ["Food and Drinks", "Shopping"]

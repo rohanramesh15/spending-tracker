@@ -38,8 +38,10 @@ def list_transactions(
     )
     txns = db.exec(stmt).all()
 
-    # One grouped query for item counts (avoid N+1).
+    # Grouped queries over the page's transactions (avoid N+1): item counts, and the
+    # distinct line-item category names (for the chips on each row, in item order).
     counts: dict[str, int] = {}
+    cats: dict[str, list[str]] = {}
     if txns:
         ids = [t.id for t in txns]
         count_rows = db.exec(
@@ -48,6 +50,17 @@ def list_transactions(
             .group_by(LineItem.transaction_id)
         ).all()
         counts = {str(tid): n for tid, n in count_rows}
+
+        cat_rows = db.exec(
+            select(LineItem.transaction_id, Category.name)
+            .join(Category, Category.id == LineItem.category_id)
+            .where(LineItem.user_id == user_id, LineItem.transaction_id.in_(ids))
+            .order_by(LineItem.transaction_id, LineItem.position)
+        ).all()
+        for tid, name in cat_rows:
+            names = cats.setdefault(str(tid), [])
+            if name not in names:  # distinct, preserving first-seen (item) order
+                names.append(name)
 
     return [
         TransactionListItem(
@@ -59,6 +72,7 @@ def list_transactions(
             currency=t.currency,
             review_status=t.review_status,
             item_count=counts.get(str(t.id), 0),
+            categories=cats.get(str(t.id), []),
         )
         for t in txns
     ]

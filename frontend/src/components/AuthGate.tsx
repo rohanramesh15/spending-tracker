@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/useAuth";
+import { Skeleton, ChartSkeleton, ListSkeleton } from "@/components/Skeletons";
 
 /**
  * Gate for authenticated routes (user-flow §0: "All screens work logged-in only;
@@ -17,9 +18,12 @@ export function AuthGate() {
   }
 
   if (loading) {
+    // Mirror the Home layout (total → chart → list) so the load reads as the app filling in.
     return (
-      <div className="flex min-h-dvh items-center justify-center text-sm text-muted-foreground">
-        Loading…
+      <div className="mx-auto min-h-dvh w-full max-w-3xl space-y-6 px-4 pt-6">
+        <Skeleton className="h-8 w-40" />
+        <ChartSkeleton />
+        <ListSkeleton rows={4} />
       </div>
     );
   }

@@ -29,6 +29,23 @@ export function ChartSkeleton() {
   );
 }
 
+/** Transaction-detail placeholder: header (vendor + date), item list, totals line. */
+export function DetailSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <ListSkeleton rows={4} />
+      <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+        <Skeleton className="h-4 w-14" />
+        <Skeleton className="h-4 w-16" />
+      </div>
+    </div>
+  );
+}
+
 /** Bordered list of placeholder rows: two stacked text lines + a trailing value. */
 export function ListSkeleton({ rows = 4 }: { rows?: number }) {
   return (

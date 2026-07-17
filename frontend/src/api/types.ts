@@ -36,6 +36,7 @@ export interface TransactionListItem {
   currency: string;
   review_status: ReviewStatus;
   item_count: number;
+  categories: string[]; // distinct line-item categories, for row chips
 }
 
 export interface TransactionDetail extends TransactionListItem {

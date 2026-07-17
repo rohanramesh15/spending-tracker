@@ -41,12 +41,12 @@ TESTED: set[tuple[str, str]] = {
     ("POST", "/api/reviews/{review_id}/resolve"),
     ("POST", "/api/plaid/exchange"),
     ("POST", "/api/plaid/sync"),
+    ("GET", "/api/transactions"),
 }
 
 # Pre-existing coverage gaps (from the audit). SHRINK THIS as tests are added; never grow it.
 KNOWN_UNTESTED: set[tuple[str, str]] = {
     ("GET", "/api/insights/spending"),
-    ("GET", "/api/transactions"),
     ("GET", "/api/transactions/{transaction_id}"),
     ("DELETE", "/api/transactions/{transaction_id}"),
     ("GET", "/api/categories"),

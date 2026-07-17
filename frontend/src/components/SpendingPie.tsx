@@ -10,22 +10,8 @@ import {
 } from "recharts";
 import type { SpendingSlice } from "@/api/types";
 import { formatCents } from "@/lib/utils";
+import { CATEGORY_COLORS } from "@/lib/categories";
 
-// Fixed color per category so a category always shows the SAME hue (stable legend/recall),
-// not a color that shifts with slice order. Matches the 7-category taxonomy.
-const CATEGORY_COLORS: Record<string, string> = {
-  "Food and Drinks": "#ea580c", // orange
-  Shopping: "#eab308", // yellow
-  Entertainment: "#db2777", // pink
-  "Travel/Transportation": "#16a34a", // green
-  Health: "#dc2626", // red
-  Services: "#9333ea", // purple
-  Other: "#64748b", // neutral slate
-  // System slices + the unitemized bucket.
-  Tax: "#94a3b8",
-  Tip: "#cbd5e1",
-  Uncategorized: "#e2e8f0",
-};
 // Fallback only for an unexpected label (the fixed taxonomy shouldn't produce one).
 const PALETTE = ["#2563eb", "#0891b2", "#4f46e5", "#0d9488", "#c026d3"];
 
