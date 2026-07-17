@@ -35,8 +35,6 @@ def _api_routes() -> set[tuple[str, str]]:
 TESTED: set[tuple[str, str]] = {
     ("GET", "/healthz"),
     ("POST", "/api/ingest"),
-    ("GET", "/api/recurring"),
-    ("GET", "/api/finder"),
     ("POST", "/api/plaid/webhook"),
     ("POST", "/api/import/apple-card"),
     ("GET", "/api/reviews"),
