@@ -114,21 +114,31 @@ def _vendors(uid: uuid.UUID) -> list[str]:
         )
 
 
-def test_sync_ingests_only_posted_spending(client, monkeypatch) -> None:
+def test_sync_ingests_money_out_including_outgoing_transfers(client, monkeypatch) -> None:
     c, uid = client
     _mock_sync(
         monkeypatch,
         added=[
-            _txn("t1", "Starbucks", 433),
-            _txn("t2", "Refund Co", -500),  # credit → skip
-            _txn("t3", "Pending Co", 999, pending=True),  # pending → skip
-            _txn("t4", "Gusto Payroll", 585000, pfc="INCOME"),  # income → skip
-            _txn("t5", "Card Payment", 20000, pfc="TRANSFER_OUT"),  # transfer → skip
+            _txn("t1", "Starbucks", 433),  # purchase → keep
+            _txn("t2", "Zelle to Roommate", 5000, pfc="TRANSFER_OUT"),  # outgoing transfer → KEEP
+            _txn("t3", "Refund Co", -500),  # inflow (credit) → skip
+            _txn("t4", "Pending Co", 999, pending=True),  # pending → skip
+            _txn("t5", "Gusto Payroll", 585000, pfc="INCOME"),  # income → skip
+            _txn("t6", "Zelle from Mom", -1200, pfc="TRANSFER_IN"),  # incoming transfer → skip
+            _txn("t7", "Amex Payment", 20000, pfc="LOAN_PAYMENTS"),  # card payment → skip
         ],
     )
     body = c.post("/api/plaid/sync").json()
-    assert body == {"added": 1, "needs_review": 0, "removed": 0}
-    assert _vendors(uid) == ["Starbucks"]
+    assert body["added"] == 2
+    assert body["needs_review"] == 0
+    assert _vendors(uid) == ["Starbucks", "Zelle to Roommate"]
+    # Per-account transparency: one account, 2 in, 5 filtered — never a bare "synced".
+    assert len(body["accounts"]) == 1
+    acct = body["accounts"][0]
+    assert acct["institution"] == "Test Bank"
+    assert acct["added"] == 2
+    assert acct["skipped"] == 5
+    assert acct["needs_attention"] is False
 
 
 def test_sync_match_goes_to_review_queue_not_auto_merged(client, monkeypatch) -> None:
@@ -146,7 +156,7 @@ def test_sync_match_goes_to_review_queue_not_auto_merged(client, monkeypatch) ->
     )
     _mock_sync(monkeypatch, added=[_txn("t1", "Starbucks", 433)])
     body = c.post("/api/plaid/sync").json()
-    assert body == {"added": 0, "needs_review": 1, "removed": 0}
+    assert (body["added"], body["needs_review"], body["removed"]) == (0, 1, 0)
     # The bank line is parked, not merged: both rows exist and a review is open.
     assert _txn_count(uid) == 2
     assert len(c.get("/api/reviews").json()) == 1
@@ -177,6 +187,23 @@ def test_sync_not_configured_returns_503(client, monkeypatch) -> None:
     c, _uid = client
     monkeypatch.setattr(plaid_client, "is_configured", lambda: False)
     assert c.post("/api/plaid/sync").status_code == 503
+
+
+def test_sync_surfaces_account_needing_reconnect(client, monkeypatch) -> None:
+    c, uid = client
+    # A reauth-lapsed account must be REPORTED, not silently skipped ("doesn't just say synced").
+    with admin_session() as db:
+        db.execute(
+            text("UPDATE linked_accounts SET status='needs_reauth' WHERE user_id = :u"),
+            {"u": uid},
+        )
+        db.commit()
+    body = c.post("/api/plaid/sync").json()
+    assert len(body["accounts"]) == 1
+    acct = body["accounts"][0]
+    assert acct["status"] == "needs_reauth"
+    assert acct["needs_attention"] is True
+    assert acct["added"] == 0 and acct["message"]
 
 
 def test_link_token_endpoint_returns_token(client, monkeypatch) -> None:

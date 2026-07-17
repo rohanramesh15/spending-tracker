@@ -69,6 +69,17 @@ export default function SettingsPage() {
   async function handleSync() {
     try {
       const s = await sync.mutateAsync();
+      const attention = s.accounts.filter((a) => a.needs_attention);
+      if (attention.length) {
+        // Never a silent "synced" while an account is actually stuck — name it.
+        toast.warning(
+          `${attention.map((a) => a.institution).join(", ")} need${
+            attention.length === 1 ? "s" : ""
+          } reconnecting`,
+          { description: s.added ? `${s.added} new added from your other accounts` : undefined },
+        );
+        return;
+      }
       toast.success(
         s.added || s.needs_review
           ? `Synced — ${s.added} added${s.needs_review ? `, ${s.needs_review} to review` : ""}`
