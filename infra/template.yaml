@@ -159,6 +159,21 @@ Resources:
         RoleArn: !GetAtt SchedulerInvokeRole.Arn
         Input: '{"job":"plaid_sync"}'
 
+  # --- EventBridge Scheduler: daily subscription monitor (docs/subscriptions-plan.md §5) —
+  #     recompute subscriptions, emit new/price-hike/upcoming/cancelled alerts, auto-cancel
+  #     overdue subs. Reuses the same worker + invoke role as the Plaid re-sync. ---
+  SubscriptionsScanSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: spending-tracker-subscriptions-scan
+      State: ENABLED
+      ScheduleExpression: rate(1 day)
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt WorkerFunction.Arn
+        RoleArn: !GetAtt SchedulerInvokeRole.Arn
+        Input: '{"job":"subscriptions_scan"}'
+
   # --- Observability: email me when prod breaks (Lambda errors, stuck jobs) ---
   # CloudWatch alarms → SNS → email. The one thing the pipeline was missing: knowing when
   # something fails in prod. All within always-free (10 alarms + SNS email free).

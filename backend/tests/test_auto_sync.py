@@ -28,6 +28,17 @@ def test_worker_sqs_event_does_not_run_sync():
     assert out == {"batchItemFailures": []}
 
 
+def test_worker_scheduled_event_runs_subscriptions_scan():
+    """EventBridge Scheduler with job=subscriptions_scan → runs the daily subscription scan."""
+    import app.worker as worker
+
+    result = {"job": "subscriptions_scan", "users": 2, "notifications": 3}
+    with patch("app.api.subscriptions.scan_all_subscriptions", return_value=result) as m:
+        out = worker.handler({"job": "subscriptions_scan"})
+    m.assert_called_once()
+    assert out == result
+
+
 @patch("app.api.plaid._set_item_status")
 def test_item_login_required_sets_needs_reauth(mock_set):
     from app.api.plaid import _handle_item_webhook
