@@ -284,6 +284,8 @@ function YourCards({ cards }: { cards: Card[] }) {
             <span className="shrink-0 text-muted-foreground">
               {c.reward_profile_name ??
                 (c.needs_confirmation ? "Needs confirmation" : "No rewards")}
+              {(c.reward_profile_source === "tavily" || c.reward_profile_source === "llm") &&
+                " · unverified"}
             </span>
           </li>
         ))}

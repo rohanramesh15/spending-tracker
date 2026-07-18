@@ -6,6 +6,9 @@ Plaid-name → profile matcher, and the cap-aware optimizer.
 
 from __future__ import annotations
 
+from datetime import date
+
+from app.services import rotating
 from app.services.reward_kb import get_profile, match_profile
 from app.services.rewards import (
     ActualUsage,
@@ -189,3 +192,51 @@ def test_optimize_attaches_actual_usage_fields():
     assert reco.current_card_key == "citi_double_cash"
     assert reco.current_card_name == "Citi Double Cash"
     assert reco.est_annual_missed_cents == 4056
+
+
+# --- v3: rotating quarterly categories --------------------------------------------------
+def test_quarter_of():
+    assert rotating.quarter_of(date(2026, 1, 15)) == (2026, 1)
+    assert rotating.quarter_of(date(2026, 7, 18)) == (2026, 3)
+    assert rotating.quarter_of(date(2026, 12, 31)) == (2026, 4)
+
+
+def test_rotating_overlay_active_quarter_wins():
+    disc = get_profile("discover_it_cash")
+    # Q1 2026 (placeholder): groceries is active → Discover earns 5% groceries this quarter.
+    boosted = rotating.with_rotating_bonus(disc, 2026, 1)
+    assert boosted.category_rates.get("groceries") == 0.05
+    # At modest volume the 5% rotating beats a flat 3% grocery card.
+    bce = get_profile("amex_blue_cash_everyday")
+    recos = optimize({"groceries": 50_000}, [boosted, bce], window_days=90)
+    assert recos[0].best_card_key == "discover_it_cash"
+
+
+def test_rotating_overlay_inactive_quarter_is_base():
+    disc = get_profile("discover_it_cash")
+    # Q2 2026 (placeholder): gas/transit active, groceries NOT → no grocery bonus.
+    boosted = rotating.with_rotating_bonus(disc, 2026, 2)
+    assert "groceries" not in boosted.category_rates
+    bce = get_profile("amex_blue_cash_everyday")
+    recos = optimize({"groceries": 50_000}, [boosted, bce], window_days=90)
+    assert recos[0].best_card_key == "amex_blue_cash_everyday"
+
+
+def test_rotating_overlay_leaves_non_rotating_untouched():
+    bce = get_profile("amex_blue_cash_everyday")
+    assert rotating.with_rotating_bonus(bce, 2026, 1) is bce
+
+
+def test_rotating_unknown_quarter_yields_no_bonus():
+    disc = get_profile("discover_it_cash")
+    # A quarter with no calendar entry → unchanged (safe: never over-credit).
+    assert rotating.with_rotating_bonus(disc, 2099, 1) is disc
+
+
+# --- v3: reward-rate refresh seam (mock-aware) ------------------------------------------
+def test_reward_refresh_is_noop_without_key():
+    from app.services import reward_refresh
+
+    # No TAVILY_API_KEY in the test env → the seam is a no-op (card stays unmatched).
+    assert reward_refresh.is_configured() is False
+    assert reward_refresh.fetch_reward_profile("Some Obscure Card") is None

@@ -66,6 +66,7 @@ def client(monkeypatch) -> Iterator[tuple[TestClient, uuid.UUID, str]]:
             db.execute(text("DELETE FROM cards WHERE user_id = :u"), {"u": user_id})
             db.execute(text("DELETE FROM transactions WHERE user_id = :u"), {"u": user_id})
             db.execute(text("DELETE FROM linked_accounts WHERE user_id = :u"), {"u": user_id})
+            db.execute(text("DELETE FROM reward_profiles"))  # global cache — clear between tests
             db.commit()
 
 
@@ -454,3 +455,46 @@ def test_worker_dispatches_rewards_backfill(monkeypatch):
     monkeypatch.setattr(plaid_api, "backfill_transaction_cards", lambda: 3)
     result = worker.handler({"job": "rewards_backfill"})
     assert result == {"job": "rewards_backfill", "synced": 3}
+
+
+# --- v3: reward-rate refresh (uncommon cards, mock the Tavily fetch) ---------------------
+def test_reward_refresh_matches_and_caches_uncommon_card(client, monkeypatch):
+    c, uid, acct = client
+    from app.services import reward_refresh
+
+    _seed_card(
+        uid, acct, plaid_account_id="ac_obscure", name="Obscure Rewards Card", subtype="credit card"
+    )  # not in the seed → unmatched
+    fetched = {
+        "key": "obscure_rewards_card",
+        "display_name": "Obscure Rewards Card",
+        "issuer": "Obscure Bank",
+        "base_rate": 0.01,
+        "category_rates": {"dining": 0.04},
+        "category_caps": {},
+        "points_value_cents": 1.0,
+        "source": "tavily",
+    }
+    monkeypatch.setattr(reward_refresh, "is_configured", lambda: True)
+    monkeypatch.setattr(reward_refresh, "fetch_reward_profile", lambda name: fetched)
+
+    assert reward_refresh.refresh_unmatched_cards() >= 1
+    # The card is now matched to the fetched (cached) profile, sourced 'tavily'.
+    card = next(x for x in c.get("/api/cards").json() if x["name"] == "Obscure Rewards Card")
+    assert card["reward_profile_key"] == "obscure_rewards_card"
+    assert card["reward_profile_source"] == "tavily"
+    assert card["reward_profile_name"] == "Obscure Rewards Card"
+    # And it participates in optimization via the cache (4% dining).
+    _seed_plaid_txn(uid, "Chipotle", 30_000)
+    body = c.get("/api/rewards/optimization?window_days=90").json()
+    dining = next(r for r in body["recommendations"] if r["reward_category"] == "dining")
+    assert dining["best_card_key"] == "obscure_rewards_card"
+
+
+def test_worker_dispatches_reward_profiles_refresh(monkeypatch):
+    from app import worker
+    from app.services import reward_refresh
+
+    monkeypatch.setattr(reward_refresh, "refresh_unmatched_cards", lambda: 2)
+    result = worker.handler({"job": "reward_profiles_refresh"})
+    assert result == {"job": "reward_profiles_refresh", "assigned": 2}

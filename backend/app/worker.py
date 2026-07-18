@@ -54,5 +54,12 @@ def _run_scheduled(event: dict) -> dict:
         synced = backfill_transaction_cards()
         logger.info("rewards backfill re-synced %d item(s)", synced)
         return {"job": job, "synced": synced}
+    if job == "reward_profiles_refresh":
+        # Rewards v3: fetch + cache rates for cards outside the curated seed (no-op w/o Tavily).
+        from app.services.reward_refresh import refresh_unmatched_cards
+
+        assigned = refresh_unmatched_cards()
+        logger.info("reward-profile refresh matched %d card(s)", assigned)
+        return {"job": job, "assigned": assigned}
     logger.warning("unknown scheduled job: %s", job)
     return {"job": job, "skipped": True}

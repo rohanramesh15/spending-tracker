@@ -19,7 +19,7 @@ from sqlmodel import Session, select
 from app.api.schemas import CardOut, SetCardProfileRequest
 from app.core.auth import current_user_id, get_db
 from app.models.tables import Card, LinkedAccount
-from app.services import reward_kb
+from app.services import reward_kb, reward_refresh
 from app.services.reward_kb import RewardProfile
 
 router = APIRouter(prefix="/api", tags=["cards"])
@@ -69,7 +69,11 @@ def list_cards(
         build_card_out(
             c,
             institutions.get(c.linked_account_id, ""),
-            reward_kb.get_profile(c.reward_profile_key) if c.reward_profile_key else None,
+            (
+                reward_refresh.resolve_profile(db, c.reward_profile_key)
+                if c.reward_profile_key
+                else None
+            ),
         )
         for c in cards
     ]

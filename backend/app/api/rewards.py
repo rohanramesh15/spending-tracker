@@ -30,7 +30,7 @@ from app.api.schemas import (
 from app.core.auth import current_user_id, get_db
 from app.models.enums import ReviewStatus, TransactionSource
 from app.models.tables import Card, Transaction
-from app.services import reward_kb
+from app.services import reward_kb, reward_refresh, rotating
 from app.services.reward_kb import RewardProfile
 from app.services.rewards import (
     CategoryReco,
@@ -87,7 +87,11 @@ def optimization(
         build_card_out(
             c,
             institutions.get(c.linked_account_id, ""),
-            reward_kb.get_profile(c.reward_profile_key) if c.reward_profile_key else None,
+            (
+                reward_refresh.resolve_profile(db, c.reward_profile_key)
+                if c.reward_profile_key
+                else None
+            ),
         )
         for c in cards
     ]
@@ -98,10 +102,18 @@ def optimization(
     wallet: dict[str, RewardProfile] = {}
     for c in cards:
         if c.reward_profile_key:
-            profile = reward_kb.get_profile(c.reward_profile_key)
+            profile = reward_refresh.resolve_profile(db, c.reward_profile_key)
             if profile is not None:
                 card_profiles[str(c.id)] = profile
                 wallet[profile.key] = profile
+
+    # v3: overlay this quarter's rotating 5% categories onto rotating cards (Freedom Flex /
+    # Discover it) so the optimizer credits them (rewards-optimizer-plan §5).
+    year, quarter = rotating.quarter_of(date.today())
+    wallet = {k: rotating.with_rotating_bonus(p, year, quarter) for k, p in wallet.items()}
+    card_profiles = {
+        cid: rotating.with_rotating_bonus(p, year, quarter) for cid, p in card_profiles.items()
+    }
 
     spend, attributed = _gather_spend(db, user_id, window_days, card_profiles)
     # v2: actual-vs-optimal per category, over spend we can attribute to a known card.
