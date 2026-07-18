@@ -136,3 +136,36 @@ def test_cannot_attach_child_to_other_users_transaction(two_users) -> None:
                 ),
                 {"uid": user_a, "txn": b_txn},
             )
+
+
+def test_cards_rls_read_isolation() -> None:
+    """A card is visible only to its owner (rewards-optimizer-plan §1 — cards in the RLS
+    smoke). Self-contained: seeds a linked_account + card for two users, checks isolation."""
+    user_a, user_b = uuid.uuid4(), uuid.uuid4()
+    try:
+        with admin_session() as db:
+            for uid, inst in ((user_a, "A-bank"), (user_b, "B-bank")):
+                acct = db.execute(
+                    text(
+                        "INSERT INTO linked_accounts (user_id, institution, source, status) "
+                        "VALUES (:uid, :inst, 'plaid', 'active') RETURNING id"
+                    ),
+                    {"uid": uid, "inst": inst},
+                ).scalar_one()
+                db.execute(
+                    text(
+                        "INSERT INTO cards (user_id, linked_account_id, plaid_account_id, name) "
+                        "VALUES (:uid, :acct, :pa, :name)"
+                    ),
+                    {"uid": uid, "acct": acct, "pa": f"pa-{uid}", "name": f"{inst} card"},
+                )
+            db.commit()
+        with rls_session(_claims(user_a)) as db:
+            names = db.execute(text("SELECT name FROM cards")).scalars().all()
+        assert names == ["A-bank card"], f"RLS leak in cards: saw {names}"
+    finally:
+        with admin_session() as db:
+            for uid in (user_a, user_b):
+                db.execute(text("DELETE FROM cards WHERE user_id = :uid"), {"uid": uid})
+                db.execute(text("DELETE FROM linked_accounts WHERE user_id = :uid"), {"uid": uid})
+            db.commit()

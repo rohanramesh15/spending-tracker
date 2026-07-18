@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
 from app.api import (
+    cards,
     categories,
     health,
     imports,
@@ -19,6 +20,7 @@ from app.api import (
     plaid,
     receipts,
     reviews,
+    rewards,
     subscriptions,
     transactions,
 )
@@ -49,6 +51,8 @@ app.include_router(receipts.router)
 app.include_router(reviews.router)
 app.include_router(plaid.router)
 app.include_router(imports.router)
+app.include_router(cards.router)
+app.include_router(rewards.router)
 app.include_router(subscriptions.router)
 app.include_router(notifications.router)
 

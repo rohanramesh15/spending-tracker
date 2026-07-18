@@ -47,6 +47,20 @@ def _run_scheduled(event: dict) -> dict:
         synced = sync_all_active_items()
         logger.info("plaid fallback sync completed for %d item(s)", synced)
         return {"job": job, "synced": synced}
+    if job == "rewards_backfill":
+        # Rewards v2 one-off: re-attribute historical transactions to their card + PFC.
+        from app.api.plaid import backfill_transaction_cards
+
+        synced = backfill_transaction_cards()
+        logger.info("rewards backfill re-synced %d item(s)", synced)
+        return {"job": job, "synced": synced}
+    if job == "reward_profiles_refresh":
+        # Rewards v3: fetch + cache rates for cards outside the curated seed (no-op w/o Tavily).
+        from app.services.reward_refresh import refresh_unmatched_cards
+
+        assigned = refresh_unmatched_cards()
+        logger.info("reward-profile refresh matched %d card(s)", assigned)
+        return {"job": job, "assigned": assigned}
     if job == "subscriptions_scan":
         # Daily subscription monitor: recompute + emit alerts + auto-cancel overdue subs.
         from app.api.subscriptions import scan_all_subscriptions

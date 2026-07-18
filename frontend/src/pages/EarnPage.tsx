@@ -38,7 +38,8 @@ const FEATURES: Feature[] = [
     subtitle: "Use the right card for more cashback",
     icon: CreditCard,
     bg: "bg-emerald-600",
-    available: false,
+    to: "/earn/rewards",
+    available: true,
   },
   {
     title: "Spending Assistant",

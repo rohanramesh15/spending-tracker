@@ -8,6 +8,7 @@ import TransactionDetailPage from "./pages/TransactionDetailPage";
 import ManualEntryPage from "./pages/ManualEntryPage";
 import ScanPage from "./pages/ScanPage";
 import ReviewQueuePage from "./pages/ReviewQueuePage";
+import RewardsPage from "./pages/RewardsPage";
 import EarnPage from "./pages/EarnPage";
 import SubscriptionsPage from "./pages/SubscriptionsPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/scan" element={<ScanPage />} />
           <Route path="/earn" element={<EarnPage />} />
           <Route path="/earn/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/earn/rewards" element={<RewardsPage />} />
           <Route path="/review" element={<ReviewQueuePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

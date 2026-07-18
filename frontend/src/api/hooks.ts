@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, apiUpload } from "./client";
 import type {
+  Card,
   AppNotification,
   Category,
   ExchangeResult,
@@ -13,6 +14,8 @@ import type {
   Resolution,
   Review,
   ReviewResolveResult,
+  RewardProfile,
+  RewardsOptimization,
   SpendingResponse,
   Subscription,
   SubscriptionStatus,
@@ -55,6 +58,45 @@ export function useSpending(start: string, end: string) {
     queryKey: ["spending", start, end],
     queryFn: () =>
       apiFetch<SpendingResponse>(`/api/insights/spending?start=${start}&end=${end}`),
+  });
+}
+
+// --- Rewards optimizer (rewards-optimizer-plan §3, v1) -----------------------------------
+export function useCards() {
+  return useQuery({
+    queryKey: ["cards"],
+    queryFn: () => apiFetch<Card[]>("/api/cards"),
+  });
+}
+
+export function useRewardProfiles() {
+  return useQuery({
+    queryKey: ["reward-profiles"],
+    queryFn: () => apiFetch<RewardProfile[]>("/api/rewards/profiles"),
+    staleTime: 60 * 60_000, // seed catalog rarely changes
+  });
+}
+
+export function useRewardsOptimization(windowDays = 90) {
+  return useQuery({
+    queryKey: ["rewards-optimization", windowDays],
+    queryFn: () =>
+      apiFetch<RewardsOptimization>(`/api/rewards/optimization?window_days=${windowDays}`),
+  });
+}
+
+export function useSetCardProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId, rewardProfileKey }: { cardId: string; rewardProfileKey: string }) =>
+      apiFetch<Card>(`/api/cards/${cardId}/profile`, {
+        method: "POST",
+        body: JSON.stringify({ reward_profile_key: rewardProfileKey }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cards"] });
+      qc.invalidateQueries({ queryKey: ["rewards-optimization"] });
+    },
   });
 }
 

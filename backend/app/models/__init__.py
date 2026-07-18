@@ -12,6 +12,7 @@ from app.models.enums import (
     TransactionSource,
 )
 from app.models.tables import (
+    Card,
     Category,
     CategoryOverride,
     LineItem,
@@ -31,6 +32,7 @@ __all__ = [
     "SubscriptionStatus",
     "SyncMode",
     "TransactionSource",
+    "Card",
     "Category",
     "CategoryOverride",
     "LineItem",

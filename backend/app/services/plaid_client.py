@@ -125,6 +125,31 @@ def get_institution_name(access_token: str) -> str:
         return "Bank"
 
 
+def get_accounts(access_token: str) -> list[dict]:
+    """The accounts under one Plaid Item (``/accounts/get``), as clean dicts (no Plaid types
+    leak). One Item can hold several accounts/cards — this is what the rewards ``cards`` table
+    is built from (rewards-optimizer-plan §3). ``subtype`` is stringified (e.g. 'credit card',
+    'checking')."""
+    from plaid.model.accounts_get_request import AccountsGetRequest
+
+    resp = _client().accounts_get(AccountsGetRequest(access_token=access_token))
+    out: list[dict] = []
+    for a in resp.accounts:
+        subtype = getattr(a, "subtype", None)
+        acct_type = getattr(a, "type", None)
+        out.append(
+            {
+                "account_id": a.account_id,
+                "name": getattr(a, "name", None),
+                "official_name": getattr(a, "official_name", None),
+                "mask": getattr(a, "mask", None),
+                "subtype": str(subtype) if subtype is not None else None,
+                "type": str(acct_type) if acct_type is not None else None,
+            }
+        )
+    return out
+
+
 def sync_transactions(access_token: str, cursor: str | None) -> dict:
     """Incremental ``/transactions/sync`` (plan §6.7), paginated to completion.
 
@@ -234,10 +259,12 @@ def _txn_to_dict(t) -> dict:
     purchased_on: date = getattr(t, "authorized_date", None) or t.date
     return {
         "transaction_id": t.transaction_id,
+        "account_id": getattr(t, "account_id", None),  # which card/account (rewards v2)
         "name": getattr(t, "merchant_name", None) or t.name,
         "amount_cents": amount_cents,
         "currency": getattr(t, "iso_currency_code", None) or "USD",
         "purchased_on": purchased_on,
         "pending": bool(getattr(t, "pending", False)),
         "pfc_primary": getattr(pfc, "primary", None) if pfc else None,
+        "pfc_detailed": getattr(pfc, "detailed", None) if pfc else None,
     }

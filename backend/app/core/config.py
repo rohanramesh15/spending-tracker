@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
 
+    # --- Reward-rate refresh for uncommon cards (rewards optimizer v3, §5) ---
+    # Tavily (grounded web retrieval) fetches current reward rates for cards outside the
+    # curated seed. Unset → the refresh is a no-op (uncommon cards stay unmatched); the seed
+    # cards are unaffected. Cached in reward_profiles, never called per-request.
+    tavily_api_key: str | None = None
+
     # --- Bank sync (Phase 3, Plaid) ---
     # Names mirror the Plaid dashboard (Developers → Keys): one client_id shared across
     # environments, plus a separate secret per environment. plaid_env selects which secret

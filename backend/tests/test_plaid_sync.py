@@ -54,6 +54,8 @@ def client(monkeypatch) -> Iterator[tuple[TestClient, uuid.UUID]]:
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[current_user_id] = lambda: str(user_id)
     monkeypatch.setattr(plaid_client, "is_configured", lambda: True)
+    # Rewards card-backfill runs on sync; mock the Plaid accounts call so no test hits network.
+    monkeypatch.setattr(plaid_client, "get_accounts", lambda at: [])
     # A linked Item to sync (would normally come from /exchange).
     with admin_session() as db:
         db.execute(

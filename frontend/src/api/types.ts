@@ -278,3 +278,55 @@ export interface ReceiptDraft {
   line_items: ReceiptDraftItem[];
   raw_extraction_json: Record<string, unknown>;
 }
+
+// --- Rewards optimizer (rewards-optimizer-plan §3, v1) -----------------------------------
+export interface Card {
+  id: string;
+  institution: string;
+  name: string | null;
+  mask: string | null;
+  subtype: string | null;
+  reward_profile_key: string | null;
+  reward_profile_source: string | null;
+  reward_profile_name: string | null;
+  needs_confirmation: boolean;
+}
+
+export interface RewardProfile {
+  key: string;
+  display_name: string;
+  issuer: string;
+  base_rate: number;
+  category_rates: Record<string, number>;
+  points_value_cents: number;
+  verified: boolean;
+  notes: string | null;
+}
+
+export interface RewardRecommendation {
+  reward_category: string;
+  spend_cents: number;
+  annualized_spend_cents: number;
+  best_card_key: string;
+  best_card_name: string;
+  best_rate: number;
+  est_annual_reward_cents: number;
+  // v2 (actual-usage) — null in v1:
+  current_card_name: string | null;
+  current_rate: number | null;
+  est_annual_missed_cents: number | null;
+}
+
+export interface RewardsOptimization {
+  window_days: number;
+  cards: Card[];
+  recommendations: RewardRecommendation[];
+  total_est_annual_reward_cents: number;
+  // v2: real rewards left on the table vs the cards actually used (null until any
+  // card-attributed spend exists).
+  total_missed_annual_cents: number | null;
+  unmatched_card_count: number;
+  top_move: string | null;
+  points_assumption_note: string;
+  spend_scope_note: string;
+}
