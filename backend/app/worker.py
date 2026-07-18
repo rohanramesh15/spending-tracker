@@ -47,5 +47,12 @@ def _run_scheduled(event: dict) -> dict:
         synced = sync_all_active_items()
         logger.info("plaid fallback sync completed for %d item(s)", synced)
         return {"job": job, "synced": synced}
+    if job == "subscriptions_scan":
+        # Daily subscription monitor: recompute + emit alerts + auto-cancel overdue subs.
+        from app.api.subscriptions import scan_all_subscriptions
+
+        result = scan_all_subscriptions()
+        logger.info("subscriptions scan: %s", result)
+        return result
     logger.warning("unknown scheduled job: %s", job)
     return {"job": job, "skipped": True}

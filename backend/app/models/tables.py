@@ -46,8 +46,10 @@ from app.models.base import (
 from app.models.enums import (
     AccountStatus,
     LinkedAccountSource,
+    NotificationKind,
     Resolution,
     ReviewStatus,
+    SubscriptionStatus,
     SyncMode,
     TransactionSource,
 )
@@ -216,6 +218,64 @@ class ReconciliationReview(SQLModel, table=True):
     created_at: datetime = created_at_col()
     resolved_at: datetime | None = nullable_timestamp()
     resolution: Resolution | None = Field(default=None, sa_column=Column(String, nullable=True))
+
+
+class Subscription(SQLModel, table=True):
+    """A detected recurring-merchant subscription (docs/subscriptions-plan.md §4, v3).
+
+    Keyed per user on the normalized ``merchant``. Detection fields are refreshed by
+    recompute; ``status`` is user/scan-owned and never overwritten by a recompute. NOTE the
+    ``merchant`` key is *derived* from vendor strings — changing ``normalize_merchant``
+    requires a re-key migration (plan §4)."""
+
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "merchant", name="uq_subscriptions_user_merchant"),
+    )
+
+    id: uuid.UUID = uuid_pk()
+    user_id: uuid.UUID = user_id_col()
+    merchant: str = Field(sa_column=Column(String, nullable=False))  # normalized key
+    display_name: str = Field(sa_column=Column(String, nullable=False))
+    type: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    amount_cents: int = money_cents(nullable=False)
+    cadence: str = Field(sa_column=Column(String, nullable=False))
+    status: SubscriptionStatus = Field(
+        default=SubscriptionStatus.detected,
+        sa_column=Column(String, nullable=False, server_default="detected"),
+    )
+    occurrences: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default="0")
+    )
+    first_charged_on: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    last_charged_on: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    next_charge_on: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    confidence: Decimal | None = Field(default=None, sa_column=Column(Numeric(4, 3), nullable=True))
+    created_at: datetime = created_at_col()
+    updated_at: datetime = created_at_col()  # set by the app on every upsert/status change
+
+
+class Notification(SQLModel, table=True):
+    """An in-app subscription alert from the daily scan (docs/subscriptions-plan.md §5, v4).
+
+    ``dedup_key`` (unique per user) makes the daily scan idempotent — an alert is inserted at
+    most once. ``read_at`` is the read/unread state."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "dedup_key", name="uq_notifications_user_dedup"),)
+
+    id: uuid.UUID = uuid_pk()
+    user_id: uuid.UUID = user_id_col()
+    kind: NotificationKind = Field(sa_column=Column(String, nullable=False))
+    # Soft reference to the subscription (single-column FK, cascades on delete — see migration).
+    subscription_id: uuid.UUID | None = Field(
+        default=None, sa_column=Column(PGUUID(as_uuid=True), nullable=True)
+    )
+    title: str = Field(sa_column=Column(String, nullable=False))
+    body: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    dedup_key: str = Field(sa_column=Column(String, nullable=False))
+    read_at: datetime | None = nullable_timestamp()
+    created_at: datetime = created_at_col()
 
 
 # (Recurring-item detection + the cheaper-store finder — RecurringItem, ComparableSpec,

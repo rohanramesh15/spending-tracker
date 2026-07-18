@@ -42,6 +42,13 @@ TESTED: set[tuple[str, str]] = {
     ("POST", "/api/plaid/exchange"),
     ("POST", "/api/plaid/sync"),
     ("GET", "/api/transactions"),
+    ("GET", "/api/subscriptions"),
+    ("POST", "/api/subscriptions/recompute"),
+    ("POST", "/api/subscriptions/{subscription_id}/status"),
+    ("GET", "/api/subscriptions/summary"),
+    ("GET", "/api/notifications"),
+    ("POST", "/api/notifications/{notification_id}/read"),
+    ("POST", "/api/notifications/read-all"),
 }
 
 # Pre-existing coverage gaps (from the audit). SHRINK THIS as tests are added; never grow it.

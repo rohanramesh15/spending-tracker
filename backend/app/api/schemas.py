@@ -12,7 +12,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import AccountStatus, Resolution, ReviewStatus, TransactionSource
+from app.models.enums import (
+    AccountStatus,
+    Resolution,
+    ReviewStatus,
+    SubscriptionStatus,
+    TransactionSource,
+)
 
 
 class LineItemIn(BaseModel):
@@ -149,6 +155,63 @@ class SpendingResponse(BaseModel):
     end: date
     total_cents: int
     slices: list[SpendingSlice]
+
+
+class SubscriptionOut(BaseModel):
+    """A detected recurring-merchant subscription (docs/subscriptions-plan.md §1, §3)."""
+
+    id: str | None = None  # the stored row id (v3); None only for compute-on-read fallbacks
+    merchant: str
+    display_name: str
+    type: str | None = None  # v2 LLM enrichment (streaming|music|software|…); None if no key
+    amount_cents: int
+    cadence: str
+    monthly_cost_cents: int
+    occurrences: int
+    first_charged_on: date
+    last_charged_on: date
+    next_charge_on: date
+    confidence: float
+    status: SubscriptionStatus = SubscriptionStatus.detected  # v3 lifecycle
+
+
+class SubscriptionStatusUpdate(BaseModel):
+    """Body for POST /api/subscriptions/{id}/status — a user confirm/dismiss/cancel action."""
+
+    status: SubscriptionStatus
+
+
+class NotificationOut(BaseModel):
+    """An in-app subscription alert (docs/subscriptions-plan.md §5)."""
+
+    id: str
+    kind: str
+    subscription_id: str | None
+    title: str
+    body: str | None
+    read: bool
+    created_at: datetime
+
+
+class SubscriptionTypeBreakdown(BaseModel):
+    type: str
+    monthly_cents: int
+    count: int
+
+
+class SubscriptionTrendPoint(BaseModel):
+    month: str  # "YYYY-MM"
+    cents: int
+
+
+class SubscriptionSummary(BaseModel):
+    """Aggregate insights for the subscriptions view (docs/subscriptions-plan.md §6, v5)."""
+
+    total_monthly_cents: int
+    annualized_cents: int
+    active_count: int
+    by_type: list[SubscriptionTypeBreakdown]
+    trend: list[SubscriptionTrendPoint]
 
 
 # --- Receipt extraction (Phase 2) ----------------------------------------------

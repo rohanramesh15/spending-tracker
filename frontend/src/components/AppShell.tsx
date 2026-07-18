@@ -1,10 +1,10 @@
 import { useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Receipt, Settings, Camera } from "lucide-react";
+import { Home, Receipt, PiggyBank, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { setPendingReceipt } from "@/lib/scanFile";
-import { useReviews } from "@/api/hooks";
+import { useReviews, useNotifications } from "@/api/hooks";
 
 // Bottom tabs. "Scan" isn't a route — it opens the camera directly (replacing the old
 // floating FAB), so the single most important control lives in the nav itself.
@@ -12,7 +12,7 @@ const TABS = [
   { to: "/", label: "Home", icon: Home, end: true },
   { to: "/transactions", label: "Transactions", icon: Receipt, end: false },
   { scan: true, label: "Scan", icon: Camera },
-  { to: "/settings", label: "Settings", icon: Settings, end: false },
+  { to: "/earn", label: "Earn", icon: PiggyBank, end: false },
 ] as const;
 
 /**
@@ -25,6 +25,12 @@ export function AppShell() {
   const scanInput = useRef<HTMLInputElement>(null);
   const reviews = useReviews();
   const reviewCount = reviews.data?.length ?? 0;
+  const alerts = useNotifications(true); // unread subscription alerts → badge on the Agents tab
+  const alertCount = alerts.data?.length ?? 0;
+
+  // Per-tab badge count (0 = no badge).
+  const badgeFor = (to?: string) =>
+    to === "/" ? reviewCount : to === "/earn" ? alertCount : 0;
 
   function onCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -77,12 +83,12 @@ export function AppShell() {
                   <NavLink to={tab.to} end={tab.end} className={tabClass}>
                     <span className="relative">
                       <Icon className="h-5 w-5" />
-                      {tab.to === "/" && reviewCount > 0 && (
+                      {badgeFor(tab.to) > 0 && (
                         <span
-                          aria-label={`${reviewCount} need review`}
+                          aria-label={`${badgeFor(tab.to)} alerts`}
                           className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold leading-none text-warning-foreground"
                         >
-                          {reviewCount}
+                          {badgeFor(tab.to)}
                         </span>
                       )}
                     </span>

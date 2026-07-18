@@ -33,3 +33,9 @@ packaged.yaml
 
 # Cloudflare deploy token (local only, never committed)
 .cf-secrets
+
+# Local-only working docs: personal notes (*.local.md) and feature plans/specs
+# (docs/*-plan.md). The authoritative docs/implementation-plan.md + user-flow.md stay tracked.
+*.local.md
+docs/*-plan.md
+!docs/implementation-plan.md
