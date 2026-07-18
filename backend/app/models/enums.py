@@ -49,12 +49,23 @@ class Resolution(StrEnum):
     keep_both = "keep_both"
 
 
-class StoreType(StrEnum):
-    physical = "physical"
-    online = "online"
+class SubscriptionStatus(StrEnum):
+    """Lifecycle of a detected subscription (docs/subscriptions-plan.md §4).
+
+    ``detected`` is the machine default; the other three are user- or scan-set and are never
+    overwritten by a recompute. ``dismissed``/``cancelled`` are hidden from the default view.
+    """
+
+    detected = "detected"
+    confirmed = "confirmed"
+    dismissed = "dismissed"
+    cancelled = "cancelled"
 
 
-class SubstitutionTightness(StrEnum):
-    strict = "strict"
-    medium = "medium"
-    loose = "loose"
+class NotificationKind(StrEnum):
+    """A subscription alert surfaced by the daily scan (docs/subscriptions-plan.md §5)."""
+
+    new = "new"
+    price_increased = "price_increased"
+    upcoming = "upcoming"
+    likely_cancelled = "likely_cancelled"

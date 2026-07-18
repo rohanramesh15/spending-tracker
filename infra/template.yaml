@@ -102,7 +102,7 @@ Resources:
       FunctionName: spending-tracker-worker
       CodeUri: ../backend
       Handler: app.worker.handler
-      Description: SQS-driven jobs — price refresh, Plaid re-sync, recurring recompute.
+      Description: Scheduled Plaid fallback re-sync + any SQS-driven background jobs.
       Timeout: 120
       Events:
         JobQueue:
@@ -126,7 +126,7 @@ Resources:
               Action: [kms:Decrypt]
               Resource: "*"
 
-  # --- EventBridge Scheduler: daily price refresh (DISABLED until Phase 5) ---
+  # --- EventBridge Scheduler role (invokes the worker for the Plaid fallback re-sync) ---
   SchedulerInvokeRole:
     Type: AWS::IAM::Role
     Properties:
@@ -145,17 +145,6 @@ Resources:
                 Action: lambda:InvokeFunction
                 Resource: !GetAtt WorkerFunction.Arn
 
-  PriceRefreshSchedule:
-    Type: AWS::Scheduler::Schedule
-    Properties:
-      Name: spending-tracker-price-refresh
-      State: DISABLED # present from day one; enabled in Phase 5 (plan §9)
-      ScheduleExpression: cron(0 9 * * ? *) # 09:00 UTC daily
-      FlexibleTimeWindow: { Mode: "OFF" }
-      Target:
-        Arn: !GetAtt WorkerFunction.Arn
-        RoleArn: !GetAtt SchedulerInvokeRole.Arn
-
   # --- EventBridge Scheduler: Plaid fallback re-sync (webhooks are the fast path; this is
   #     the safety net for missed/delayed transaction webhooks — industry standard) ---
   PlaidSyncSchedule:
@@ -169,6 +158,21 @@ Resources:
         Arn: !GetAtt WorkerFunction.Arn
         RoleArn: !GetAtt SchedulerInvokeRole.Arn
         Input: '{"job":"plaid_sync"}'
+
+  # --- EventBridge Scheduler: daily subscription monitor (docs/subscriptions-plan.md §5) —
+  #     recompute subscriptions, emit new/price-hike/upcoming/cancelled alerts, auto-cancel
+  #     overdue subs. Reuses the same worker + invoke role as the Plaid re-sync. ---
+  SubscriptionsScanSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: spending-tracker-subscriptions-scan
+      State: ENABLED
+      ScheduleExpression: rate(1 day)
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt WorkerFunction.Arn
+        RoleArn: !GetAtt SchedulerInvokeRole.Arn
+        Input: '{"job":"subscriptions_scan"}'
 
   # --- Observability: email me when prod breaks (Lambda errors, stuck jobs) ---
   # CloudWatch alarms → SNS → email. The one thing the pipeline was missing: knowing when

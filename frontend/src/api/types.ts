@@ -36,6 +36,7 @@ export interface TransactionListItem {
   currency: string;
   review_status: ReviewStatus;
   item_count: number;
+  categories: string[]; // distinct line-item categories, for row chips
 }
 
 export interface TransactionDetail extends TransactionListItem {
@@ -66,6 +67,79 @@ export interface SpendingResponse {
   end: string;
   total_cents: number;
   slices: SpendingSlice[];
+}
+
+export type Cadence =
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "bimonthly"
+  | "quarterly"
+  | "semiannual"
+  | "annual";
+
+export type SubscriptionType =
+  | "streaming"
+  | "music"
+  | "software"
+  | "gaming"
+  | "news"
+  | "fitness"
+  | "cloud"
+  | "insurance"
+  | "utility"
+  | "telecom"
+  | "membership"
+  | "other";
+
+export type SubscriptionStatus = "detected" | "confirmed" | "dismissed" | "cancelled";
+
+export interface Subscription {
+  id: string | null; // the stored row id (v3); null only for compute-on-read fallbacks
+  merchant: string;
+  display_name: string;
+  type: SubscriptionType | null; // v2 LLM enrichment; null if no key configured
+  amount_cents: number;
+  cadence: Cadence;
+  monthly_cost_cents: number;
+  occurrences: number;
+  first_charged_on: string; // YYYY-MM-DD
+  last_charged_on: string;
+  next_charge_on: string;
+  confidence: number; // 0.0–1.0
+  status: SubscriptionStatus; // v3 lifecycle
+}
+
+export interface SubscriptionTypeBreakdown {
+  type: string;
+  monthly_cents: number;
+  count: number;
+}
+
+export interface SubscriptionTrendPoint {
+  month: string; // YYYY-MM
+  cents: number;
+}
+
+export interface SubscriptionSummary {
+  total_monthly_cents: number;
+  annualized_cents: number;
+  active_count: number;
+  by_type: SubscriptionTypeBreakdown[];
+  trend: SubscriptionTrendPoint[];
+}
+
+export type NotificationKind = "new" | "price_increased" | "upcoming" | "likely_cancelled";
+
+// Named AppNotification to avoid shadowing the DOM `Notification` global.
+export interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  subscription_id: string | null;
+  title: string;
+  body: string | null;
+  read: boolean;
+  created_at: string;
 }
 
 export interface LineItemIn {
@@ -182,54 +256,7 @@ export interface ImportSummary {
   skipped: number;
 }
 
-// --- Recurring items (Phase 4) ------------------------------------------------
-export interface PricePoint {
-  purchased_on: string;
-  unit_price_cents: number;
-}
-
-export interface RecurringItem {
-  canonical_name: string;
-  category_name: string | null;
-  occurrences: number;
-  avg_unit_price_cents: number;
-  first_seen: string;
-  last_seen: string;
-  price_history: PricePoint[];
-}
-
-// --- Cheaper-store finder (Phase 5) -------------------------------------------
-export type Tightness = "strict" | "medium" | "loose";
-
-export interface FinderProduct {
-  title: string;
-  price_cents: number;
-  unit_price_cents: number | null;
-  size: string | null;
-}
-
-export interface FinderStore {
-  name: string | null;
-  address: string | null;
-  lat: number | null;
-  lng: number | null;
-  has_prices: boolean;
-}
-
-export interface FinderResult {
-  item: string;
-  search_term: string;
-  dimension: string;
-  base_unit: string;
-  attributes: string[];
-  tightness: Tightness;
-  kroger_configured: boolean;
-  places_configured: boolean;
-  searched_store: FinderStore | null;
-  results: FinderProduct[];
-  nearby_stores: FinderStore[];
-  as_of: string;
-}
+// (Recurring-items + cheaper-store-finder types removed 2026-07-17.)
 
 export interface ReceiptDraftItem {
   raw_name: string;

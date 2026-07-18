@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { RefreshCw, Upload } from "lucide-react";
+import { ArrowLeft, RefreshCw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -95,7 +95,14 @@ export default function SettingsPage() {
   return (
     <PlaidLinkProvider>
       <section className="space-y-8">
-      <h1 className="text-xl font-semibold">Settings</h1>
+      <div className="flex items-center gap-2">
+        <Button asChild variant="ghost" size="icon" aria-label="Back to home">
+          <Link to="/">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        </Button>
+        <h1 className="text-xl font-semibold">Settings</h1>
+      </div>
 
       <div className="space-y-1 text-sm">
         <h2 className="font-medium">Account</h2>

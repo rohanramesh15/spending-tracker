@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, apiUpload } from "./client";
 import type {
+  AppNotification,
   Category,
   ExchangeResult,
   ImportSummary,
@@ -8,14 +9,14 @@ import type {
   IngestResult,
   LinkedAccount,
   LinkTokenOut,
-  FinderResult,
   ReceiptDraft,
-  RecurringItem,
   Resolution,
   Review,
   ReviewResolveResult,
-  Tightness,
   SpendingResponse,
+  Subscription,
+  SubscriptionStatus,
+  SubscriptionSummary,
   SyncSummary,
   TransactionDetail,
   TransactionListItem,
@@ -57,6 +58,73 @@ export function useSpending(start: string, end: string) {
   });
 }
 
+export function useSubscriptions(includeHidden = false) {
+  return useQuery({
+    queryKey: ["subscriptions", includeHidden],
+    queryFn: () =>
+      apiFetch<Subscription[]>(
+        `/api/subscriptions${includeHidden ? "?include_hidden=true" : ""}`,
+      ),
+  });
+}
+
+export function useSubscriptionSummary(months = 6) {
+  return useQuery({
+    queryKey: ["subscription-summary", months],
+    queryFn: () =>
+      apiFetch<SubscriptionSummary>(`/api/subscriptions/summary?months=${months}`),
+  });
+}
+
+export function useRecomputeSubscriptions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<Subscription[]>("/api/subscriptions/recompute", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["subscriptions"] }),
+  });
+}
+
+export function useSetSubscriptionStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: SubscriptionStatus }) =>
+      apiFetch<Subscription>(`/api/subscriptions/${id}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["subscriptions"] }),
+  });
+}
+
+export function useNotifications(unreadOnly = false) {
+  return useQuery({
+    queryKey: ["notifications", unreadOnly],
+    queryFn: () =>
+      apiFetch<AppNotification[]>(
+        `/api/notifications${unreadOnly ? "?unread_only=true" : ""}`,
+      ),
+  });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<AppNotification>(`/api/notifications/${id}/read`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ marked: number }>("/api/notifications/read-all", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
 export function useIngest() {
   const qc = useQueryClient();
   return useMutation({
@@ -84,41 +152,6 @@ export function useExtractReceipt() {
   });
 }
 
-export function useRecurring() {
-  return useQuery({
-    queryKey: ["recurring"],
-    queryFn: () => apiFetch<RecurringItem[]>("/api/recurring"),
-    staleTime: 60_000,
-  });
-}
-
-/** Cheaper-store finder (Phase 5). Runs only once a location is known. */
-export function useFinder(params: {
-  item: string;
-  lat: number | null;
-  lng: number | null;
-  radius: number;
-  tightness: Tightness;
-  category?: string | null;
-}) {
-  const { item, lat, lng, radius, tightness, category } = params;
-  return useQuery({
-    queryKey: ["finder", item, lat, lng, radius, tightness],
-    enabled: !!item && lat != null && lng != null,
-    staleTime: 5 * 60_000,
-    queryFn: () => {
-      const q = new URLSearchParams({
-        item,
-        lat: String(lat),
-        lng: String(lng),
-        radius: String(radius),
-        tightness,
-      });
-      if (category) q.set("category", category);
-      return apiFetch<FinderResult>(`/api/finder?${q.toString()}`);
-    },
-  });
-}
 
 export function useReviews() {
   return useQuery({

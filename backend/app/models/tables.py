@@ -3,8 +3,8 @@
 Global rules (plan §5 header):
 - All money columns are integer cents (``*_cents BIGINT``) — see ``base.money_cents``.
 - Every user-data table carries ``user_id`` with an RLS policy (added in the migration).
-  The children (``line_items``, ``comparable_specs``, ``price_quotes``) denormalize
-  ``user_id`` from their parent so each can have a simple ``user_id = auth.uid()`` policy.
+  Child tables (e.g. ``line_items``) denormalize ``user_id`` from their parent so each can
+  have a simple ``user_id = auth.uid()`` policy.
 - ``purchased_on`` is a local calendar DATE plus optional ``purchased_time`` — never a
   fake-precision UTC timestamp.
 
@@ -46,10 +46,10 @@ from app.models.base import (
 from app.models.enums import (
     AccountStatus,
     LinkedAccountSource,
+    NotificationKind,
     Resolution,
     ReviewStatus,
-    StoreType,
-    SubstitutionTightness,
+    SubscriptionStatus,
     SyncMode,
     TransactionSource,
 )
@@ -158,8 +158,7 @@ class LineItem(SQLModel, table=True):
     category_id: uuid.UUID | None = Field(
         default=None, sa_column=_fk("categories.id", nullable=True, ondelete="SET NULL")
     )
-    # LINE-EXTENDED total (quantity x unit price). Unit price is derived as
-    # price_cents / quantity / unit_size for recurring comparisons (plan §6.8).
+    # LINE-EXTENDED total (quantity x unit price).
     price_cents: int = money_cents(nullable=False)
     quantity: Decimal = Field(
         default=Decimal(1),
@@ -221,72 +220,63 @@ class ReconciliationReview(SQLModel, table=True):
     resolution: Resolution | None = Field(default=None, sa_column=Column(String, nullable=True))
 
 
-class RecurringItem(SQLModel, table=True):
-    """Detected repeat purchase, keyed on ``canonical_name`` (plan §5, §6.8)."""
+class Subscription(SQLModel, table=True):
+    """A detected recurring-merchant subscription (docs/subscriptions-plan.md §4, v3).
 
-    __tablename__ = "recurring_items"
+    Keyed per user on the normalized ``merchant``. Detection fields are refreshed by
+    recompute; ``status`` is user/scan-owned and never overwritten by a recompute. NOTE the
+    ``merchant`` key is *derived* from vendor strings — changing ``normalize_merchant``
+    requires a re-key migration (plan §4)."""
+
+    __tablename__ = "subscriptions"
     __table_args__ = (
-        UniqueConstraint("user_id", "canonical_name", name="uq_recurring_user_name"),
-        UniqueConstraint("user_id", "id", name="uq_recurring_user_id"),
+        UniqueConstraint("user_id", "merchant", name="uq_subscriptions_user_merchant"),
     )
 
     id: uuid.UUID = uuid_pk()
     user_id: uuid.UUID = user_id_col()
-    canonical_name: str = Field(sa_column=Column(String, nullable=False))
-    category_id: uuid.UUID | None = Field(
-        default=None, sa_column=_fk("categories.id", nullable=True, ondelete="SET NULL")
+    merchant: str = Field(sa_column=Column(String, nullable=False))  # normalized key
+    display_name: str = Field(sa_column=Column(String, nullable=False))
+    type: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    amount_cents: int = money_cents(nullable=False)
+    cadence: str = Field(sa_column=Column(String, nullable=False))
+    status: SubscriptionStatus = Field(
+        default=SubscriptionStatus.detected,
+        sa_column=Column(String, nullable=False, server_default="detected"),
     )
     occurrences: int = Field(
         default=0, sa_column=Column(Integer, nullable=False, server_default="0")
     )
-    first_seen: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
-    last_seen: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
-    avg_unit_price_cents: int | None = money_cents(nullable=True)
+    first_charged_on: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    last_charged_on: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    next_charge_on: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    confidence: Decimal | None = Field(default=None, sa_column=Column(Numeric(4, 3), nullable=True))
+    created_at: datetime = created_at_col()
+    updated_at: datetime = created_at_col()  # set by the app on every upsert/status change
 
 
-class ComparableSpec(SQLModel, table=True):
-    """The equivalence class for a recurring item (plan §5, §6.9). ``user_id``
-    denormalized for RLS."""
+class Notification(SQLModel, table=True):
+    """An in-app subscription alert from the daily scan (docs/subscriptions-plan.md §5, v4).
 
-    __tablename__ = "comparable_specs"
-    __table_args__ = (UniqueConstraint("user_id", "id", name="uq_comparable_specs_user_id"),)
+    ``dedup_key`` (unique per user) makes the daily scan idempotent — an alert is inserted at
+    most once. ``read_at`` is the read/unread state."""
 
-    id: uuid.UUID = uuid_pk()
-    user_id: uuid.UUID = user_id_col()
-    recurring_item_id: uuid.UUID = Field(sa_column=_fk("recurring_items.id"))
-    category: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    attributes_json: dict | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
-    size_value: Decimal | None = Field(
-        default=None, sa_column=Column(Numeric(12, 3), nullable=True)
-    )
-    size_unit: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    substitution_tightness: SubstitutionTightness = Field(
-        default=SubstitutionTightness.strict,
-        sa_column=Column(String, nullable=False, server_default="strict"),
-    )
-
-
-class PriceQuote(SQLModel, table=True):
-    """Price cache; the UI always reads from here. Only ``physical`` (Kroger) quotes
-    are written for now; ``online`` is reserved (plan §5, §6.9). ``user_id`` for RLS."""
-
-    __tablename__ = "price_quotes"
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "dedup_key", name="uq_notifications_user_dedup"),)
 
     id: uuid.UUID = uuid_pk()
     user_id: uuid.UUID = user_id_col()
-    comparable_spec_id: uuid.UUID = Field(sa_column=_fk("comparable_specs.id"))
-    store_name: str = Field(sa_column=Column(String, nullable=False))
-    store_type: StoreType = Field(
-        default=StoreType.physical,
-        sa_column=Column(String, nullable=False, server_default="physical"),
+    kind: NotificationKind = Field(sa_column=Column(String, nullable=False))
+    # Soft reference to the subscription (single-column FK, cascades on delete — see migration).
+    subscription_id: uuid.UUID | None = Field(
+        default=None, sa_column=Column(PGUUID(as_uuid=True), nullable=True)
     )
-    location_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    product_title: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    price_cents: int = money_cents(nullable=False)
-    unit_price_cents: int | None = money_cents(nullable=True)
-    unit: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    distance_mi: Decimal | None = Field(
-        default=None, sa_column=Column(Numeric(6, 2), nullable=True)
-    )
-    source_api: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    fetched_at: datetime = created_at_col()
+    title: str = Field(sa_column=Column(String, nullable=False))
+    body: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    dedup_key: str = Field(sa_column=Column(String, nullable=False))
+    read_at: datetime | None = nullable_timestamp()
+    created_at: datetime = created_at_col()
+
+
+# (Recurring-item detection + the cheaper-store finder — RecurringItem, ComparableSpec,
+# PriceQuote — were removed 2026-07-17; their tables are dropped in migration 0005.)

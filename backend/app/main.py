@@ -11,15 +11,15 @@ from mangum import Mangum
 
 from app.api import (
     categories,
-    finder,
     health,
     imports,
     ingest,
     insights,
+    notifications,
     plaid,
     receipts,
-    recurring,
     reviews,
+    subscriptions,
     transactions,
 )
 from app.core.config import get_settings
@@ -29,7 +29,7 @@ settings = get_settings()
 app = FastAPI(
     title="Spending Tracker API",
     version="0.1.0",
-    summary="Source-agnostic ingest, charts, reconciliation, and the cheaper-store finder.",
+    summary="Source-agnostic ingest, charts, and reconciliation.",
 )
 
 app.add_middleware(
@@ -49,8 +49,8 @@ app.include_router(receipts.router)
 app.include_router(reviews.router)
 app.include_router(plaid.router)
 app.include_router(imports.router)
-app.include_router(recurring.router)
-app.include_router(finder.router)
+app.include_router(subscriptions.router)
+app.include_router(notifications.router)
 
 # Lambda handler (imported by the SAM template's ApiFunction). No-op locally.
 handler = Mangum(app)

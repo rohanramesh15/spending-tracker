@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { AlertTriangle } from "lucide-react";
-import { useReviews, useSpending, useTransactions } from "@/api/hooks";
+import { AlertTriangle, Settings, Sparkles } from "lucide-react";
+import { useReviews, useSpending, useTransactions, useNotifications } from "@/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
 import { TotalSkeleton, ChartSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
+import { CategoryChips } from "@/components/CategoryChips";
 import { parseISODate, rangePresets, formatRangeLabel } from "@/lib/dates";
 
 /**
@@ -23,12 +24,24 @@ export default function HomePage() {
   const spending = useSpending(range.start, range.end);
   const recent = useTransactions();
   const reviews = useReviews();
+  const alerts = useNotifications(true);
 
   const hasSpending = (spending.data?.slices.length ?? 0) > 0;
   const reviewCount = reviews.data?.length ?? 0;
+  const alertCount = alerts.data?.length ?? 0;
 
   return (
     <section className="space-y-6">
+      {/* Top bar: Settings now lives here (moved off the bottom tab bar to make room for Agents). */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Home</h1>
+        <Button asChild variant="ghost" size="icon" aria-label="Settings">
+          <Link to="/settings">
+            <Settings className="h-5 w-5" />
+          </Link>
+        </Button>
+      </div>
+
       {reviewCount > 0 && (
         <Link
           to="/review"
@@ -36,6 +49,17 @@ export default function HomePage() {
         >
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {reviewCount} transaction{reviewCount === 1 ? "" : "s"} need review
+          <span className="ml-auto">→</span>
+        </Link>
+      )}
+
+      {alertCount > 0 && (
+        <Link
+          to="/earn/subscriptions"
+          className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-primary"
+        >
+          <Sparkles className="h-4 w-4 shrink-0" />
+          {alertCount} subscription alert{alertCount === 1 ? "" : "s"}
           <span className="ml-auto">→</span>
         </Link>
       )}
@@ -99,6 +123,7 @@ export default function HomePage() {
                         ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
                         : "Uncategorized"}
                     </p>
+                    <CategoryChips categories={t.categories} />
                   </div>
                   <span className="font-medium">
                     {formatCents(t.total_cents, t.currency)}

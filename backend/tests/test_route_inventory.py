@@ -35,20 +35,25 @@ def _api_routes() -> set[tuple[str, str]]:
 TESTED: set[tuple[str, str]] = {
     ("GET", "/healthz"),
     ("POST", "/api/ingest"),
-    ("GET", "/api/recurring"),
-    ("GET", "/api/finder"),
     ("POST", "/api/plaid/webhook"),
     ("POST", "/api/import/apple-card"),
     ("GET", "/api/reviews"),
     ("POST", "/api/reviews/{review_id}/resolve"),
     ("POST", "/api/plaid/exchange"),
     ("POST", "/api/plaid/sync"),
+    ("GET", "/api/transactions"),
+    ("GET", "/api/subscriptions"),
+    ("POST", "/api/subscriptions/recompute"),
+    ("POST", "/api/subscriptions/{subscription_id}/status"),
+    ("GET", "/api/subscriptions/summary"),
+    ("GET", "/api/notifications"),
+    ("POST", "/api/notifications/{notification_id}/read"),
+    ("POST", "/api/notifications/read-all"),
 }
 
 # Pre-existing coverage gaps (from the audit). SHRINK THIS as tests are added; never grow it.
 KNOWN_UNTESTED: set[tuple[str, str]] = {
     ("GET", "/api/insights/spending"),
-    ("GET", "/api/transactions"),
     ("GET", "/api/transactions/{transaction_id}"),
     ("DELETE", "/api/transactions/{transaction_id}"),
     ("GET", "/api/categories"),
