@@ -36,6 +36,7 @@ export interface TransactionListItem {
   currency: string;
   review_status: ReviewStatus;
   item_count: number;
+  categories: string[]; // distinct line-item categories, for row chips
 }
 
 export interface TransactionDetail extends TransactionListItem {
@@ -182,54 +183,7 @@ export interface ImportSummary {
   skipped: number;
 }
 
-// --- Recurring items (Phase 4) ------------------------------------------------
-export interface PricePoint {
-  purchased_on: string;
-  unit_price_cents: number;
-}
-
-export interface RecurringItem {
-  canonical_name: string;
-  category_name: string | null;
-  occurrences: number;
-  avg_unit_price_cents: number;
-  first_seen: string;
-  last_seen: string;
-  price_history: PricePoint[];
-}
-
-// --- Cheaper-store finder (Phase 5) -------------------------------------------
-export type Tightness = "strict" | "medium" | "loose";
-
-export interface FinderProduct {
-  title: string;
-  price_cents: number;
-  unit_price_cents: number | null;
-  size: string | null;
-}
-
-export interface FinderStore {
-  name: string | null;
-  address: string | null;
-  lat: number | null;
-  lng: number | null;
-  has_prices: boolean;
-}
-
-export interface FinderResult {
-  item: string;
-  search_term: string;
-  dimension: string;
-  base_unit: string;
-  attributes: string[];
-  tightness: Tightness;
-  kroger_configured: boolean;
-  places_configured: boolean;
-  searched_store: FinderStore | null;
-  results: FinderProduct[];
-  nearby_stores: FinderStore[];
-  as_of: string;
-}
+// (Recurring-items + cheaper-store-finder types removed 2026-07-17.)
 
 export interface ReceiptDraftItem {
   raw_name: string;

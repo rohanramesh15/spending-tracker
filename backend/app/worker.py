@@ -1,8 +1,7 @@
 """SQS-triggered worker Lambda (plan §4 background jobs).
 
-Idle in Phase 1 but wired from day one (CLAUDE.md phase order). Later consumes
-one-message-per-store price jobs, Plaid re-syncs, and recurring recomputes. The API
-Lambda enqueues to SQS; this handler drains it. Poison messages go to the DLQ.
+Wired from day one (CLAUDE.md phase order). Runs the scheduled Plaid fallback re-sync, and
+drains any SQS background jobs the API Lambda enqueues. Poison messages go to the DLQ.
 """
 
 from __future__ import annotations
@@ -30,7 +29,7 @@ def handler(event: dict, _context: object = None) -> dict:
         try:
             body = json.loads(record["body"])
             logger.info("worker received job: %s", body.get("type", "unknown"))
-            # Phase 5: price-refresh jobs dispatched here.
+            # Background SQS jobs are dispatched here.
         except Exception:  # noqa: BLE001 - any failure redrives just this message
             logger.exception("job failed; redriving message")
             failures.append({"itemIdentifier": record["messageId"]})

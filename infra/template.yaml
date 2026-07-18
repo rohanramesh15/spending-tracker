@@ -102,7 +102,7 @@ Resources:
       FunctionName: spending-tracker-worker
       CodeUri: ../backend
       Handler: app.worker.handler
-      Description: SQS-driven jobs — price refresh, Plaid re-sync, recurring recompute.
+      Description: Scheduled Plaid fallback re-sync + any SQS-driven background jobs.
       Timeout: 120
       Events:
         JobQueue:
@@ -126,7 +126,7 @@ Resources:
               Action: [kms:Decrypt]
               Resource: "*"
 
-  # --- EventBridge Scheduler: daily price refresh (DISABLED until Phase 5) ---
+  # --- EventBridge Scheduler role (invokes the worker for the Plaid fallback re-sync) ---
   SchedulerInvokeRole:
     Type: AWS::IAM::Role
     Properties:
@@ -144,17 +144,6 @@ Resources:
               - Effect: Allow
                 Action: lambda:InvokeFunction
                 Resource: !GetAtt WorkerFunction.Arn
-
-  PriceRefreshSchedule:
-    Type: AWS::Scheduler::Schedule
-    Properties:
-      Name: spending-tracker-price-refresh
-      State: DISABLED # present from day one; enabled in Phase 5 (plan §9)
-      ScheduleExpression: cron(0 9 * * ? *) # 09:00 UTC daily
-      FlexibleTimeWindow: { Mode: "OFF" }
-      Target:
-        Arn: !GetAtt WorkerFunction.Arn
-        RoleArn: !GetAtt SchedulerInvokeRole.Arn
 
   # --- EventBridge Scheduler: Plaid fallback re-sync (webhooks are the fast path; this is
   #     the safety net for missed/delayed transaction webhooks — industry standard) ---

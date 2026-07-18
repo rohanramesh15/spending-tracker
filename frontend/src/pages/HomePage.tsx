@@ -8,6 +8,7 @@ import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePick
 import { TotalSkeleton, ChartSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
+import { CategoryChips } from "@/components/CategoryChips";
 import { parseISODate, rangePresets, formatRangeLabel } from "@/lib/dates";
 
 /**
@@ -99,6 +100,7 @@ export default function HomePage() {
                         ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
                         : "Uncategorized"}
                     </p>
+                    <CategoryChips categories={t.categories} />
                   </div>
                   <span className="font-medium">
                     {formatCents(t.total_cents, t.currency)}

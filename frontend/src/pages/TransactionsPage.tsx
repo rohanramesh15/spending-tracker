@@ -5,6 +5,8 @@ import { Plus, Camera, Pencil, Landmark } from "lucide-react";
 import { useTransactions } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { cn, formatCents } from "@/lib/utils";
+import { CategoryChips } from "@/components/CategoryChips";
+import { ListSkeleton } from "@/components/Skeletons";
 import { parseISODate } from "@/lib/dates";
 import type { TransactionListItem, TransactionSource } from "@/api/types";
 
@@ -71,7 +73,7 @@ export default function TransactionsPage() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={6} />
       ) : groups.length === 0 ? (
         <div className="rounded-xl border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
           {filter === "needs_review" ? (
@@ -112,6 +114,7 @@ export default function TransactionsPage() {
                                 : "Uncategorized"}
                               {t.review_status === "needs_review" && " · needs review"}
                             </p>
+                            <CategoryChips categories={t.categories} />
                           </div>
                         </div>
                         <span className="font-medium">

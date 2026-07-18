@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Trash2, Camera } from "lucide-react";
 import { useTransaction, useDeleteTransaction } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
+import { DetailSkeleton } from "@/components/Skeletons";
 import { formatCents } from "@/lib/utils";
 import { parseISODate } from "@/lib/dates";
 import { setPendingReceipt } from "@/lib/scanFile";
@@ -38,7 +39,7 @@ export default function TransactionDetailPage() {
     }
   }
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isLoading) return <DetailSkeleton />;
   if (!txn) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
   return (

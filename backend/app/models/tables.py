@@ -3,8 +3,8 @@
 Global rules (plan §5 header):
 - All money columns are integer cents (``*_cents BIGINT``) — see ``base.money_cents``.
 - Every user-data table carries ``user_id`` with an RLS policy (added in the migration).
-  The children (``line_items``, ``comparable_specs``, ``price_quotes``) denormalize
-  ``user_id`` from their parent so each can have a simple ``user_id = auth.uid()`` policy.
+  Child tables (e.g. ``line_items``) denormalize ``user_id`` from their parent so each can
+  have a simple ``user_id = auth.uid()`` policy.
 - ``purchased_on`` is a local calendar DATE plus optional ``purchased_time`` — never a
   fake-precision UTC timestamp.
 
@@ -48,8 +48,6 @@ from app.models.enums import (
     LinkedAccountSource,
     Resolution,
     ReviewStatus,
-    StoreType,
-    SubstitutionTightness,
     SyncMode,
     TransactionSource,
 )
@@ -158,8 +156,7 @@ class LineItem(SQLModel, table=True):
     category_id: uuid.UUID | None = Field(
         default=None, sa_column=_fk("categories.id", nullable=True, ondelete="SET NULL")
     )
-    # LINE-EXTENDED total (quantity x unit price). Unit price is derived as
-    # price_cents / quantity / unit_size for recurring comparisons (plan §6.8).
+    # LINE-EXTENDED total (quantity x unit price).
     price_cents: int = money_cents(nullable=False)
     quantity: Decimal = Field(
         default=Decimal(1),
@@ -221,72 +218,5 @@ class ReconciliationReview(SQLModel, table=True):
     resolution: Resolution | None = Field(default=None, sa_column=Column(String, nullable=True))
 
 
-class RecurringItem(SQLModel, table=True):
-    """Detected repeat purchase, keyed on ``canonical_name`` (plan §5, §6.8)."""
-
-    __tablename__ = "recurring_items"
-    __table_args__ = (
-        UniqueConstraint("user_id", "canonical_name", name="uq_recurring_user_name"),
-        UniqueConstraint("user_id", "id", name="uq_recurring_user_id"),
-    )
-
-    id: uuid.UUID = uuid_pk()
-    user_id: uuid.UUID = user_id_col()
-    canonical_name: str = Field(sa_column=Column(String, nullable=False))
-    category_id: uuid.UUID | None = Field(
-        default=None, sa_column=_fk("categories.id", nullable=True, ondelete="SET NULL")
-    )
-    occurrences: int = Field(
-        default=0, sa_column=Column(Integer, nullable=False, server_default="0")
-    )
-    first_seen: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
-    last_seen: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
-    avg_unit_price_cents: int | None = money_cents(nullable=True)
-
-
-class ComparableSpec(SQLModel, table=True):
-    """The equivalence class for a recurring item (plan §5, §6.9). ``user_id``
-    denormalized for RLS."""
-
-    __tablename__ = "comparable_specs"
-    __table_args__ = (UniqueConstraint("user_id", "id", name="uq_comparable_specs_user_id"),)
-
-    id: uuid.UUID = uuid_pk()
-    user_id: uuid.UUID = user_id_col()
-    recurring_item_id: uuid.UUID = Field(sa_column=_fk("recurring_items.id"))
-    category: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    attributes_json: dict | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
-    size_value: Decimal | None = Field(
-        default=None, sa_column=Column(Numeric(12, 3), nullable=True)
-    )
-    size_unit: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    substitution_tightness: SubstitutionTightness = Field(
-        default=SubstitutionTightness.strict,
-        sa_column=Column(String, nullable=False, server_default="strict"),
-    )
-
-
-class PriceQuote(SQLModel, table=True):
-    """Price cache; the UI always reads from here. Only ``physical`` (Kroger) quotes
-    are written for now; ``online`` is reserved (plan §5, §6.9). ``user_id`` for RLS."""
-
-    __tablename__ = "price_quotes"
-
-    id: uuid.UUID = uuid_pk()
-    user_id: uuid.UUID = user_id_col()
-    comparable_spec_id: uuid.UUID = Field(sa_column=_fk("comparable_specs.id"))
-    store_name: str = Field(sa_column=Column(String, nullable=False))
-    store_type: StoreType = Field(
-        default=StoreType.physical,
-        sa_column=Column(String, nullable=False, server_default="physical"),
-    )
-    location_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    product_title: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    price_cents: int = money_cents(nullable=False)
-    unit_price_cents: int | None = money_cents(nullable=True)
-    unit: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    distance_mi: Decimal | None = Field(
-        default=None, sa_column=Column(Numeric(6, 2), nullable=True)
-    )
-    source_api: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    fetched_at: datetime = created_at_col()
+# (Recurring-item detection + the cheaper-store finder — RecurringItem, ComparableSpec,
+# PriceQuote — were removed 2026-07-17; their tables are dropped in migration 0005.)

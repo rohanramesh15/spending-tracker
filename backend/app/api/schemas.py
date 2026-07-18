@@ -126,6 +126,7 @@ class TransactionListItem(BaseModel):
     currency: str
     review_status: ReviewStatus
     item_count: int
+    categories: list[str] = Field(default_factory=list)  # distinct line-item categories, for chips
 
 
 class TransactionDetail(TransactionListItem):
@@ -282,57 +283,4 @@ class ImportSummary(BaseModel):
     skipped: int  # non-purchase rows (payments, credits, unparseable)
 
 
-# --- Recurring items (Phase 4) -------------------------------------------------
-
-
-class PricePoint(BaseModel):
-    purchased_on: date
-    unit_price_cents: int
-
-
-class RecurringItemOut(BaseModel):
-    """A repeatedly-bought item, keyed on canonical name (plan §6.8)."""
-
-    canonical_name: str
-    category_name: str | None
-    occurrences: int  # distinct shopping trips in the window
-    avg_unit_price_cents: int
-    first_seen: date
-    last_seen: date
-    price_history: list[PricePoint]  # per-day avg unit price, oldest first (sparkline)
-
-
-# --- Cheaper-store finder (Phase 5) --------------------------------------------
-
-
-class FinderProduct(BaseModel):
-    title: str
-    price_cents: int
-    unit_price_cents: int | None  # per base unit; None if the size couldn't be parsed
-    size: str | None
-
-
-class FinderStore(BaseModel):
-    name: str | None
-    address: str | None = None
-    lat: float | None = None
-    lng: float | None = None
-    has_prices: bool  # True for the Kroger store we priced; False for map-only pins
-
-
-class FinderResult(BaseModel):
-    """A finder run: the comparable spec, the Kroger store we priced + its ranked shelf,
-    nearby store pins, and 'as of' the moment we fetched (plan §6.9 step 5)."""
-
-    item: str
-    search_term: str
-    dimension: str
-    base_unit: str
-    attributes: list[str]
-    tightness: str
-    kroger_configured: bool
-    places_configured: bool
-    searched_store: FinderStore | None
-    results: list[FinderProduct]  # ranked, cheapest per base unit first
-    nearby_stores: list[FinderStore]
-    as_of: datetime
+# (Recurring-items + cheaper-store-finder schemas removed 2026-07-17.)

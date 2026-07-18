@@ -47,14 +47,3 @@ class Resolution(StrEnum):
     skip = "skip"
     replace = "replace"
     keep_both = "keep_both"
-
-
-class StoreType(StrEnum):
-    physical = "physical"
-    online = "online"
-
-
-class SubstitutionTightness(StrEnum):
-    strict = "strict"
-    medium = "medium"
-    loose = "loose"
