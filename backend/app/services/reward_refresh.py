@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from sqlalchemy import text
 from sqlmodel import Session
@@ -23,6 +24,7 @@ from sqlmodel import Session
 from app.core.config import get_settings
 from app.services import reward_kb
 from app.services.reward_kb import RewardProfile
+from app.services.rewards import REWARD_CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +44,156 @@ def fetch_reward_profile(card_name: str) -> dict | None:
 
 
 def _fetch_via_tavily(card_name: str) -> dict | None:
-    # The real Tavily + LLM lookup slots in here once TAVILY_API_KEY is set (the user's step,
-    # CLAUDE.md). Lazy/guarded so the app and tests never need the dependency or a key. Returns
-    # None until wired — honest (no fabricated rates) rather than a stub with fake numbers.
-    logger.warning(
-        "reward-rate refresh requested for %r but Tavily fetch is not wired yet", card_name
+    """Tavily web-retrieval → Gemini structured extraction. Two seams, each guarded on its own
+    key and mocked in tests (never a real network call in the suite, CLAUDE.md #5)."""
+    content = _tavily_search(f"{card_name} credit card rewards rate bonus categories 2026")
+    if not content:
+        return None
+    return _extract_profile_gemini(card_name, content)
+
+
+def _tavily_search(query: str) -> str | None:
+    """Grounded web search via Tavily; returns the concatenated result text (answer + snippets)
+    or None. No-op without a key."""
+    api_key = get_settings().tavily_api_key
+    if not api_key:
+        return None
+    import httpx
+
+    try:
+        resp = httpx.post(
+            "https://api.tavily.com/search",
+            json={
+                "api_key": api_key,
+                "query": query,
+                "search_depth": "advanced",  # richer content — worth it for a cached, rare call
+                "max_results": 6,
+                "include_answer": True,
+            },
+            timeout=20.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception:  # noqa: BLE001 - a search failure just means no refresh for this card
+        logger.exception("Tavily search failed for %r", query)
+        return None
+
+    parts: list[str] = []
+    if data.get("answer"):
+        parts.append(str(data["answer"]))
+    for r in data.get("results", []):
+        if r.get("content"):
+            parts.append(str(r["content"]))
+    text_out = "\n".join(parts).strip()
+    return text_out or None
+
+
+def _extract_profile_gemini(card_name: str, content: str) -> dict | None:
+    """Ask Gemini to structure the search snippets into a RewardProfile-shaped dict, constrained
+    to our reward-category vocabulary. Returns None without a key, on error, or if the model
+    reports it can't identify the card's rewards. Same provider seam as ``extract.py``."""
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        logger.warning("Tavily results for %r but no Gemini key to extract rates", card_name)
+        return None
+    from google import genai
+    from google.genai import types
+
+    cats = ", ".join(c for c in REWARD_CATEGORIES if c != "other")
+    prompt = (
+        "You extract structured credit-card reward rates from web search snippets.\n"
+        f"Card: {card_name!r}\n\n"
+        f"Search results:\n{content[:8000]}\n\n"
+        "Example — a card earning 4x dining, 4x US supermarkets (capped $25k/yr), 3x flights:\n"
+        '{"display_name":"Amex Gold","issuer":"American Express","base_rate":0.01,'
+        '"category_rates":{"dining":0.04,"groceries":0.04,"travel":0.03},'
+        '"category_caps":{"groceries":2500000},"points_value_cents":1.0}\n\n'
+        "Return JSON with EXACTLY this shape:\n"
+        '{"display_name": str, "issuer": str, "base_rate": number, '
+        '"category_rates": {category: rate}, "category_caps": {category: annual_cap_cents}, '
+        '"points_value_cents": number}\n'
+        "Rules:\n"
+        f"- category keys MUST come from EXACTLY this list: {cats}. Omit any with no bonus.\n"
+        "- Include EVERY category the card earns ABOVE its base rate, not just one.\n"
+        "- rates are DECIMAL FRACTIONS at 1 cent/point (5x -> 0.05, 3x -> 0.03, 1% -> 0.01).\n"
+        "- Use the EVERYDAY earn rate for normal purchases, NOT an elevated rate that requires "
+        "booking through the issuer's own travel portal. Real everyday category rates almost "
+        "never exceed 6% (0.06); if you see 10x/5x, that's usually portal-only — use the "
+        "general rate instead.\n"
+        "- base_rate is the catch-all rate (use 0.01 if unclear).\n"
+        "- category_caps: annual spend cap in INTEGER CENTS where a bonus is capped "
+        "($6,000/yr -> 600000; convert a quarterly cap to annual by x4); omit if uncapped.\n"
+        "- points_value_cents: 1.0 for cashback; up to ~2.0 only if transferable value is stated.\n"
+        '- Return {"unknown": true} ONLY if the results are not about this card at all.'
     )
-    return None
+    client = genai.Client(api_key=settings.gemini_api_key)
+    response = client.models.generate_content(
+        model=settings.gemini_model,
+        contents=[prompt],
+        config=types.GenerateContentConfig(temperature=0.0, response_mime_type="application/json"),
+    )
+    raw = (getattr(response, "text", "") or "").strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("reward-profile extraction returned non-JSON for %r", card_name)
+        return None
+    if not isinstance(data, dict) or data.get("unknown"):
+        return None
+    return _normalize_fetched_profile(card_name, data)
+
+
+def _slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
+
+
+def _normalize_fetched_profile(card_name: str, data: dict) -> dict | None:
+    """Coerce raw LLM output onto our schema + reward-category whitelist, clamping insane
+    values. Returns None if there's not even a usable key."""
+    valid = set(REWARD_CATEGORIES) - {"other"}
+
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    rates: dict[str, float] = {}
+    for k, v in (data.get("category_rates") or {}).items():
+        f = _num(v)
+        # No everyday category rate legitimately exceeds ~8%; higher = portal rate or garbage.
+        if k in valid and f is not None and 0 < f <= 0.08:
+            rates[k] = round(f, 4)
+    caps: dict[str, int] = {}
+    for k, v in (data.get("category_caps") or {}).items():
+        try:
+            c = int(v)
+        except (TypeError, ValueError):
+            continue
+        if k in valid and c > 0:
+            caps[k] = c
+
+    display = str(data.get("display_name") or card_name).strip()
+    key = _slug(display) or _slug(card_name)
+    if not key:
+        return None
+    base = _num(data.get("base_rate"))
+    base_rate = base if (base is not None and 0 < base <= 0.5) else 0.01
+    pv = _num(data.get("points_value_cents"))
+    points = pv if (pv is not None and 0.5 <= pv <= 3.0) else 1.0
+    issuer = str(data.get("issuer") or "").strip() or None
+    return {
+        "key": key,
+        "display_name": display,
+        "issuer": issuer,
+        "base_rate": round(base_rate, 4),
+        "category_rates": rates,
+        "category_caps": caps,
+        "points_value_cents": points,
+        "source": "tavily",
+    }
 
 
 def get_cached_profile(db: Session, key: str) -> RewardProfile | None:

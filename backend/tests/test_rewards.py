@@ -240,3 +240,51 @@ def test_reward_refresh_is_noop_without_key():
     # No TAVILY_API_KEY in the test env → the seam is a no-op (card stays unmatched).
     assert reward_refresh.is_configured() is False
     assert reward_refresh.fetch_reward_profile("Some Obscure Card") is None
+
+
+# --- v3: Tavily fetch pipeline (mocked — no real network) --------------------------------
+def test_normalize_fetched_profile_whitelists_and_clamps():
+    from app.services import reward_refresh
+
+    raw = {
+        "display_name": "Wells Fargo Autograph",
+        "issuer": "Wells Fargo",
+        "base_rate": 0.01,
+        "category_rates": {"dining": 0.03, "gas": 0.03, "bogus_cat": 0.05, "streaming": 9.9},
+        "category_caps": {"dining": 0, "gas": 250000},
+        "points_value_cents": 1.0,
+    }
+    p = reward_refresh._normalize_fetched_profile("Wells Fargo Autograph", raw)
+    assert p["key"] == "wells_fargo_autograph"
+    # unknown category dropped; >0.5 garbage rate dropped
+    assert p["category_rates"] == {"dining": 0.03, "gas": 0.03}
+    assert p["category_caps"] == {"gas": 250000}  # 0-cap dropped
+    assert p["source"] == "tavily"
+
+
+def test_fetch_via_tavily_orchestration(monkeypatch):
+    from app.services import reward_refresh
+
+    monkeypatch.setattr(reward_refresh, "_tavily_search", lambda q: "Autograph earns 3x dining")
+    monkeypatch.setattr(
+        reward_refresh,
+        "_extract_profile_gemini",
+        lambda name, content: {
+            "key": "x",
+            "display_name": name,
+            "category_rates": {"dining": 0.03},
+        },
+    )
+    out = reward_refresh._fetch_via_tavily("Autograph")
+    assert out["category_rates"] == {"dining": 0.03}
+    # empty search short-circuits (no LLM call)
+    monkeypatch.setattr(reward_refresh, "_tavily_search", lambda q: None)
+    assert reward_refresh._fetch_via_tavily("Autograph") is None
+
+
+def test_tavily_and_gemini_seams_noop_without_keys():
+    from app.services import reward_refresh
+
+    # No TAVILY_API_KEY / GEMINI_API_KEY in the test env → each seam is a no-op (no network).
+    assert reward_refresh._tavily_search("anything") is None
+    assert reward_refresh._extract_profile_gemini("X", "some content") is None
