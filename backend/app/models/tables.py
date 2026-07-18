@@ -138,6 +138,14 @@ class Transaction(SQLModel, table=True):
         default=ReviewStatus.confirmed,
         sa_column=Column(String, nullable=False, server_default="confirmed", index=True),
     )
+    # Rewards optimizer v2 (migration 0009): which card this purchase was made on (Plaid
+    # account → cards row), plus Plaid's PFC persisted for reward-category accuracy. Null for
+    # receipt/manual rows. ORM metadata only for the FK — the migration is authoritative.
+    card_id: uuid.UUID | None = Field(
+        default=None, sa_column=_fk("cards.id", nullable=True, ondelete="SET NULL")
+    )
+    pfc_primary: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    pfc_detailed: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     created_at: datetime = created_at_col()
 
 

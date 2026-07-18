@@ -259,10 +259,12 @@ def _txn_to_dict(t) -> dict:
     purchased_on: date = getattr(t, "authorized_date", None) or t.date
     return {
         "transaction_id": t.transaction_id,
+        "account_id": getattr(t, "account_id", None),  # which card/account (rewards v2)
         "name": getattr(t, "merchant_name", None) or t.name,
         "amount_cents": amount_cents,
         "currency": getattr(t, "iso_currency_code", None) or "USD",
         "purchased_on": purchased_on,
         "pending": bool(getattr(t, "pending", False)),
         "pfc_primary": getattr(pfc, "primary", None) if pfc else None,
+        "pfc_detailed": getattr(pfc, "detailed", None) if pfc else None,
     }

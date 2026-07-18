@@ -7,7 +7,13 @@ Plaid-name → profile matcher, and the cap-aware optimizer.
 from __future__ import annotations
 
 from app.services.reward_kb import get_profile, match_profile
-from app.services.rewards import CategoryReco, optimize, reward_category
+from app.services.rewards import (
+    ActualUsage,
+    CategoryReco,
+    missed_rewards_for_category,
+    optimize,
+    reward_category,
+)
 
 
 # --- reward_category: the split that our coarse taxonomy can't express -------------------
@@ -136,3 +142,50 @@ def test_category_reco_v2_fields_default_none():
     assert isinstance(reco, CategoryReco)
     assert reco.current_card_key is None
     assert reco.est_annual_missed_cents is None
+
+
+# --- v2: actual-vs-optimal (missed rewards) ---------------------------------------------
+def test_missed_rewards_on_suboptimal_card():
+    bce = get_profile("amex_blue_cash_everyday")  # 3% groceries
+    dc = get_profile("citi_double_cash")  # 2% flat
+    # $1000/90d of groceries all on Double Cash, but BCE is in the wallet → real missed rewards.
+    au = missed_rewards_for_category(
+        "groceries", {"card_dc": 100_000}, {"card_dc": dc}, [bce, dc], 90
+    )
+    assert au.dominant_card_key == "citi_double_cash"
+    assert au.missed_annual_cents > 0  # BCE 3% would beat DC 2%
+
+
+def test_no_missed_when_already_using_best_card():
+    bce = get_profile("amex_blue_cash_everyday")
+    dc = get_profile("citi_double_cash")
+    au = missed_rewards_for_category(
+        "groceries", {"card_bce": 100_000}, {"card_bce": bce}, [bce, dc], 90
+    )
+    assert au.dominant_card_key == "amex_blue_cash_everyday"
+    assert au.missed_annual_cents == 0  # already optimal → nothing left on the table
+
+
+def test_missed_rewards_empty_inputs():
+    dc = get_profile("citi_double_cash")
+    assert missed_rewards_for_category("dining", {}, {}, [dc], 90).missed_annual_cents == 0
+    assert (
+        missed_rewards_for_category("dining", {"c": 100}, {"c": dc}, [], 90).missed_annual_cents
+        == 0
+    )
+
+
+def test_optimize_attaches_actual_usage_fields():
+    wallet = _wallet("amex_blue_cash_everyday", "citi_double_cash")
+    au = {
+        "groceries": ActualUsage(
+            dominant_card_key="citi_double_cash",
+            dominant_card_name="Citi Double Cash",
+            dominant_rate=0.02,
+            missed_annual_cents=4056,
+        )
+    }
+    reco = optimize({"groceries": 100_000}, wallet, 90, au)[0]
+    assert reco.current_card_key == "citi_double_cash"
+    assert reco.current_card_name == "Citi Double Cash"
+    assert reco.est_annual_missed_cents == 4056

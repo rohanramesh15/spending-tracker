@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterator
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -68,13 +69,15 @@ def client(monkeypatch) -> Iterator[tuple[TestClient, uuid.UUID, str]]:
             db.commit()
 
 
-def _seed_card(user_id, acct_id, *, plaid_account_id, name, subtype, profile_key=None, source=None):
+def _seed_card(
+    user_id, acct_id, *, plaid_account_id, name, subtype, profile_key=None, source=None
+) -> str:
     with admin_session() as db:
-        db.execute(
+        cid = db.execute(
             text(
                 "INSERT INTO cards (user_id, linked_account_id, plaid_account_id, name, subtype, "
                 "reward_profile_key, reward_profile_source) "
-                "VALUES (:u, :a, :pa, :n, :st, :k, :src)"
+                "VALUES (:u, :a, :pa, :n, :st, :k, :src) RETURNING id"
             ),
             {
                 "u": user_id,
@@ -85,21 +88,54 @@ def _seed_card(user_id, acct_id, *, plaid_account_id, name, subtype, profile_key
                 "k": profile_key,
                 "src": source,
             },
-        )
+        ).scalar_one()
         db.commit()
+    return str(cid)
 
 
-def _seed_plaid_txn(user_id, vendor, cents, *, review_status="confirmed"):
+def _seed_plaid_txn(
+    user_id,
+    vendor,
+    cents,
+    *,
+    review_status="confirmed",
+    card_id=None,
+    pfc_detailed=None,
+    external_id=None,
+):
     with admin_session() as db:
         db.execute(
             text(
                 "INSERT INTO transactions "
-                "(user_id, vendor, purchased_on, source, total_cents, review_status) "
-                "VALUES (:u, :v, CURRENT_DATE, 'plaid', :c, :rs)"
+                "(user_id, vendor, purchased_on, source, total_cents, review_status, "
+                "card_id, pfc_detailed, external_id) "
+                "VALUES (:u, :v, CURRENT_DATE, 'plaid', :c, :rs, :cid, :pfc, :ext)"
             ),
-            {"u": user_id, "v": vendor, "c": cents, "rs": review_status},
+            {
+                "u": user_id,
+                "v": vendor,
+                "c": cents,
+                "rs": review_status,
+                "cid": card_id,
+                "pfc": pfc_detailed,
+                "ext": external_id,
+            },
         )
         db.commit()
+
+
+def _plaid_txn(tid, account_id, name, cents, *, pfc_detailed=None):
+    return {
+        "transaction_id": tid,
+        "account_id": account_id,
+        "name": name,
+        "amount_cents": cents,
+        "currency": "USD",
+        "purchased_on": date.today(),
+        "pending": False,
+        "pfc_primary": "FOOD_AND_DRINK",
+        "pfc_detailed": pfc_detailed,
+    }
 
 
 # --- cards endpoints ---------------------------------------------------------------------
@@ -286,3 +322,135 @@ def test_optimization_empty_wallet(client):
     assert body["recommendations"] == []
     assert body["total_est_annual_reward_cents"] == 0
     assert body["top_move"] is None
+    assert body["total_missed_annual_cents"] is None  # no card-attributed spend yet
+
+
+# --- v2: card attribution + missed rewards + backfill -----------------------------------
+def test_sync_attributes_card_id_and_pfc(client, monkeypatch):
+    c, uid, _acct = client
+    monkeypatch.setattr(
+        plaid_client,
+        "get_accounts",
+        lambda at: [
+            {
+                "account_id": "ac_bce",
+                "name": "Blue Cash Everyday",
+                "official_name": None,
+                "mask": "1111",
+                "subtype": "credit card",
+                "type": "credit",
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        plaid_client,
+        "sync_transactions",
+        lambda at, cur: {
+            "added": [
+                _plaid_txn(
+                    "t1", "ac_bce", "Whole Foods", 5000, pfc_detailed="FOOD_AND_DRINK_GROCERIES"
+                )
+            ],
+            "modified": [],
+            "removed": [],
+            "next_cursor": "cur-1",
+        },
+    )
+    c.post("/api/plaid/sync")
+    with admin_session() as db:
+        row = db.execute(
+            text(
+                "SELECT card_id, pfc_detailed FROM transactions "
+                "WHERE user_id=:u AND external_id='t1'"
+            ),
+            {"u": uid},
+        ).first()
+    assert row.card_id is not None  # attributed to the BCE card
+    assert row.pfc_detailed == "FOOD_AND_DRINK_GROCERIES"
+
+
+def test_resync_backfills_card_id_on_existing_row(client, monkeypatch):
+    c, uid, _acct = client
+    # A pre-existing Plaid row with no card_id (as if it predates the rewards feature).
+    _seed_plaid_txn(uid, "Whole Foods", 5000, external_id="t1")
+    monkeypatch.setattr(
+        plaid_client,
+        "get_accounts",
+        lambda at: [
+            {
+                "account_id": "ac_bce",
+                "name": "Blue Cash Everyday",
+                "official_name": None,
+                "mask": "1111",
+                "subtype": "credit card",
+                "type": "credit",
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        plaid_client,
+        "sync_transactions",
+        lambda at, cur: {
+            "added": [
+                _plaid_txn(
+                    "t1", "ac_bce", "Whole Foods", 5000, pfc_detailed="FOOD_AND_DRINK_GROCERIES"
+                )
+            ],
+            "modified": [],
+            "removed": [],
+            "next_cursor": "cur-1",
+        },
+    )
+    c.post("/api/plaid/sync")  # redelivers t1 with account_id → ingest backfills card_id/pfc
+    with admin_session() as db:
+        row = db.execute(
+            text(
+                "SELECT card_id, pfc_detailed FROM transactions "
+                "WHERE user_id=:u AND external_id='t1'"
+            ),
+            {"u": uid},
+        ).first()
+    assert row.card_id is not None
+    assert row.pfc_detailed == "FOOD_AND_DRINK_GROCERIES"
+
+
+def test_optimization_shows_missed_on_suboptimal_card(client):
+    c, uid, acct = client
+    _seed_card(
+        uid,
+        acct,
+        plaid_account_id="ac_bce",
+        name="Blue Cash Everyday",
+        subtype="credit card",
+        profile_key="amex_blue_cash_everyday",
+        source="matched",
+    )
+    dc_id = _seed_card(
+        uid,
+        acct,
+        plaid_account_id="ac_dc",
+        name="Double Cash",
+        subtype="credit card",
+        profile_key="citi_double_cash",
+        source="matched",
+    )
+    # $500 groceries put on Double Cash (2%) though Blue Cash Everyday (3%) is held → missed.
+    _seed_plaid_txn(uid, "Whole Foods Market", 50_000, card_id=dc_id)
+
+    body = c.get("/api/rewards/optimization?window_days=90").json()
+    assert body["total_missed_annual_cents"] is not None
+    assert body["total_missed_annual_cents"] > 0
+    groceries = next(r for r in body["recommendations"] if r["reward_category"] == "groceries")
+    assert groceries["best_card_key"] == "amex_blue_cash_everyday"
+    assert groceries["current_card_name"] == "Citi Double Cash"
+    assert groceries["est_annual_missed_cents"] > 0
+    assert "leaving" in body["top_move"]
+
+
+def test_worker_dispatches_rewards_backfill(monkeypatch):
+    from app import worker
+    from app.api import plaid as plaid_api
+
+    monkeypatch.setattr(plaid_api, "backfill_transaction_cards", lambda: 3)
+    result = worker.handler({"job": "rewards_backfill"})
+    assert result == {"job": "rewards_backfill", "synced": 3}

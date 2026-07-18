@@ -319,6 +319,55 @@ def sync_all_active_items() -> int:
     return synced
 
 
+def backfill_transaction_cards() -> int:
+    """Rewards v2 one-off backfill (rewards-optimizer-plan §4): attribute historical Plaid
+    transactions to the card they were made on + persist PFC. Resets each active Item's cursor
+    and re-syncs; re-delivered rows are idempotent — ingest fills card_id/pfc on existing rows
+    only when empty (``_backfill_card_fields``). System job: item→owner lookup is admin, every
+    write runs under the owner's RLS session. Returns the number of items re-synced."""
+    if not plaid_client.is_configured():
+        return 0
+    with admin_session() as sys_db:
+        item_ids = sys_db.exec(
+            select(LinkedAccount.item_id).where(
+                LinkedAccount.source == LinkedAccountSource.plaid,
+                LinkedAccount.status == AccountStatus.active,
+                LinkedAccount.item_id.is_not(None),
+            )
+        ).all()
+    synced = 0
+    for item_id in item_ids:
+        try:
+            _reset_cursor_and_sync(item_id)
+            synced += 1
+        except Exception:  # noqa: BLE001 - one bad Item must not halt the batch
+            logger.exception("rewards backfill failed for item %s", item_id)
+    return synced
+
+
+def _reset_cursor_and_sync(item_id: str) -> None:
+    """Reset one Item's cursor to null and re-sync under its owner's RLS session, so every
+    historical transaction is re-delivered (now carrying account_id + PFC)."""
+    with admin_session() as sys_db:
+        owner = sys_db.exec(
+            select(LinkedAccount.user_id).where(LinkedAccount.item_id == item_id)
+        ).first()
+    if owner is None:
+        return
+    claims = {"sub": str(owner), "role": "authenticated"}
+    with rls_session(claims) as db:
+        account = db.exec(
+            select(LinkedAccount).where(
+                LinkedAccount.item_id == item_id, LinkedAccount.user_id == owner
+            )
+        ).first()
+        if account is not None and account.access_token:
+            account.transactions_cursor = None  # re-fetch the full history
+            db.add(account)
+            db.flush()
+            _sync_account(db, str(owner), account)
+
+
 @router.get("/accounts", response_model=list[LinkedAccountOut])
 def list_accounts(
     db: Session = Depends(get_db),
@@ -398,6 +447,16 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountS
 
     result = plaid_client.sync_transactions(account.access_token, account.transactions_cursor)
 
+    # Map Plaid account_id → our cards.id so each transaction is attributed to the card it was
+    # made on (rewards v2). Cards were ensured above (_upsert_cards on first sync / link).
+    card_by_plaid = {
+        c.plaid_account_id: c.id
+        for c in db.exec(
+            select(Card).where(Card.user_id == user_id, Card.linked_account_id == account.id)
+        ).all()
+        if c.plaid_account_id
+    }
+
     added = needs_review = skipped = 0
     for txn in [*result["added"], *result["modified"]]:
         if (
@@ -407,10 +466,15 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountS
         ):
             skipped += 1
             continue  # posted money-OUT only (see module docstring)
+        card_id = card_by_plaid.get(txn.get("account_id"))
         payload = IngestRequest(
             source=TransactionSource.plaid,
             external_id=txn["transaction_id"],
             linked_account_id=str(account.id),
+            # Rewards v2: attribute to the card + persist PFC for reward-category accuracy.
+            card_id=str(card_id) if card_id else None,
+            pfc_primary=txn["pfc_primary"],
+            pfc_detailed=txn.get("pfc_detailed"),
             vendor=txn["name"],
             purchased_on=txn["purchased_on"],
             total_cents=txn["amount_cents"],

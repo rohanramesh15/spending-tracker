@@ -60,6 +60,7 @@ function optimization(overrides: Partial<RewardsOptimization> = {}): RewardsOpti
       },
     ],
     total_est_annual_reward_cents: 2430,
+    total_missed_annual_cents: null,
     unmatched_card_count: 1,
     top_move: "Use Amex Blue Cash Everyday for groceries (~$24/yr in rewards)",
     points_assumption_note: "Rates assume 1¢ per point.",
@@ -120,6 +121,33 @@ describe("RewardsPage", () => {
     expect(screen.getByLabelText("Reward profile for Mystery Visa")).toBeInTheDocument();
     // honesty caveat surfaced
     expect(screen.getByText(/Rates assume 1¢ per point/)).toBeInTheDocument();
+  });
+
+  it("flips to a 'left on the table' headline when v2 missed rewards are present", async () => {
+    optData = optimization({
+      total_missed_annual_cents: 1200,
+      recommendations: [
+        {
+          reward_category: "groceries",
+          spend_cents: 50000,
+          annualized_spend_cents: 200000,
+          best_card_key: "amex_blue_cash_everyday",
+          best_card_name: "Amex Blue Cash Everyday",
+          best_rate: 0.03,
+          est_annual_reward_cents: 6000,
+          current_card_name: "Citi Double Cash",
+          current_rate: 0.02,
+          est_annual_missed_cents: 1200,
+        },
+      ],
+    });
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText(/left on the table/i)).toBeInTheDocument(),
+    );
+    // per-row current card + missed amount
+    expect(screen.getByText(/on Citi Double Cash · missing/)).toBeInTheDocument();
   });
 
   it("shows an empty state when the user has no cards", async () => {

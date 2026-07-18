@@ -249,6 +249,9 @@ export interface RewardsOptimization {
   cards: Card[];
   recommendations: RewardRecommendation[];
   total_est_annual_reward_cents: number;
+  // v2: real rewards left on the table vs the cards actually used (null until any
+  // card-attributed spend exists).
+  total_missed_annual_cents: number | null;
   unmatched_card_count: number;
   top_move: string | null;
   points_assumption_note: string;

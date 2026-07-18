@@ -93,19 +93,33 @@ export default function RewardsPage() {
             </div>
           )}
 
-          {hasWallet && data.recommendations.length > 0 && (
-            <div className="rounded-xl border p-4">
-              <p className="text-sm text-muted-foreground">
-                Best card for each category, based on your last {data.window_days} days of spending
-              </p>
-              <p className="mt-1 text-2xl font-semibold">
-                {dollars(data.total_est_annual_reward_cents)}
-                <span className="ml-1 text-sm font-normal text-muted-foreground">
-                  /yr in rewards if you always use the best card
-                </span>
-              </p>
-            </div>
-          )}
+          {hasWallet &&
+            data.recommendations.length > 0 &&
+            (data.total_missed_annual_cents != null && data.total_missed_annual_cents > 0 ? (
+              <div className="rounded-xl border border-warning/40 bg-warning/5 p-4">
+                <p className="text-sm text-muted-foreground">
+                  Rewards you left on the table (last {data.window_days} days, annualized)
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-warning">
+                  {dollars(data.total_missed_annual_cents)}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
+                    /yr by not using your best card
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border p-4">
+                <p className="text-sm text-muted-foreground">
+                  Best card per category, based on your last {data.window_days} days of spending
+                </p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {dollars(data.total_est_annual_reward_cents)}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
+                    /yr in rewards if you always use the best card
+                  </span>
+                </p>
+              </div>
+            ))}
 
           {unmatched.length > 0 && (
             <ConfirmCards
@@ -184,6 +198,12 @@ function Recommendations({ recos }: { recos: RewardRecommendation[] }) {
                 <div className="text-xs text-muted-foreground">
                   {formatCents(r.spend_cents)} spent
                 </div>
+                {r.est_annual_missed_cents != null && r.est_annual_missed_cents > 0 && (
+                  <div className="text-xs text-warning">
+                    on {r.current_card_name ?? "another card"} · missing{" "}
+                    {dollars(r.est_annual_missed_cents)}/yr
+                  </div>
+                )}
               </td>
               <td className="px-4 py-3">{r.best_card_name}</td>
               <td className="px-4 py-3 text-right font-medium tabular-nums">{pct(r.best_rate)}</td>

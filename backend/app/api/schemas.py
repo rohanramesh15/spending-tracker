@@ -40,6 +40,11 @@ class IngestRequest(BaseModel):
     source: TransactionSource
     external_id: str | None = None
     linked_account_id: str | None = None
+    # Rewards v2 (rewards-optimizer-plan §4): which card the purchase was made on + Plaid's
+    # PFC persisted for reward-category accuracy. Set by the Plaid sync; null for receipt/manual.
+    card_id: str | None = None
+    pfc_primary: str | None = None
+    pfc_detailed: str | None = None
     vendor: str
     purchased_on: date
     purchased_time: time | None = None
@@ -337,6 +342,9 @@ class RewardsOptimization(BaseModel):
     cards: list[CardOut]
     recommendations: list[RewardRecommendation]
     total_est_annual_reward_cents: int  # sum across categories on the best cards
+    # v2: real rewards left on the table vs the cards actually used (null until card_id exists
+    # on transactions / any card-attributed spend is present).
+    total_missed_annual_cents: int | None = None
     unmatched_card_count: int  # cards awaiting a profile confirmation
     top_move: str | None  # e.g. "Use Amex Gold for groceries (~$120/yr)"
     # Honesty caveats surfaced in the UI (rewards-optimizer-plan §8):

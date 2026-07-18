@@ -60,6 +60,7 @@ def ingest(
             )
         ).first()
         if existing is not None:
+            _backfill_card_fields(db, existing, payload)
             return IngestResult(status="exists", transaction=_to_out(existing))
 
     match = find_match(
@@ -167,6 +168,9 @@ def _insert_transaction(
         source=payload.source,
         external_id=payload.external_id,
         linked_account_id=payload.linked_account_id,
+        card_id=payload.card_id,
+        pfc_primary=payload.pfc_primary,
+        pfc_detailed=payload.pfc_detailed,
         subtotal_cents=payload.subtotal_cents,
         tax_cents=payload.tax_cents,
         tip_cents=payload.tip_cents,
@@ -179,6 +183,25 @@ def _insert_transaction(
     db.flush()  # assign txn.id within the request transaction
     _add_line_items(db, user_id, txn.id, payload)
     return txn
+
+
+def _backfill_card_fields(db: Session, existing: Transaction, payload: IngestRequest) -> None:
+    """Rewards v2 (rewards-optimizer-plan §4): a cursor-reset re-sync redelivers existing Plaid
+    rows now carrying ``card_id`` + PFC. Fill those in on rows that predate the feature — only
+    when currently empty, never clobbering a value — so the historical backfill is idempotent."""
+    changed = False
+    if existing.card_id is None and payload.card_id is not None:
+        existing.card_id = payload.card_id
+        changed = True
+    if existing.pfc_primary is None and payload.pfc_primary is not None:
+        existing.pfc_primary = payload.pfc_primary
+        changed = True
+    if existing.pfc_detailed is None and payload.pfc_detailed is not None:
+        existing.pfc_detailed = payload.pfc_detailed
+        changed = True
+    if changed:
+        db.add(existing)
+        db.flush()
 
 
 def _open_review(db: Session, user_id: str, *, incoming: Transaction, matched: Transaction) -> None:

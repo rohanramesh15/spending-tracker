@@ -385,10 +385,62 @@ def _annual_reward_cents(profile: RewardProfile, category: str, annual_spend_cen
     return round(bonus_units * profile.points_value_cents)
 
 
+@dataclass
+class ActualUsage:
+    """Actual-vs-optimal for one category over the spend we can attribute to a known card
+    (rewards v2). ``missed_annual_cents`` compares the best held card against the cards
+    actually used, on the SAME attributed spend."""
+
+    dominant_card_key: str | None  # the card that carried the most attributed spend here
+    dominant_card_name: str | None
+    dominant_rate: float | None  # its effective rate for this category
+    missed_annual_cents: int
+
+
+def missed_rewards_for_category(
+    category: str,
+    attributed_spend_by_card: dict[str, int],
+    card_profiles: dict[str, RewardProfile],
+    wallet: list[RewardProfile],
+    window_days: int,
+) -> ActualUsage:
+    """Compute the reward left on the table in one category, over ONLY the spend attributable
+    to a card with a known profile (so it's an apples-to-apples optimal-vs-actual comparison;
+    debit/unmatched spend earns nothing and is excluded rather than counted as missed).
+
+    ``attributed_spend_by_card``: card_id → spend (cents, in the window) on cards that have a
+    profile. Actual earn is cap-aware per card's annualized share; optimal is the best wallet
+    card on the total annualized attributed spend. Dominant = the card with the most spend."""
+    total = sum(attributed_spend_by_card.values())
+    if total <= 0 or not wallet or window_days <= 0:
+        return ActualUsage(None, None, None, 0)
+
+    annual_total = round(total * 365 / window_days)
+    actual = 0
+    dom_id: str | None = None
+    dom_spend = -1
+    for card_id, spend in attributed_spend_by_card.items():
+        profile = card_profiles.get(card_id)
+        if profile is None:
+            continue
+        actual += _annual_reward_cents(profile, category, round(spend * 365 / window_days))
+        if spend > dom_spend:
+            dom_spend, dom_id = spend, card_id
+    optimal = max(_annual_reward_cents(p, category, annual_total) for p in wallet)
+    dom = card_profiles.get(dom_id) if dom_id else None
+    return ActualUsage(
+        dominant_card_key=dom.key if dom else None,
+        dominant_card_name=dom.display_name if dom else None,
+        dominant_rate=round(dom.effective_rate(category), 4) if dom else None,
+        missed_annual_cents=max(0, optimal - actual),
+    )
+
+
 def optimize(
     spend_by_category: dict[str, int],
     user_profiles: list[RewardProfile],
     window_days: int,
+    actual_usage: dict[str, ActualUsage] | None = None,
 ) -> list[CategoryReco]:
     """Best card per reward category among the cards the user holds.
 
@@ -396,6 +448,9 @@ def optimize(
     annual earn, and pick the highest. ``"other"`` is skipped (no actionable per-category
     advice for uncategorized spend). Returns recommendations sorted by annualized spend desc
     (biggest-impact categories first). Empty if the user holds no cards or has no spend.
+
+    When ``actual_usage`` is supplied (v2), each reco is annotated with the card actually used
+    and ``est_annual_missed_cents`` = best-card earn − what they actually earned (clamped ≥0).
     """
     if not user_profiles or window_days <= 0:
         return []
@@ -416,16 +471,21 @@ def optimize(
         effective_rate = (
             (best_reward / annualized) if annualized > 0 else best.base_effective_rate()
         )
-        recos.append(
-            CategoryReco(
-                reward_category=category,
-                spend_cents=spend_cents,
-                annualized_spend_cents=annualized,
-                best_card_key=best.key,
-                best_card_name=best.display_name,
-                best_rate=round(effective_rate, 4),
-                est_annual_reward_cents=best_reward,
-            )
+        reco = CategoryReco(
+            reward_category=category,
+            spend_cents=spend_cents,
+            annualized_spend_cents=annualized,
+            best_card_key=best.key,
+            best_card_name=best.display_name,
+            best_rate=round(effective_rate, 4),
+            est_annual_reward_cents=best_reward,
         )
+        au = actual_usage.get(category) if actual_usage else None
+        if au is not None:
+            reco.current_card_key = au.dominant_card_key
+            reco.current_card_name = au.dominant_card_name
+            reco.current_rate = au.dominant_rate
+            reco.est_annual_missed_cents = au.missed_annual_cents
+        recos.append(reco)
     recos.sort(key=lambda r: r.annualized_spend_cents, reverse=True)
     return recos

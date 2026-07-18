@@ -1,15 +1,17 @@
-"""Rewards optimizer endpoints (rewards-optimizer-plan §3, v1).
+"""Rewards optimizer endpoints (rewards-optimizer-plan §3–§4, v1–v2).
 
 - GET /api/rewards/optimization?window_days=90 → best card per reward category among the
-  cards the user holds, with the cap-aware annual earn each would produce.
+  cards the user holds (cap-aware annual earn) PLUS, for spend attributable to a card
+  (``card_id``, v2), the real "you left $X on the table" figure: best held card vs the card
+  actually used.
 - GET /api/rewards/profiles                     → the seed reward-profile catalog for the
   card-confirm picker.
 
-v1 gives *advice* (best card + what it would earn). The "you lost $X vs the card you actually
-used" figure needs per-transaction card attribution and lands in v2. Spend is aggregated from
-the user's **confirmed Plaid** transactions in the window (needs_review excluded, mirroring
-the chart aggregation rule); v1 can't yet tell credit from debit spend (no card_id on
-transactions), so it scopes to all synced bank/card spend — see ``spend_scope_note``.
+Spend is aggregated from the user's **confirmed Plaid** transactions in the window
+(needs_review excluded, mirroring the chart aggregation rule), category derived from Plaid's
+detailed PFC when present, else the vendor string. The missed-rewards figure covers only
+spend we can attribute to a card with a known profile (debit/unmatched earns nothing and is
+excluded rather than counted as missed) — see ``spend_scope_note``.
 """
 
 from __future__ import annotations
@@ -30,7 +32,12 @@ from app.models.enums import ReviewStatus, TransactionSource
 from app.models.tables import Card, Transaction
 from app.services import reward_kb
 from app.services.reward_kb import RewardProfile
-from app.services.rewards import CategoryReco, optimize, reward_category
+from app.services.rewards import (
+    CategoryReco,
+    missed_rewards_for_category,
+    optimize,
+    reward_category,
+)
 
 router = APIRouter(prefix="/api/rewards", tags=["rewards"])
 
@@ -39,8 +46,8 @@ _POINTS_NOTE = (
     "worth more via transfers, which may change the best card."
 )
 _SCOPE_NOTE = (
-    "Estimated from all synced bank/card spend in this window. v2 will attribute each purchase "
-    "to the exact card it was made on for a real 'rewards you missed' figure."
+    "Estimated from your synced bank/card spend in this window. Where we can tell which card a "
+    "purchase was made on, the 'left on the table' figure compares it against your best card."
 )
 
 
@@ -85,36 +92,59 @@ def optimization(
         for c in cards
     ]
 
-    # The wallet the optimizer ranks over: cards with a resolved profile, deduped by product
-    # (holding the same card twice doesn't change "best card").
+    # card_id → profile (cards with a resolved profile), and the deduped wallet the optimizer
+    # ranks over (holding the same product twice doesn't change "best card").
+    card_profiles: dict[str, RewardProfile] = {}
     wallet: dict[str, RewardProfile] = {}
     for c in cards:
         if c.reward_profile_key:
             profile = reward_kb.get_profile(c.reward_profile_key)
             if profile is not None:
+                card_profiles[str(c.id)] = profile
                 wallet[profile.key] = profile
 
-    spend = _spend_by_reward_category(db, user_id, window_days)
-    recos = optimize(spend, list(wallet.values()), window_days)
+    spend, attributed = _gather_spend(db, user_id, window_days, card_profiles)
+    # v2: actual-vs-optimal per category, over spend we can attribute to a known card.
+    actual_usage = {
+        cat: missed_rewards_for_category(
+            cat, by_card, card_profiles, list(wallet.values()), window_days
+        )
+        for cat, by_card in attributed.items()
+    }
+    recos = optimize(spend, list(wallet.values()), window_days, actual_usage)
+
+    total_missed = sum(r.est_annual_missed_cents or 0 for r in recos) if attributed else None
 
     return RewardsOptimization(
         window_days=window_days,
         cards=card_outs,
         recommendations=[_reco_out(r) for r in recos],
         total_est_annual_reward_cents=sum(r.est_annual_reward_cents for r in recos),
+        total_missed_annual_cents=total_missed,
         unmatched_card_count=sum(1 for c in cards if needs_confirmation(c)),
-        top_move=_top_move(recos),
+        top_move=_top_move(recos, total_missed),
         points_assumption_note=_POINTS_NOTE,
         spend_scope_note=_SCOPE_NOTE,
     )
 
 
-def _spend_by_reward_category(db: Session, user_id: str, window_days: int) -> dict[str, int]:
-    """Sum confirmed Plaid spend in the window, bucketed by reward category (vendor-derived
-    in v1). Excludes needs_review (chart aggregation rule) and non-positive amounts."""
+def _gather_spend(
+    db: Session, user_id: str, window_days: int, card_profiles: dict[str, RewardProfile]
+) -> tuple[dict[str, int], dict[str, dict[str, int]]]:
+    """From confirmed Plaid spend in the window, return (spend_by_category, attributed).
+
+    ``spend_by_category`` = all spend per reward category (v1 advice). ``attributed`` =
+    ``{category: {card_id: spend}}`` for spend on cards with a known profile (v2 actual-vs-
+    optimal). Excludes needs_review (chart aggregation rule) and non-positive amounts. Prefers
+    Plaid's detailed PFC over the vendor string for the category (v2 accuracy)."""
     cutoff = date.today() - timedelta(days=window_days)
     rows = db.exec(
-        select(Transaction.vendor, Transaction.total_cents).where(
+        select(
+            Transaction.vendor,
+            Transaction.total_cents,
+            Transaction.card_id,
+            Transaction.pfc_detailed,
+        ).where(
             Transaction.user_id == user_id,
             Transaction.source == TransactionSource.plaid,
             Transaction.review_status == ReviewStatus.confirmed,
@@ -122,12 +152,17 @@ def _spend_by_reward_category(db: Session, user_id: str, window_days: int) -> di
         )
     ).all()
     spend: dict[str, int] = {}
-    for vendor, total_cents in rows:
+    attributed: dict[str, dict[str, int]] = {}
+    for vendor, total_cents, card_id, pfc_detailed in rows:
         if not total_cents or total_cents <= 0:
             continue
-        cat = reward_category(vendor)
+        cat = reward_category(vendor, pfc_detailed)
         spend[cat] = spend.get(cat, 0) + total_cents
-    return spend
+        cid = str(card_id) if card_id else None
+        if cid and cid in card_profiles:
+            attributed.setdefault(cat, {})
+            attributed[cat][cid] = attributed[cat].get(cid, 0) + total_cents
+    return spend, attributed
 
 
 def _reco_out(r: CategoryReco) -> RewardRecommendation:
@@ -145,9 +180,18 @@ def _reco_out(r: CategoryReco) -> RewardRecommendation:
     )
 
 
-def _top_move(recos: list[CategoryReco]) -> str | None:
+def _top_move(recos: list[CategoryReco], total_missed: int | None) -> str | None:
     if not recos:
         return None
+    # v2: if we can see real missed rewards, lead with the biggest fix.
+    if total_missed and total_missed > 0:
+        top = max(recos, key=lambda r: r.est_annual_missed_cents or 0)
+        if top.est_annual_missed_cents:
+            dollars = round(top.est_annual_missed_cents / 100)
+            return (
+                f"Move {top.reward_category} to {top.best_card_name} — "
+                f"you're leaving ~${dollars:,}/yr on the table"
+            )
     top = max(recos, key=lambda r: r.est_annual_reward_cents)
     dollars = round(top.est_annual_reward_cents / 100)
     return f"Use {top.best_card_name} for {top.reward_category} (~${dollars:,}/yr in rewards)"

@@ -47,5 +47,12 @@ def _run_scheduled(event: dict) -> dict:
         synced = sync_all_active_items()
         logger.info("plaid fallback sync completed for %d item(s)", synced)
         return {"job": job, "synced": synced}
+    if job == "rewards_backfill":
+        # Rewards v2 one-off: re-attribute historical transactions to their card + PFC.
+        from app.api.plaid import backfill_transaction_cards
+
+        synced = backfill_transaction_cards()
+        logger.info("rewards backfill re-synced %d item(s)", synced)
+        return {"job": job, "synced": synced}
     logger.warning("unknown scheduled job: %s", job)
     return {"job": job, "skipped": True}
