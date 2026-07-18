@@ -14,12 +14,14 @@ one ingest door:
 Sandbox only until the final real-account link (CLAUDE.md). If keys are unset, every
 endpoint returns 503 "not configured" rather than failing deep in the SDK.
 
-Sign / scope choices (Sandbox MVP, noted for later): we ingest **posted purchases** only.
-We skip pending transactions (they churn as pending→posted), credits/refunds (non-positive
-amount), and money movements that aren't spending — payroll, deposits, transfers, card
-payments — via Plaid's Personal Finance Category (``_NON_SPENDING_PFC``). Plaid's
-``removed`` list deletes transactions that were dropped. PFC hints aren't yet mapped onto
-our taxonomy, so Plaid transactions are unitemized and chart under "Uncategorized" until a
+Sign / scope choices: we ingest **posted money-OUT** — purchases AND *outgoing* transfers
+(Zelle/Venmo/etc., which on a checking account are usually real expenses). We skip:
+pending transactions (they churn as pending→posted), inflows/credits/refunds (non-positive
+amount = money coming in), and the money movements that genuinely aren't spending — payroll
+& deposits (INCOME), *incoming* transfers (TRANSFER_IN), and credit-card payments
+(LOAN_PAYMENTS, which would double-count the card spending we already track) — via Plaid's
+Personal Finance Category (``_NON_SPENDING_PFC``). Plaid's ``removed`` list deletes dropped
+transactions. Bank rows carry one categorized line item (Plaid PFC → our taxonomy) until a
 receipt is merged onto them.
 """
 
@@ -34,6 +36,7 @@ from sqlmodel import Session, select
 
 from app.api.ingest import ingest as ingest_transaction
 from app.api.schemas import (
+    AccountSyncResult,
     ExchangeRequest,
     ExchangeResult,
     IngestRequest,
@@ -57,7 +60,11 @@ router = APIRouter(prefix="/api/plaid", tags=["bank-sync"])
 # Plaid PFC primaries that are money movements, not spending — kept out of the ledger so
 # payroll/deposits/transfers/card-payments don't pollute the chart. (No-op when the hint is
 # absent; real accounts populate it reliably.)
-_NON_SPENDING_PFC = {"INCOME", "TRANSFER_IN", "TRANSFER_OUT", "LOAN_PAYMENTS"}
+# Money movements that aren't spending. NB: TRANSFER_OUT is intentionally NOT here —
+# outgoing transfers (Zelle/Venmo out) are money leaving the account and usually real
+# expenses, so we keep them. TRANSFER_IN / INCOME are inflows; LOAN_PAYMENTS are card
+# payments (double-count) — those we drop.
+_NON_SPENDING_PFC = {"INCOME", "TRANSFER_IN", "LOAN_PAYMENTS"}
 
 
 def _require_configured() -> None:
@@ -122,7 +129,7 @@ def account_reconnected(
     account.status = AccountStatus.active
     db.add(account)
     db.flush()
-    return _sync_account(db, user_id, account)
+    return _single_summary(_sync_account(db, user_id, account))
 
 
 @router.post("/exchange", response_model=ExchangeResult)
@@ -161,8 +168,8 @@ def exchange(
     db.add(account)
     db.flush()
 
-    summary = _sync_account(db, user_id, account)
-    return ExchangeResult(account=_account_out(account), synced=summary)
+    result = _sync_account(db, user_id, account)
+    return ExchangeResult(account=_account_out(account), synced=_single_summary(result))
 
 
 @router.post("/sync", response_model=SyncSummary)
@@ -171,23 +178,40 @@ def sync(
     user_id: str = Depends(current_user_id),
 ) -> SyncSummary:
     _require_configured()
+    # Report EVERY Plaid account — including ones we can't sync (reconnect needed) — so the
+    # UI never just says "synced" while silently skipping an account (CLAUDE.md honesty).
     accounts = db.exec(
-        select(LinkedAccount).where(
+        select(LinkedAccount)
+        .where(
             LinkedAccount.user_id == user_id,
             LinkedAccount.source == LinkedAccountSource.plaid,
-            LinkedAccount.status == AccountStatus.active,
         )
+        .order_by(LinkedAccount.institution)
     ).all()
 
-    total = SyncSummary(added=0, needs_review=0, removed=0)
+    results: list[AccountSyncResult] = []
     for account in accounts:
-        if not account.access_token:
-            continue
-        s = _sync_account(db, user_id, account)
-        total.added += s.added
-        total.needs_review += s.needs_review
-        total.removed += s.removed
-    return total
+        if account.is_apple_card:
+            continue  # imported via CSV, not synced through Plaid
+        if account.status == AccountStatus.active and account.access_token:
+            results.append(_sync_account(db, user_id, account))
+        else:
+            reconnect = account.status in (AccountStatus.needs_reauth, AccountStatus.disconnected)
+            results.append(
+                AccountSyncResult(
+                    account_id=str(account.id),
+                    institution=account.institution,
+                    status=account.status,
+                    needs_attention=reconnect,
+                    message="Reconnect needed to resume syncing" if reconnect else None,
+                )
+            )
+    return SyncSummary(
+        added=sum(r.added for r in results),
+        needs_review=sum(r.needs_review for r in results),
+        removed=sum(r.removed for r in results),
+        accounts=results,
+    )
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
@@ -306,16 +330,24 @@ def list_accounts(
     return [_account_out(a) for a in accounts]
 
 
-def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> SyncSummary:
+def _single_summary(r: AccountSyncResult) -> SyncSummary:
+    """Wrap a one-account result as a top-level SyncSummary (exchange/reconnect responses)."""
+    return SyncSummary(added=r.added, needs_review=r.needs_review, removed=r.removed, accounts=[r])
+
+
+def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountSyncResult:
     """Pull this Item's changes and feed them through the ingest door."""
     result = plaid_client.sync_transactions(account.access_token, account.transactions_cursor)
 
-    added = needs_review = 0
+    added = needs_review = skipped = 0
     for txn in [*result["added"], *result["modified"]]:
-        if txn["pending"] or txn["amount_cents"] <= 0:
-            continue  # posted outflows only (see module docstring)
-        if txn["pfc_primary"] in _NON_SPENDING_PFC:
-            continue  # payroll / deposits / transfers / card payments aren't spending
+        if (
+            txn["pending"]
+            or txn["amount_cents"] <= 0  # inflow (money in) — not spending
+            or txn["pfc_primary"] in _NON_SPENDING_PFC  # income / transfer-in / card payment
+        ):
+            skipped += 1
+            continue  # posted money-OUT only (see module docstring)
         payload = IngestRequest(
             source=TransactionSource.plaid,
             external_id=txn["transaction_id"],
@@ -346,7 +378,15 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> SyncSumm
     account.transactions_cursor = result["next_cursor"]
     account.last_synced_at = datetime.now(UTC)
     db.add(account)
-    return SyncSummary(added=added, needs_review=needs_review, removed=removed)
+    return AccountSyncResult(
+        account_id=str(account.id),
+        institution=account.institution,
+        status=account.status,
+        added=added,
+        needs_review=needs_review,
+        removed=removed,
+        skipped=skipped,
+    )
 
 
 def _remove_transactions(db: Session, user_id: str, transaction_ids: list[str]) -> int:

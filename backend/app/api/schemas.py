@@ -244,10 +244,28 @@ class LinkedAccountOut(BaseModel):
     last_synced_at: datetime | None
 
 
+class AccountSyncResult(BaseModel):
+    """Per-account outcome of a sync, so the UI can show what actually happened instead of a
+    bare 'synced' — including accounts that couldn't sync (reconnect needed)."""
+
+    account_id: str
+    institution: str
+    status: AccountStatus
+    added: int = 0
+    needs_review: int = 0
+    removed: int = 0
+    skipped: int = (
+        0  # pulled from Plaid but filtered out (income, incoming transfers, card payments, pending)
+    )
+    needs_attention: bool = False  # couldn't sync — reconnect/consent required
+    message: str | None = None
+
+
 class SyncSummary(BaseModel):
     added: int  # confirmed straight in (no match)
     needs_review: int  # parked in the reconciliation queue (matched an existing entry)
     removed: int  # deleted because Plaid dropped them (e.g. a pending txn that cleared)
+    accounts: list[AccountSyncResult] = Field(default_factory=list)
 
 
 class ExchangeResult(BaseModel):

@@ -151,10 +151,23 @@ export interface LinkTokenOut {
   link_token: string;
 }
 
+export interface AccountSyncResult {
+  account_id: string;
+  institution: string;
+  status: string;
+  added: number;
+  needs_review: number;
+  removed: number;
+  skipped: number;
+  needs_attention: boolean;
+  message: string | null;
+}
+
 export interface SyncSummary {
   added: number;
   needs_review: number;
   removed: number;
+  accounts: AccountSyncResult[];
 }
 
 export interface ExchangeResult {
