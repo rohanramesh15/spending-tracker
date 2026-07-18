@@ -283,4 +283,65 @@ class ImportSummary(BaseModel):
     skipped: int  # non-purchase rows (payments, credits, unparseable)
 
 
+# --- Rewards optimizer (rewards-optimizer-plan §3, v1) -----------------------------------
+class CardOut(BaseModel):
+    """A card/account under a connected institution, with its matched reward profile."""
+
+    id: str
+    institution: str
+    name: str | None
+    mask: str | None
+    subtype: str | None
+    reward_profile_key: str | None
+    reward_profile_source: str | None  # matched | user | llm | tavily
+    reward_profile_name: str | None  # resolved display name, if a profile is set
+    needs_confirmation: bool  # looks like a rewards card but no profile resolved yet
+
+
+class RewardProfileOut(BaseModel):
+    """A seed reward profile, for the card-confirm picker."""
+
+    key: str
+    display_name: str
+    issuer: str
+    base_rate: float
+    category_rates: dict[str, float]
+    points_value_cents: float
+    verified: bool  # rates confirmed against issuer terms (else best-effort — show a caveat)
+    notes: str | None = None
+
+
+class SetCardProfileRequest(BaseModel):
+    reward_profile_key: str
+
+
+class RewardRecommendation(BaseModel):
+    reward_category: str
+    spend_cents: int  # observed spend in the window
+    annualized_spend_cents: int
+    best_card_key: str
+    best_card_name: str
+    best_rate: float  # effective rate on the best card at this spend level (post-cap)
+    est_annual_reward_cents: int
+    # v2 (actual-usage) — null until per-transaction card attribution exists:
+    current_card_name: str | None = None
+    current_rate: float | None = None
+    est_annual_missed_cents: int | None = None
+
+
+class RewardsOptimization(BaseModel):
+    """v1: best card per category + what it would earn. The 'you lost $X vs the card you
+    actually used' figure is v2 (needs per-transaction card_id)."""
+
+    window_days: int
+    cards: list[CardOut]
+    recommendations: list[RewardRecommendation]
+    total_est_annual_reward_cents: int  # sum across categories on the best cards
+    unmatched_card_count: int  # cards awaiting a profile confirmation
+    top_move: str | None  # e.g. "Use Amex Gold for groceries (~$120/yr)"
+    # Honesty caveats surfaced in the UI (rewards-optimizer-plan §8):
+    points_assumption_note: str
+    spend_scope_note: str
+
+
 # (Recurring-items + cheaper-store-finder schemas removed 2026-07-17.)

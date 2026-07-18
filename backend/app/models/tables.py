@@ -218,5 +218,40 @@ class ReconciliationReview(SQLModel, table=True):
     resolution: Resolution | None = Field(default=None, sa_column=Column(String, nullable=True))
 
 
+class Card(SQLModel, table=True):
+    """A single card/account under a connected ``LinkedAccount`` (rewards-optimizer-plan §3).
+
+    ``LinkedAccount`` is one row per Plaid *Item* (bank login); a Card is one row per Plaid
+    *account* within it, carrying the matched reward profile. Created from Plaid
+    ``/accounts/get`` on link (v1); ``Transaction.card_id`` attributes each purchase to a
+    card in v2. ``reward_profile_key`` is the matched/confirmed ``reward_kb`` seed key;
+    ``reward_profile_source`` records how it was set (matched/user/llm/tavily). The migration
+    owns the owner-scoped composite FK ``(user_id, linked_account_id)``; the single-column
+    ``_fk`` here is ORM metadata only."""
+
+    __tablename__ = "cards"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "linked_account_id", "plaid_account_id", name="uq_cards_account"
+        ),
+    )
+
+    id: uuid.UUID = uuid_pk()
+    user_id: uuid.UUID = user_id_col()
+    linked_account_id: uuid.UUID = Field(sa_column=_fk("linked_accounts.id"))
+    plaid_account_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    name: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    official_name: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    mask: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    subtype: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    reward_profile_key: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    reward_profile_source: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    is_active: bool = Field(
+        default=True, sa_column=Column(Boolean, nullable=False, server_default="true")
+    )
+    created_at: datetime = created_at_col()
+    updated_at: datetime = created_at_col()  # set by the app on every upsert/profile change
+
+
 # (Recurring-item detection + the cheaper-store finder — RecurringItem, ComparableSpec,
 # PriceQuote — were removed 2026-07-17; their tables are dropped in migration 0005.)

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
 from app.api import (
+    cards,
     categories,
     health,
     imports,
@@ -18,6 +19,7 @@ from app.api import (
     plaid,
     receipts,
     reviews,
+    rewards,
     transactions,
 )
 from app.core.config import get_settings
@@ -47,6 +49,8 @@ app.include_router(receipts.router)
 app.include_router(reviews.router)
 app.include_router(plaid.router)
 app.include_router(imports.router)
+app.include_router(cards.router)
+app.include_router(rewards.router)
 
 # Lambda handler (imported by the SAM template's ApiFunction). No-op locally.
 handler = Mangum(app)

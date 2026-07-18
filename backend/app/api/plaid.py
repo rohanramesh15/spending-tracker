@@ -50,8 +50,8 @@ from app.core.auth import current_user_id, get_db
 from app.core.config import get_settings
 from app.core.db import admin_session, rls_session
 from app.models.enums import AccountStatus, LinkedAccountSource, TransactionSource
-from app.models.tables import LinkedAccount, Transaction
-from app.services import plaid_client
+from app.models.tables import Card, LinkedAccount, Transaction
+from app.services import plaid_client, reward_kb
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +129,7 @@ def account_reconnected(
     account.status = AccountStatus.active
     db.add(account)
     db.flush()
+    _upsert_cards(db, user_id, account)  # newly-added accounts in the connection get cards
     return _single_summary(_sync_account(db, user_id, account))
 
 
@@ -168,6 +169,7 @@ def exchange(
     db.add(account)
     db.flush()
 
+    _upsert_cards(db, user_id, account)  # create cards for the just-linked accounts (§3, v1)
     result = _sync_account(db, user_id, account)
     return ExchangeResult(account=_account_out(account), synced=_single_summary(result))
 
@@ -335,8 +337,65 @@ def _single_summary(r: AccountSyncResult) -> SyncSummary:
     return SyncSummary(added=r.added, needs_review=r.needs_review, removed=r.removed, accounts=[r])
 
 
+def _upsert_cards(db: Session, user_id: str, account: LinkedAccount) -> None:
+    """Upsert a ``cards`` row per Plaid account under this Item, matching a reward profile by
+    name (rewards-optimizer-plan §3, v1). Idempotent on (user_id, linked_account_id,
+    plaid_account_id); refreshes metadata but NEVER overwrites a user-set profile. Best-effort
+    — a Plaid failure is logged, never fatal to the link/sync."""
+    if not account.access_token:
+        return
+    try:
+        accounts = plaid_client.get_accounts(account.access_token)
+    except Exception:  # noqa: BLE001 - card enrichment must never break a link/sync
+        logger.exception("get_accounts failed for item %s", account.item_id)
+        return
+    existing = {
+        c.plaid_account_id: c
+        for c in db.exec(
+            select(Card).where(Card.user_id == user_id, Card.linked_account_id == account.id)
+        ).all()
+    }
+    for a in accounts:
+        matched = reward_kb.match_profile(a.get("name") or "")
+        card = existing.get(a["account_id"])
+        if card is None:
+            db.add(
+                Card(
+                    user_id=user_id,
+                    linked_account_id=account.id,
+                    plaid_account_id=a["account_id"],
+                    name=a.get("name"),
+                    official_name=a.get("official_name"),
+                    mask=a.get("mask"),
+                    subtype=a.get("subtype"),
+                    reward_profile_key=matched.key if matched else None,
+                    reward_profile_source="matched" if matched else None,
+                )
+            )
+        else:
+            card.name = a.get("name")
+            card.official_name = a.get("official_name")
+            card.mask = a.get("mask")
+            card.subtype = a.get("subtype")
+            if card.reward_profile_key is None and matched is not None:
+                card.reward_profile_key = matched.key
+                card.reward_profile_source = "matched"
+            card.updated_at = datetime.now(UTC)
+            db.add(card)
+    db.flush()
+
+
 def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountSyncResult:
     """Pull this Item's changes and feed them through the ingest door."""
+    # One-time card backfill for Items linked before the rewards feature (and for webhook
+    # syncs): populate `cards` if this account has none yet. Fresh links already did it in
+    # exchange/reconnect, so this is a no-op there.
+    has_cards = db.exec(
+        select(Card.id).where(Card.user_id == user_id, Card.linked_account_id == account.id)
+    ).first()
+    if not has_cards:
+        _upsert_cards(db, user_id, account)
+
     result = plaid_client.sync_transactions(account.access_token, account.transactions_cursor)
 
     added = needs_review = skipped = 0

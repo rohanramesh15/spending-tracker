@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Receipt, Settings, Camera } from "lucide-react";
+import { Home, Receipt, Settings, Camera, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { setPendingReceipt } from "@/lib/scanFile";
@@ -12,6 +12,7 @@ const TABS = [
   { to: "/", label: "Home", icon: Home, end: true },
   { to: "/transactions", label: "Transactions", icon: Receipt, end: false },
   { scan: true, label: "Scan", icon: Camera },
+  { to: "/rewards", label: "Rewards", icon: Sparkles, end: false },
   { to: "/settings", label: "Settings", icon: Settings, end: false },
 ] as const;
 
