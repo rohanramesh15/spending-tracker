@@ -16,10 +16,12 @@ from app.api import (
     imports,
     ingest,
     insights,
+    notifications,
     plaid,
     receipts,
     reviews,
     rewards,
+    subscriptions,
     transactions,
 )
 from app.core.config import get_settings
@@ -51,6 +53,8 @@ app.include_router(plaid.router)
 app.include_router(imports.router)
 app.include_router(cards.router)
 app.include_router(rewards.router)
+app.include_router(subscriptions.router)
+app.include_router(notifications.router)
 
 # Lambda handler (imported by the SAM template's ApiFunction). No-op locally.
 handler = Mangum(app)

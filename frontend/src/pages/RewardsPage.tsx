@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Sparkles, CreditCard, TrendingUp, Info } from "lucide-react";
+import { ArrowLeft, CreditCard, TrendingUp, Info } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   useCards,
   useRewardProfiles,
@@ -154,7 +155,17 @@ export default function RewardsPage() {
 function Header() {
   return (
     <div className="flex items-center gap-2">
-      <Sparkles className="h-5 w-5 text-primary" />
+      <Button
+        asChild
+        variant="ghost"
+        size="icon"
+        className="-ml-2"
+        aria-label="Back to Save & Earn"
+      >
+        <Link to="/earn">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+      </Button>
       <h1 className="text-xl font-semibold">Rewards</h1>
     </div>
   );

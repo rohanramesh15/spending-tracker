@@ -61,12 +61,33 @@ def two_users():
             )
             ids[str(uid)] = row.scalar_one()
             db.execute(text("SELECT public.seed_default_categories(:uid)"), {"uid": uid})
+            # A stored subscription per user, to prove the subscriptions table is RLS'd too.
+            sub_row = db.execute(
+                text(
+                    "INSERT INTO subscriptions "
+                    "(user_id, merchant, display_name, amount_cents, cadence) "
+                    "VALUES (:uid, :merchant, :merchant, 999, 'monthly') RETURNING id"
+                ),
+                {"uid": uid, "merchant": f"{vendor}-sub"},
+            )
+            sub_id = sub_row.scalar_one()
+            # And a notification, to prove that table is RLS'd too.
+            db.execute(
+                text(
+                    "INSERT INTO notifications "
+                    "(user_id, kind, subscription_id, title, dedup_key) "
+                    "VALUES (:uid, 'new', :sub, :title, :key)"
+                ),
+                {"uid": uid, "sub": sub_id, "title": f"{vendor}-notif", "key": f"new:{sub_id}"},
+            )
         db.commit()
     try:
         yield user_a, user_b, ids
     finally:
         with admin_session() as db:
             for uid in (user_a, user_b):
+                db.execute(text("DELETE FROM notifications WHERE user_id = :uid"), {"uid": uid})
+                db.execute(text("DELETE FROM subscriptions WHERE user_id = :uid"), {"uid": uid})
                 db.execute(text("DELETE FROM transactions WHERE user_id = :uid"), {"uid": uid})
                 db.execute(text("DELETE FROM categories WHERE user_id = :uid"), {"uid": uid})
             db.commit()
@@ -77,8 +98,12 @@ def test_read_isolation(two_users) -> None:
     with rls_session(_claims(user_a)) as db:
         vendors = db.execute(text("SELECT vendor FROM transactions")).scalars().all()
         cat_owners = set(db.execute(text("SELECT DISTINCT user_id FROM categories")).scalars())
+        sub_merchants = db.execute(text("SELECT merchant FROM subscriptions")).scalars().all()
+        notif_titles = db.execute(text("SELECT title FROM notifications")).scalars().all()
     assert vendors == ["A-store"], f"RLS leak or misconfig: saw {vendors}"
     assert cat_owners == {user_a}, f"RLS leak in categories: saw owners {cat_owners}"
+    assert sub_merchants == ["A-store-sub"], f"RLS leak in subscriptions: saw {sub_merchants}"
+    assert notif_titles == ["A-store-notif"], f"RLS leak in notifications: saw {notif_titles}"
 
 
 def test_with_check_blocks_foreign_insert(two_users) -> None:

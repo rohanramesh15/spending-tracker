@@ -61,5 +61,12 @@ def _run_scheduled(event: dict) -> dict:
         assigned = refresh_unmatched_cards()
         logger.info("reward-profile refresh matched %d card(s)", assigned)
         return {"job": job, "assigned": assigned}
+    if job == "subscriptions_scan":
+        # Daily subscription monitor: recompute + emit alerts + auto-cancel overdue subs.
+        from app.api.subscriptions import scan_all_subscriptions
+
+        result = scan_all_subscriptions()
+        logger.info("subscriptions scan: %s", result)
+        return result
     logger.warning("unknown scheduled job: %s", job)
     return {"job": job, "skipped": True}

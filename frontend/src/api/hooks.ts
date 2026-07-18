@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, apiUpload } from "./client";
 import type {
   Card,
+  AppNotification,
   Category,
   ExchangeResult,
   ImportSummary,
@@ -16,6 +17,9 @@ import type {
   RewardProfile,
   RewardsOptimization,
   SpendingResponse,
+  Subscription,
+  SubscriptionStatus,
+  SubscriptionSummary,
   SyncSummary,
   TransactionDetail,
   TransactionListItem,
@@ -93,6 +97,73 @@ export function useSetCardProfile() {
       qc.invalidateQueries({ queryKey: ["cards"] });
       qc.invalidateQueries({ queryKey: ["rewards-optimization"] });
     },
+  });
+}
+
+export function useSubscriptions(includeHidden = false) {
+  return useQuery({
+    queryKey: ["subscriptions", includeHidden],
+    queryFn: () =>
+      apiFetch<Subscription[]>(
+        `/api/subscriptions${includeHidden ? "?include_hidden=true" : ""}`,
+      ),
+  });
+}
+
+export function useSubscriptionSummary(months = 6) {
+  return useQuery({
+    queryKey: ["subscription-summary", months],
+    queryFn: () =>
+      apiFetch<SubscriptionSummary>(`/api/subscriptions/summary?months=${months}`),
+  });
+}
+
+export function useRecomputeSubscriptions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<Subscription[]>("/api/subscriptions/recompute", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["subscriptions"] }),
+  });
+}
+
+export function useSetSubscriptionStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: SubscriptionStatus }) =>
+      apiFetch<Subscription>(`/api/subscriptions/${id}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["subscriptions"] }),
+  });
+}
+
+export function useNotifications(unreadOnly = false) {
+  return useQuery({
+    queryKey: ["notifications", unreadOnly],
+    queryFn: () =>
+      apiFetch<AppNotification[]>(
+        `/api/notifications${unreadOnly ? "?unread_only=true" : ""}`,
+      ),
+  });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<AppNotification>(`/api/notifications/${id}/read`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ marked: number }>("/api/notifications/read-all", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 }
 

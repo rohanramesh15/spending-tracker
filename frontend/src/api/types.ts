@@ -69,6 +69,79 @@ export interface SpendingResponse {
   slices: SpendingSlice[];
 }
 
+export type Cadence =
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "bimonthly"
+  | "quarterly"
+  | "semiannual"
+  | "annual";
+
+export type SubscriptionType =
+  | "streaming"
+  | "music"
+  | "software"
+  | "gaming"
+  | "news"
+  | "fitness"
+  | "cloud"
+  | "insurance"
+  | "utility"
+  | "telecom"
+  | "membership"
+  | "other";
+
+export type SubscriptionStatus = "detected" | "confirmed" | "dismissed" | "cancelled";
+
+export interface Subscription {
+  id: string | null; // the stored row id (v3); null only for compute-on-read fallbacks
+  merchant: string;
+  display_name: string;
+  type: SubscriptionType | null; // v2 LLM enrichment; null if no key configured
+  amount_cents: number;
+  cadence: Cadence;
+  monthly_cost_cents: number;
+  occurrences: number;
+  first_charged_on: string; // YYYY-MM-DD
+  last_charged_on: string;
+  next_charge_on: string;
+  confidence: number; // 0.0–1.0
+  status: SubscriptionStatus; // v3 lifecycle
+}
+
+export interface SubscriptionTypeBreakdown {
+  type: string;
+  monthly_cents: number;
+  count: number;
+}
+
+export interface SubscriptionTrendPoint {
+  month: string; // YYYY-MM
+  cents: number;
+}
+
+export interface SubscriptionSummary {
+  total_monthly_cents: number;
+  annualized_cents: number;
+  active_count: number;
+  by_type: SubscriptionTypeBreakdown[];
+  trend: SubscriptionTrendPoint[];
+}
+
+export type NotificationKind = "new" | "price_increased" | "upcoming" | "likely_cancelled";
+
+// Named AppNotification to avoid shadowing the DOM `Notification` global.
+export interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  subscription_id: string | null;
+  title: string;
+  body: string | null;
+  read: boolean;
+  created_at: string;
+}
+
 export interface LineItemIn {
   raw_name: string;
   category_id?: string | null;

@@ -27,7 +27,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0008"
-down_revision: str | None = "0005"  # ← re-point to "0007" at combine (see COMBINE NOTE)
+down_revision: str | None = "0007"  # chained after subscriptions' notifications (combined)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
