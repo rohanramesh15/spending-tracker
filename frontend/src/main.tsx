@@ -1,9 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./lib/supabase"; // initializes the Supabase auth client + wires the JWT into the API client
+import { queryPersister, QUERY_CACHE_BUSTER, QUERY_CACHE_MAX_AGE } from "./lib/queryPersistence";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -11,6 +13,8 @@ const queryClient = new QueryClient({
     queries: {
       // Keep last-known data visible during refetch (user-flow §10 loading rule).
       staleTime: 30_000,
+      // Must be >= the persister's maxAge, or gc evicts data before a reload can use it.
+      gcTime: QUERY_CACHE_MAX_AGE,
       retry: 1,
     },
   },
@@ -18,10 +22,17 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: queryPersister,
+        maxAge: QUERY_CACHE_MAX_AGE,
+        buster: QUERY_CACHE_BUSTER,
+      }}
+    >
       <BrowserRouter>
         <App />
       </BrowserRouter>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </StrictMode>,
 );

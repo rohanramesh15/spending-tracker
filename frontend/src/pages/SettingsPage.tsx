@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { ArrowLeft, RefreshCw, Upload } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +22,7 @@ import { ListSkeleton } from "@/components/Skeletons";
 import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@/api/hooks";
 import type { AccountStatus } from "@/api/types";
 import { signOut, useAuth } from "@/lib/useAuth";
+import { clearPersistedCache } from "@/lib/queryPersistence";
 
 const statusLabel: Record<AccountStatus, string> = {
   active: "Syncing",
@@ -41,9 +43,11 @@ export default function SettingsPage() {
   const { session } = useAuth();
   const email = session?.user?.email ?? null;
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const qc = useQueryClient();
 
   async function handleSignOut() {
     await signOut();
+    clearPersistedCache(qc);
     navigate("/login", { replace: true });
   }
 
