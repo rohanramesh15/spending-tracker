@@ -29,7 +29,7 @@ export function useCategories() {
   return useQuery({
     queryKey: ["categories"],
     queryFn: () => apiFetch<Category[]>("/api/categories"),
-    staleTime: 5 * 60_000, // taxonomy rarely changes
+    staleTime: Infinity, // fixed taxonomy; only changes via a migration
   });
 }
 
@@ -42,6 +42,7 @@ export function useTransactions(range?: { start?: string; end?: string }) {
     queryKey: ["transactions", range?.start ?? null, range?.end ?? null],
     queryFn: () =>
       apiFetch<TransactionListItem[]>(`/api/transactions${qs ? `?${qs}` : ""}`),
+    staleTime: 60_000, // bank sync can land anytime; not so short it thrashes
   });
 }
 
@@ -50,6 +51,7 @@ export function useTransaction(id: string | undefined) {
     queryKey: ["transaction", id],
     queryFn: () => apiFetch<TransactionDetail>(`/api/transactions/${id}`),
     enabled: !!id,
+    staleTime: 60_000,
   });
 }
 
@@ -58,6 +60,7 @@ export function useSpending(start: string, end: string) {
     queryKey: ["spending", start, end],
     queryFn: () =>
       apiFetch<SpendingResponse>(`/api/insights/spending?start=${start}&end=${end}`),
+    staleTime: 60_000, // mirrors transactions — same underlying data
   });
 }
 
@@ -66,6 +69,7 @@ export function useCards() {
   return useQuery({
     queryKey: ["cards"],
     queryFn: () => apiFetch<Card[]>("/api/cards"),
+    staleTime: 5 * 60_000, // changes only on connect/reconnect; writes already invalidate explicitly
   });
 }
 
@@ -82,6 +86,7 @@ export function useRewardsOptimization(windowDays = 90) {
     queryKey: ["rewards-optimization", windowDays],
     queryFn: () =>
       apiFetch<RewardsOptimization>(`/api/rewards/optimization?window_days=${windowDays}`),
+    staleTime: 5 * 60_000, // derived/computed insight, doesn't need transaction-level freshness
   });
 }
 
@@ -107,6 +112,7 @@ export function useSubscriptions(includeHidden = false) {
       apiFetch<Subscription[]>(
         `/api/subscriptions${includeHidden ? "?include_hidden=true" : ""}`,
       ),
+    staleTime: 5 * 60_000, // recomputed server-side once daily; user-triggered recompute already invalidates
   });
 }
 
@@ -115,6 +121,7 @@ export function useSubscriptionSummary(months = 6) {
     queryKey: ["subscription-summary", months],
     queryFn: () =>
       apiFetch<SubscriptionSummary>(`/api/subscriptions/summary?months=${months}`),
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -231,6 +238,7 @@ export function useLinkedAccounts() {
   return useQuery({
     queryKey: ["linked-accounts"],
     queryFn: () => apiFetch<LinkedAccount[]>("/api/plaid/accounts"),
+    staleTime: 5 * 60_000, // changes only on connect/reconnect; writes already invalidate it explicitly
   });
 }
 
