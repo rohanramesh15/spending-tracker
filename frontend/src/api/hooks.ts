@@ -331,3 +331,69 @@ export function useDeleteTransaction() {
     },
   });
 }
+
+export function useUpdateTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string;
+      vendor: string;
+      purchased_on: string;
+      tax_cents: number;
+      tip_cents: number;
+    }) =>
+      apiFetch<TransactionDetail>(`/api/transactions/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (_result, { id }) => {
+      qc.invalidateQueries({ queryKey: ["transaction", id] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}
+
+export function useUpdateLineItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      transactionId,
+      itemId,
+      ...body
+    }: {
+      transactionId: string;
+      itemId: string;
+      normalized_name: string;
+      category_id: string | null;
+      price_cents: number;
+    }) =>
+      apiFetch<TransactionDetail>(`/api/transactions/${transactionId}/items/${itemId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (_result, { transactionId }) => {
+      qc.invalidateQueries({ queryKey: ["transaction", transactionId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}
+
+export function useDeleteLineItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ transactionId, itemId }: { transactionId: string; itemId: string }) =>
+      apiFetch<TransactionDetail>(`/api/transactions/${transactionId}/items/${itemId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: (_result, { transactionId }) => {
+      qc.invalidateQueries({ queryKey: ["transaction", transactionId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}

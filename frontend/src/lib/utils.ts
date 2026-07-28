@@ -27,3 +27,8 @@ export function dollarsToCents(input: string): number | null {
   if (cleaned === "" || Number.isNaN(Number(cleaned))) return null;
   return Math.round(Number(cleaned) * 100);
 }
+
+/** The inverse of dollarsToCents, for prefilling an editable dollar-amount input. */
+export function centsToInput(cents: number): string {
+  return (cents / 100).toFixed(2);
+}

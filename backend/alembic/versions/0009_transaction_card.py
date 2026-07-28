@@ -28,15 +28,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
+    op.execute("""
         ALTER TABLE transactions
             ADD COLUMN card_id      uuid REFERENCES cards(id) ON DELETE SET NULL,
             ADD COLUMN pfc_primary  text,
             ADD COLUMN pfc_detailed text;
         CREATE INDEX ix_transactions_card ON transactions(card_id);
-        """
-    )
+        """)
 
 
 def downgrade() -> None:

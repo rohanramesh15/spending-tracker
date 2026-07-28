@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from app.api.schemas import LineItemOut, TransactionDetail, TransactionListItem
+from app.api.schemas import (
+    LineItemOut,
+    LineItemUpdate,
+    TransactionDetail,
+    TransactionListItem,
+    TransactionUpdate,
+)
 from app.core.auth import current_user_id, get_db
 from app.models.tables import Category, LineItem, Transaction
 
@@ -18,6 +24,71 @@ router = APIRouter(prefix="/api", tags=["transactions"])
 def _category_names(db: Session, user_id: str) -> dict[str, str]:
     rows = db.exec(select(Category).where(Category.user_id == user_id)).all()
     return {str(c.id): c.name for c in rows}
+
+
+def _get_owned_transaction(db: Session, user_id: str, transaction_id: str) -> Transaction:
+    txn = db.exec(
+        select(Transaction).where(Transaction.id == transaction_id, Transaction.user_id == user_id)
+    ).first()
+    if txn is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transaction not found")
+    return txn
+
+
+def _to_detail(db: Session, txn: Transaction, user_id: str) -> TransactionDetail:
+    """Shared serialization so every mutating endpoint returns the SAME shape as the plain
+    GET — used after create-adjacent edits so the frontend can trust the response, and to
+    keep this the one place the wire format is assembled."""
+    names = _category_names(db, user_id)
+    items = db.exec(
+        select(LineItem)
+        .where(LineItem.transaction_id == txn.id, LineItem.user_id == user_id)
+        .order_by(LineItem.position)
+    ).all()
+    return TransactionDetail(
+        id=str(txn.id),
+        vendor=txn.vendor,
+        purchased_on=txn.purchased_on,
+        purchased_time=txn.purchased_time,
+        source=txn.source,
+        subtotal_cents=txn.subtotal_cents,
+        tax_cents=txn.tax_cents,
+        tip_cents=txn.tip_cents,
+        total_cents=txn.total_cents,
+        currency=txn.currency,
+        review_status=txn.review_status,
+        item_count=len(items),
+        line_items=[
+            LineItemOut(
+                id=str(li.id),
+                position=li.position,
+                raw_name=li.raw_name,
+                normalized_name=li.normalized_name,
+                category_id=str(li.category_id) if li.category_id else None,
+                category_name=names.get(str(li.category_id)) if li.category_id else None,
+                price_cents=li.price_cents,
+                quantity=li.quantity,
+                unit_size=li.unit_size,
+                unit=li.unit,
+            )
+            for li in items
+        ],
+    )
+
+
+def _recompute_from_line_items(db: Session, txn: Transaction) -> None:
+    """Re-sum the transaction's line items into subtotal_cents + total_cents. DELETE-then-
+    reinsert-equivalent (a fresh SUM, never an increment/decrement), so an edit or delete can
+    never leave the stored total drifted from what the items actually add up to. Only called
+    from the item edit/delete endpoints, so it only ever runs on itemized transactions."""
+    total = db.exec(
+        select(func.coalesce(func.sum(LineItem.price_cents), 0)).where(
+            LineItem.transaction_id == txn.id, LineItem.user_id == txn.user_id
+        )
+    ).one()
+    txn.subtotal_cents = total
+    txn.total_cents = total + txn.tax_cents + txn.tip_cents
+    db.add(txn)
 
 
 @router.get("/transactions", response_model=list[TransactionListItem])
@@ -84,48 +155,105 @@ def get_transaction(
     db: Session = Depends(get_db),
     user_id: str = Depends(current_user_id),
 ) -> TransactionDetail:
-    txn = db.exec(
-        select(Transaction).where(Transaction.id == transaction_id, Transaction.user_id == user_id)
+    txn = _get_owned_transaction(db, user_id, transaction_id)
+    return _to_detail(db, txn, user_id)
+
+
+@router.patch("/transactions/{transaction_id}", response_model=TransactionDetail)
+def update_transaction(
+    transaction_id: str,
+    body: TransactionUpdate,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+) -> TransactionDetail:
+    """Edit vendor/date/tax/tip. Tax/tip are only folded into total_cents when the
+    transaction is itemized (subtotal_cents is tracked) — an unitemized transaction's total
+    came from the bank/manual entry as a single number with no principal to add tax/tip onto,
+    so it's left untouched (the frontend only shows those fields when itemized)."""
+    vendor = body.vendor.strip()
+    if not vendor:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Vendor can't be blank")
+
+    txn = _get_owned_transaction(db, user_id, transaction_id)
+    txn.vendor = vendor
+    txn.purchased_on = body.purchased_on
+    if txn.subtotal_cents is not None:
+        txn.tax_cents = body.tax_cents
+        txn.tip_cents = body.tip_cents
+        txn.total_cents = txn.subtotal_cents + txn.tax_cents + txn.tip_cents
+    db.add(txn)
+    db.flush()
+    return _to_detail(db, txn, user_id)
+
+
+@router.patch("/transactions/{transaction_id}/items/{item_id}", response_model=TransactionDetail)
+def update_line_item(
+    transaction_id: str,
+    item_id: str,
+    body: LineItemUpdate,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+) -> TransactionDetail:
+    name = body.normalized_name.strip()
+    if not name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Name can't be blank")
+
+    txn = _get_owned_transaction(db, user_id, transaction_id)
+    item = db.exec(
+        select(LineItem).where(
+            LineItem.id == item_id,
+            LineItem.transaction_id == txn.id,
+            LineItem.user_id == user_id,
+        )
     ).first()
-    if txn is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transaction not found")
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found")
 
-    names = _category_names(db, user_id)
-    items = db.exec(
-        select(LineItem)
-        .where(LineItem.transaction_id == txn.id, LineItem.user_id == user_id)
-        .order_by(LineItem.position)
-    ).all()
+    if body.category_id is not None:
+        owns_category = db.exec(
+            select(Category).where(Category.id == body.category_id, Category.user_id == user_id)
+        ).first()
+        if owns_category is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown category")
 
-    return TransactionDetail(
-        id=str(txn.id),
-        vendor=txn.vendor,
-        purchased_on=txn.purchased_on,
-        purchased_time=txn.purchased_time,
-        source=txn.source,
-        subtotal_cents=txn.subtotal_cents,
-        tax_cents=txn.tax_cents,
-        tip_cents=txn.tip_cents,
-        total_cents=txn.total_cents,
-        currency=txn.currency,
-        review_status=txn.review_status,
-        item_count=len(items),
-        line_items=[
-            LineItemOut(
-                id=str(li.id),
-                position=li.position,
-                raw_name=li.raw_name,
-                normalized_name=li.normalized_name,
-                category_id=str(li.category_id) if li.category_id else None,
-                category_name=names.get(str(li.category_id)) if li.category_id else None,
-                price_cents=li.price_cents,
-                quantity=li.quantity,
-                unit_size=li.unit_size,
-                unit=li.unit,
-            )
-            for li in items
-        ],
-    )
+    item.normalized_name = name
+    item.category_id = body.category_id
+    item.price_cents = body.price_cents
+    db.add(item)
+    db.flush()
+
+    _recompute_from_line_items(db, txn)
+    db.flush()
+    return _to_detail(db, txn, user_id)
+
+
+@router.delete("/transactions/{transaction_id}/items/{item_id}", response_model=TransactionDetail)
+def delete_line_item(
+    transaction_id: str,
+    item_id: str,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+) -> TransactionDetail:
+    """Removes exactly one item and re-sums the total. If it was the last item, the
+    transaction is left with subtotal_cents=0 (tax/tip only) rather than being deleted — use
+    the transaction-level delete for that."""
+    txn = _get_owned_transaction(db, user_id, transaction_id)
+    item = db.exec(
+        select(LineItem).where(
+            LineItem.id == item_id,
+            LineItem.transaction_id == txn.id,
+            LineItem.user_id == user_id,
+        )
+    ).first()
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found")
+
+    db.delete(item)
+    db.flush()
+
+    _recompute_from_line_items(db, txn)
+    db.flush()
+    return _to_detail(db, txn, user_id)
 
 
 @router.delete("/transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -134,9 +262,5 @@ def delete_transaction(
     db: Session = Depends(get_db),
     user_id: str = Depends(current_user_id),
 ) -> None:
-    txn = db.exec(
-        select(Transaction).where(Transaction.id == transaction_id, Transaction.user_id == user_id)
-    ).first()
-    if txn is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transaction not found")
+    txn = _get_owned_transaction(db, user_id, transaction_id)
     db.delete(txn)  # line_items cascade via composite FK

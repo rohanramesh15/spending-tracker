@@ -42,6 +42,11 @@ TESTED: set[tuple[str, str]] = {
     ("POST", "/api/plaid/exchange"),
     ("POST", "/api/plaid/sync"),
     ("GET", "/api/transactions"),
+    ("GET", "/api/transactions/{transaction_id}"),
+    ("PATCH", "/api/transactions/{transaction_id}"),
+    ("DELETE", "/api/transactions/{transaction_id}"),
+    ("PATCH", "/api/transactions/{transaction_id}/items/{item_id}"),
+    ("DELETE", "/api/transactions/{transaction_id}/items/{item_id}"),
     ("GET", "/api/cards"),
     ("POST", "/api/cards/{card_id}/profile"),
     ("GET", "/api/rewards/optimization"),
@@ -58,8 +63,6 @@ TESTED: set[tuple[str, str]] = {
 # Pre-existing coverage gaps (from the audit). SHRINK THIS as tests are added; never grow it.
 KNOWN_UNTESTED: set[tuple[str, str]] = {
     ("GET", "/api/insights/spending"),
-    ("GET", "/api/transactions/{transaction_id}"),
-    ("DELETE", "/api/transactions/{transaction_id}"),
     ("GET", "/api/categories"),
     ("GET", "/api/plaid/accounts"),
     ("POST", "/api/plaid/link-token"),
