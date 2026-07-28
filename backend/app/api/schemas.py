@@ -148,6 +148,26 @@ class TransactionDetail(TransactionListItem):
     line_items: list[LineItemOut]
 
 
+class TransactionUpdate(BaseModel):
+    """Header-level edit (vendor/date always; tax/tip only meaningful — and only applied —
+    when the transaction is itemized, since an unitemized total has no tracked principal to
+    add tax/tip onto). The frontend only shows tax/tip fields in that case."""
+
+    vendor: str
+    purchased_on: date
+    tax_cents: int = 0
+    tip_cents: int = 0
+
+
+class LineItemUpdate(BaseModel):
+    """A line item's editable fields. The full edited state is always sent (no partial-patch
+    null-vs-omitted ambiguity) — mirrors how the confirm-screen forms already work."""
+
+    normalized_name: str
+    category_id: str | None
+    price_cents: int
+
+
 class SpendingSlice(BaseModel):
     category: str
     cents: int

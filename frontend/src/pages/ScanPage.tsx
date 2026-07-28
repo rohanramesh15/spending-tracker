@@ -16,7 +16,7 @@ import type {
   ReconcileMatch,
   Resolution,
 } from "@/api/types";
-import { dollarsToCents, formatCents } from "@/lib/utils";
+import { centsToInput, dollarsToCents, formatCents } from "@/lib/utils";
 import { takePendingReceipt } from "@/lib/scanFile";
 
 type Stage = "idle" | "extracting" | "confirm" | "error";
@@ -26,8 +26,6 @@ interface Row {
   amount: string;
   categoryId: string | null;
 }
-
-const centsToInput = (c: number) => (c / 100).toFixed(2);
 
 /**
  * Scan flow (user-flow §3): photo → extraction wait → confirm screen (trust-but-verify)

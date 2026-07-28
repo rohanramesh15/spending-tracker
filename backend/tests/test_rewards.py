@@ -234,10 +234,18 @@ def test_rotating_unknown_quarter_yields_no_bonus():
 
 
 # --- v3: reward-rate refresh seam (mock-aware) ------------------------------------------
-def test_reward_refresh_is_noop_without_key():
+class _NoKeySettings:
+    tavily_api_key = None
+    gemini_api_key = None
+    gemini_model = "gemini-2.5-flash"
+
+
+def test_reward_refresh_is_noop_without_key(monkeypatch):
     from app.services import reward_refresh
 
-    # No TAVILY_API_KEY in the test env → the seam is a no-op (card stays unmatched).
+    # Force the unconfigured state regardless of the real environment (a dev box may have
+    # real keys set for actual use) — mirrors test_classify.py's pattern for the same seam.
+    monkeypatch.setattr(reward_refresh, "get_settings", lambda: _NoKeySettings())
     assert reward_refresh.is_configured() is False
     assert reward_refresh.fetch_reward_profile("Some Obscure Card") is None
 
@@ -282,9 +290,10 @@ def test_fetch_via_tavily_orchestration(monkeypatch):
     assert reward_refresh._fetch_via_tavily("Autograph") is None
 
 
-def test_tavily_and_gemini_seams_noop_without_keys():
+def test_tavily_and_gemini_seams_noop_without_keys(monkeypatch):
     from app.services import reward_refresh
 
-    # No TAVILY_API_KEY / GEMINI_API_KEY in the test env → each seam is a no-op (no network).
+    # Force unconfigured regardless of the real environment (see the note above).
+    monkeypatch.setattr(reward_refresh, "get_settings", lambda: _NoKeySettings())
     assert reward_refresh._tavily_search("anything") is None
     assert reward_refresh._extract_profile_gemini("X", "some content") is None
