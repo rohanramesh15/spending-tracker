@@ -25,6 +25,7 @@ export interface LineItem {
   quantity: string; // Decimal serialized as string
   unit_size: string | null;
   unit: string | null;
+  hidden: boolean; // excluded from every spending total; still shown in the item list
 }
 
 export interface TransactionListItem {

@@ -405,3 +405,28 @@ export function useDeleteLineItem() {
     },
   });
 }
+
+/** Hide/unhide a line item — it stays in the list but drops out of every spending total. */
+export function useSetLineItemHidden() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      transactionId,
+      itemId,
+      hidden,
+    }: {
+      transactionId: string;
+      itemId: string;
+      hidden: boolean;
+    }) =>
+      apiFetch<TransactionDetail>(`/api/transactions/${transactionId}/items/${itemId}/hide`, {
+        method: "POST",
+        body: JSON.stringify({ hidden }),
+      }),
+    onSuccess: (_result, { transactionId }) => {
+      qc.invalidateQueries({ queryKey: ["transaction", transactionId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}

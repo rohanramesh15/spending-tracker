@@ -126,6 +126,7 @@ class LineItemOut(BaseModel):
     quantity: Decimal
     unit_size: Decimal | None
     unit: str | None
+    hidden: bool = False
 
 
 class TransactionListItem(BaseModel):
@@ -166,6 +167,13 @@ class LineItemUpdate(BaseModel):
     normalized_name: str
     category_id: str | None
     price_cents: int
+
+
+class HideLineItemRequest(BaseModel):
+    """Set (not toggle) an item's hidden state — the frontend always sends the state it
+    wants, so two in-flight requests can't race into an inconsistent result."""
+
+    hidden: bool
 
 
 class SpendingSlice(BaseModel):

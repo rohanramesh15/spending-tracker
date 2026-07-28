@@ -104,10 +104,10 @@ export default function TransactionsPage() {
                         to={`/transactions/${t.id}`}
                         className="flex items-center justify-between px-4 py-3 hover:bg-muted/40"
                       >
-                        <div className="flex items-center gap-3">
-                          <Icon className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">{t.vendor}</p>
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{t.vendor}</p>
                             <p className="text-xs text-muted-foreground">
                               {t.item_count > 0
                                 ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
@@ -117,7 +117,7 @@ export default function TransactionsPage() {
                             <CategoryChips categories={t.categories} />
                           </div>
                         </div>
-                        <span className="font-medium">
+                        <span className="shrink-0 pl-3 font-medium">
                           {formatCents(t.total_cents, t.currency)}
                         </span>
                       </Link>

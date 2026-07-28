@@ -174,6 +174,11 @@ class LineItem(SQLModel, table=True):
     )
     unit_size: Decimal | None = Field(default=None, sa_column=Column(Numeric(12, 3), nullable=True))
     unit: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    # Stays visible in the item list but excluded from every spending total (transaction
+    # subtotal/total and the pie chart's category aggregation) — migration 0011.
+    hidden: bool = Field(
+        default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
+    )
 
 
 class Category(SQLModel, table=True):
