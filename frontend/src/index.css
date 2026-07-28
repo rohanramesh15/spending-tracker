@@ -89,18 +89,3 @@
     animation: none;
   }
 }
-
-/* --- Swipe-to-reveal row actions (see components/SwipeableRow) ---
-   Deliberately CSS scroll-snap, not a gesture library: the browser's own touch-scroll
-   handling already solves the hard part (distinguishing a horizontal swipe from the page's
-   vertical scroll), so there's no pointer-event state machine to get subtly wrong. */
-.swipe-row-track {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.swipe-row-track::-webkit-scrollbar {
-  display: none;
-}
-.swipe-row-snap {
-  scroll-snap-stop: always;
-}

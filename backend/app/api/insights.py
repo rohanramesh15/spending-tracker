@@ -5,6 +5,11 @@ Aggregation rule, per transaction:
   own slices; ignore the total.
 - Unitemized: chart its total under "Uncategorized".
 - review_status = needs_review transactions are excluded until resolved.
+- A hidden line item (line_items.hidden) contributes nothing to any category slice, but
+  does NOT change whether its transaction counts as "itemized" — a transaction where every
+  item happens to be hidden still charts $0 from items (plus tax/tip if any), never falls
+  back to charting the full total_cents under Uncategorized. Falling back would silently
+  count the hidden item's amount again via the transaction total, defeating the point.
 
 Money is integer cents throughout; the frontend divides by 100 only at render.
 """
@@ -71,6 +76,8 @@ def spending(
             slices[UNCATEGORIZED] += t.total_cents
 
     for li in items:
+        if li.hidden:
+            continue
         name = names.get(str(li.category_id), UNCATEGORIZED) if li.category_id else UNCATEGORIZED
         slices[name] += li.price_cents
 

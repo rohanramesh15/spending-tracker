@@ -283,6 +283,87 @@ def test_delete_last_line_item_leaves_transaction_with_zero_items(client) -> Non
     assert c.get(f"/api/transactions/{txn['id']}").status_code == 200
 
 
+# --- Hide / unhide a line item --------------------------------------------------------
+
+
+def test_hide_line_item_excludes_it_from_totals_but_keeps_it_listed(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c)  # Coffee 500 + Bagel 300, tax 50 -> subtotal 800, total 850
+    coffee_id = c.get(f"/api/transactions/{txn['id']}").json()["line_items"][0]["id"]
+
+    body = c.post(
+        f"/api/transactions/{txn['id']}/items/{coffee_id}/hide", json={"hidden": True}
+    ).json()
+    # Still present in the item list...
+    assert [li["raw_name"] for li in body["line_items"]] == ["Coffee", "Bagel"]
+    hidden_item = next(li for li in body["line_items"] if li["id"] == coffee_id)
+    assert hidden_item["hidden"] is True
+    # ...but excluded from the money: only the bagel (300) + tax (50) counts.
+    assert body["subtotal_cents"] == 300
+    assert body["total_cents"] == 350
+
+
+def test_unhide_line_item_restores_it_to_totals(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c)
+    coffee_id = c.get(f"/api/transactions/{txn['id']}").json()["line_items"][0]["id"]
+    c.post(f"/api/transactions/{txn['id']}/items/{coffee_id}/hide", json={"hidden": True})
+
+    body = c.post(
+        f"/api/transactions/{txn['id']}/items/{coffee_id}/hide", json={"hidden": False}
+    ).json()
+    assert next(li for li in body["line_items"] if li["id"] == coffee_id)["hidden"] is False
+    assert body["subtotal_cents"] == 800
+    assert body["total_cents"] == 850
+
+
+def test_hide_all_items_zeroes_subtotal_without_falling_back_to_full_total(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c)
+    items = c.get(f"/api/transactions/{txn['id']}").json()["line_items"]
+
+    for li in items:
+        c.post(f"/api/transactions/{txn['id']}/items/{li['id']}/hide", json={"hidden": True})
+
+    body = c.get(f"/api/transactions/{txn['id']}").json()
+    assert len(body["line_items"]) == 2  # both still listed
+    assert all(li["hidden"] for li in body["line_items"])
+    assert body["subtotal_cents"] == 0
+    assert body["total_cents"] == 50  # tax only — NOT the original 850
+
+
+def test_hide_line_item_404_for_item_on_another_transaction(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn_a = _create(c, vendor="Store A")
+    txn_b = _create(c, vendor="Store B")
+    item_from_b = c.get(f"/api/transactions/{txn_b['id']}").json()["line_items"][0]["id"]
+
+    resp = c.post(
+        f"/api/transactions/{txn_a['id']}/items/{item_from_b}/hide", json={"hidden": True}
+    )
+    assert resp.status_code == 404
+
+
+def test_insights_spending_excludes_hidden_item_from_its_category(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c)
+    coffee_id = c.get(f"/api/transactions/{txn['id']}").json()["line_items"][0]["id"]
+
+    before = c.get("/api/insights/spending?start=2026-07-01&end=2026-07-31").json()
+    before_total = before["total_cents"]
+
+    c.post(f"/api/transactions/{txn['id']}/items/{coffee_id}/hide", json={"hidden": True})
+
+    after = c.get("/api/insights/spending?start=2026-07-01&end=2026-07-31").json()
+    # The hidden coffee's 500 cents drop out of the aggregate entirely — not just moved.
+    assert after["total_cents"] == before_total - 500
+
+
 # --- DELETE transaction ------------------------------------------------------------------
 
 

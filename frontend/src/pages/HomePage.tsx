@@ -115,8 +115,8 @@ export default function HomePage() {
                   to={`/transactions/${t.id}`}
                   className="flex items-center justify-between px-4 py-3 hover:bg-muted/40"
                 >
-                  <div>
-                    <p className="font-medium">{t.vendor}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{t.vendor}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(parseISODate(t.purchased_on), "MMM d")} ·{" "}
                       {t.item_count > 0
@@ -125,7 +125,7 @@ export default function HomePage() {
                     </p>
                     <CategoryChips categories={t.categories} />
                   </div>
-                  <span className="font-medium">
+                  <span className="shrink-0 pl-3 font-medium">
                     {formatCents(t.total_cents, t.currency)}
                   </span>
                 </Link>

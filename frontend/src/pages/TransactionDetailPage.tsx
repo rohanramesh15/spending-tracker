@@ -2,13 +2,14 @@ import { useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, Camera, Pencil } from "lucide-react";
+import { ArrowLeft, Trash2, Camera, Pencil, Eye, EyeOff } from "lucide-react";
 import {
   useTransaction,
   useDeleteTransaction,
   useUpdateTransaction,
   useUpdateLineItem,
   useDeleteLineItem,
+  useSetLineItemHidden,
 } from "@/api/hooks";
 import type { LineItem } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export default function TransactionDetailPage() {
   const updateTxn = useUpdateTransaction();
   const updateItem = useUpdateLineItem();
   const deleteItem = useDeleteLineItem();
+  const setHidden = useSetLineItemHidden();
 
   const [editingTxn, setEditingTxn] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
@@ -80,6 +82,12 @@ export default function TransactionDetailPage() {
     setEditingItem(null);
   }
 
+  async function toggleHidden(item: LineItem) {
+    if (!id) return;
+    await setHidden.mutateAsync({ transactionId: id, itemId: item.id, hidden: !item.hidden });
+    toast.success(item.hidden ? "Item unhidden" : "Item hidden from spending");
+  }
+
   // Scan a receipt for an unitemized (bank/imported) transaction. On save, attended
   // reconciliation finds this same purchase and offers Merge — attaching the itemization.
   function onScanPicked(e: React.ChangeEvent<HTMLInputElement>) {
@@ -118,8 +126,8 @@ export default function TransactionDetailPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">{txn.vendor}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-semibold">{txn.vendor}</h1>
           <p className="text-sm text-muted-foreground">
             {format(parseISODate(txn.purchased_on), "EEEE, MMM d, yyyy")} · {txn.source}
           </p>
@@ -160,6 +168,19 @@ export default function TransactionDetailPage() {
                       </button>
                       <button
                         type="button"
+                        aria-label={
+                          li.hidden
+                            ? `Unhide ${li.normalized_name ?? li.raw_name}`
+                            : `Hide ${li.normalized_name ?? li.raw_name} from spending`
+                        }
+                        onClick={() => toggleHidden(li)}
+                        disabled={setHidden.isPending}
+                        className="flex h-full w-16 items-center justify-center bg-secondary text-secondary-foreground"
+                      >
+                        {li.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      </button>
+                      <button
+                        type="button"
                         aria-label={`Delete ${li.normalized_name ?? li.raw_name}`}
                         onClick={() => setDeleteTarget({ kind: "item", item: li })}
                         className="flex h-full w-16 items-center justify-center bg-destructive text-destructive-foreground"
@@ -169,13 +190,19 @@ export default function TransactionDetailPage() {
                     </>
                   }
                 >
-                  <div className="flex items-center justify-between bg-background px-4 py-2.5">
+                  <div
+                    className={
+                      "flex items-center justify-between bg-background px-4 py-2.5" +
+                      (li.hidden ? " opacity-50" : "")
+                    }
+                  >
                     <div>
                       <p className="text-sm font-medium">
                         {li.normalized_name ?? li.raw_name}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {li.category_name ?? "Uncategorized"}
+                        {li.hidden && " · hidden from spending"}
                       </p>
                     </div>
                     <span className="text-sm">{formatCents(li.price_cents)}</span>

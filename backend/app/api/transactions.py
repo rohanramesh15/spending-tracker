@@ -9,6 +9,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.api.schemas import (
+    HideLineItemRequest,
     LineItemOut,
     LineItemUpdate,
     TransactionDetail,
@@ -70,20 +71,37 @@ def _to_detail(db: Session, txn: Transaction, user_id: str) -> TransactionDetail
                 quantity=li.quantity,
                 unit_size=li.unit_size,
                 unit=li.unit,
+                hidden=li.hidden,
             )
             for li in items
         ],
     )
 
 
+def _get_owned_item(db: Session, user_id: str, txn: Transaction, item_id: str) -> LineItem:
+    item = db.exec(
+        select(LineItem).where(
+            LineItem.id == item_id,
+            LineItem.transaction_id == txn.id,
+            LineItem.user_id == user_id,
+        )
+    ).first()
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found")
+    return item
+
+
 def _recompute_from_line_items(db: Session, txn: Transaction) -> None:
-    """Re-sum the transaction's line items into subtotal_cents + total_cents. DELETE-then-
-    reinsert-equivalent (a fresh SUM, never an increment/decrement), so an edit or delete can
-    never leave the stored total drifted from what the items actually add up to. Only called
-    from the item edit/delete endpoints, so it only ever runs on itemized transactions."""
+    """Re-sum the transaction's NON-HIDDEN line items into subtotal_cents + total_cents.
+    DELETE-then-reinsert-equivalent (a fresh SUM, never an increment/decrement), so an edit,
+    delete, or hide/unhide can never leave the stored total drifted from what actually
+    counts. A hidden item stays in the item list (see _to_detail) but contributes nothing
+    here — that's the whole point of hiding vs. deleting it."""
     total = db.exec(
         select(func.coalesce(func.sum(LineItem.price_cents), 0)).where(
-            LineItem.transaction_id == txn.id, LineItem.user_id == txn.user_id
+            LineItem.transaction_id == txn.id,
+            LineItem.user_id == txn.user_id,
+            LineItem.hidden == False,  # noqa: E712 - SQLAlchemy needs `== False`, not `is False`
         )
     ).one()
     txn.subtotal_cents = total
@@ -199,15 +217,7 @@ def update_line_item(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Name can't be blank")
 
     txn = _get_owned_transaction(db, user_id, transaction_id)
-    item = db.exec(
-        select(LineItem).where(
-            LineItem.id == item_id,
-            LineItem.transaction_id == txn.id,
-            LineItem.user_id == user_id,
-        )
-    ).first()
-    if item is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found")
+    item = _get_owned_item(db, user_id, txn, item_id)
 
     if body.category_id is not None:
         owns_category = db.exec(
@@ -238,17 +248,34 @@ def delete_line_item(
     transaction is left with subtotal_cents=0 (tax/tip only) rather than being deleted — use
     the transaction-level delete for that."""
     txn = _get_owned_transaction(db, user_id, transaction_id)
-    item = db.exec(
-        select(LineItem).where(
-            LineItem.id == item_id,
-            LineItem.transaction_id == txn.id,
-            LineItem.user_id == user_id,
-        )
-    ).first()
-    if item is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Item not found")
+    item = _get_owned_item(db, user_id, txn, item_id)
 
     db.delete(item)
+    db.flush()
+
+    _recompute_from_line_items(db, txn)
+    db.flush()
+    return _to_detail(db, txn, user_id)
+
+
+@router.post(
+    "/transactions/{transaction_id}/items/{item_id}/hide", response_model=TransactionDetail
+)
+def set_line_item_hidden(
+    transaction_id: str,
+    item_id: str,
+    body: HideLineItemRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+) -> TransactionDetail:
+    """Hide/unhide one item: it stays in the item list, but a hidden item contributes
+    nothing to subtotal_cents/total_cents (via _recompute_from_line_items) or to the pie
+    chart's category slices (insights.spending() applies the same filter)."""
+    txn = _get_owned_transaction(db, user_id, transaction_id)
+    item = _get_owned_item(db, user_id, txn, item_id)
+
+    item.hidden = body.hidden
+    db.add(item)
     db.flush()
 
     _recompute_from_line_items(db, txn)
