@@ -28,8 +28,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
+    op.execute("""
         CREATE TABLE reward_profiles (
             key                text PRIMARY KEY,
             display_name       text NOT NULL,
@@ -43,8 +42,7 @@ def upgrade() -> None:
         );
         -- Global reference data (not user-scoped): readable by all authenticated users, no RLS.
         GRANT SELECT ON reward_profiles TO authenticated;
-        """
-    )
+        """)
 
 
 def downgrade() -> None:
