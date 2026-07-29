@@ -148,13 +148,20 @@ class Transaction(SQLModel, table=True):
     )
     pfc_primary: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     pfc_detailed: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    # Plaid's confidence in the PFC above (VERY_HIGH..UNKNOWN, migration 0013). Persisted so a
+    # Plaid's confidence in the PFC above (VERY_HIGH..UNKNOWN, migration 0014). Persisted so a
     # future recategorization can weigh the signal the same way ingest did. Null on rows synced
     # before we captured it, and on receipt/manual rows.
     pfc_confidence: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     # Stays in the ledger but excluded from pie-chart aggregation (insights.spending()).
     # Stored totals are unchanged — hide is a charting flag, not a money rewrite (0012).
     hidden: bool = Field(
+        default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
+    )
+    # A Plaid transaction reported before it posts. Also excluded from insights.spending()
+    # (amount/category can still change) until it posts — see docs/pending-transactions-plan.md.
+    # When it posts, Plaid's sync removes this row (by external_id) and a fresh posted row is
+    # ingested; this flag is never flipped false in place (0013).
+    pending: bool = Field(
         default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
     )
     created_at: datetime = created_at_col()

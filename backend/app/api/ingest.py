@@ -172,6 +172,7 @@ def _insert_transaction(
         pfc_primary=payload.pfc_primary,
         pfc_detailed=payload.pfc_detailed,
         pfc_confidence=payload.pfc_confidence,
+        pending=payload.pending,
         subtotal_cents=payload.subtotal_cents,
         tax_cents=payload.tax_cents,
         tip_cents=payload.tip_cents,

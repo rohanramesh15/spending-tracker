@@ -137,23 +137,57 @@ def test_sync_ingests_money_out_including_outgoing_transfers(client, monkeypatch
             _txn("t1", "Starbucks", 433),  # purchase → keep
             _txn("t2", "Zelle to Roommate", 5000, pfc="TRANSFER_OUT"),  # outgoing transfer → KEEP
             _txn("t3", "Refund Co", -500),  # inflow (credit) → skip
-            _txn("t4", "Pending Co", 999, pending=True),  # pending → skip
+            _txn("t4", "Pending Co", 999, pending=True),  # pending money-out → KEEP, flagged
             _txn("t5", "Gusto Payroll", 585000, pfc="INCOME"),  # income → skip
             _txn("t6", "Zelle from Mom", -1200, pfc="TRANSFER_IN"),  # incoming transfer → skip
             _txn("t7", "Amex Payment", 20000, pfc="LOAN_PAYMENTS"),  # card payment → skip
         ],
     )
     body = c.post("/api/plaid/sync").json()
-    assert body["added"] == 2
+    assert body["added"] == 3
     assert body["needs_review"] == 0
-    assert _vendors(uid) == ["Starbucks", "Zelle to Roommate"]
-    # Per-account transparency: one account, 2 in, 5 filtered — never a bare "synced".
+    assert _vendors(uid) == ["Pending Co", "Starbucks", "Zelle to Roommate"]
+    # Per-account transparency: one account, 3 in, 4 filtered — never a bare "synced".
     assert len(body["accounts"]) == 1
     acct = body["accounts"][0]
     assert acct["institution"] == "Test Bank"
-    assert acct["added"] == 2
-    assert acct["skipped"] == 5
+    assert acct["added"] == 3
+    assert acct["skipped"] == 4
     assert acct["needs_attention"] is False
+
+
+def test_sync_flags_pending_transaction(client, monkeypatch) -> None:
+    c, uid = client
+    _mock_sync(monkeypatch, added=[_txn("t1", "Venmo", 2500, pending=True)])
+    c.post("/api/plaid/sync")
+    listed = c.get("/api/transactions").json()
+    assert len(listed) == 1
+    assert listed[0]["vendor"] == "Venmo"
+    assert listed[0]["pending"] is True
+
+
+def test_sync_pending_replaced_by_posted_transaction(client, monkeypatch) -> None:
+    """Plaid's real pending→posted transition: the pending id shows up in `removed` and the
+    posted transaction arrives as a brand-new `added` row with a different id."""
+    c, uid = client
+    _mock_sync(monkeypatch, added=[_txn("t1-pending", "Venmo", 2500, pending=True)])
+    c.post("/api/plaid/sync")
+    assert _txn_count(uid) == 1
+    pending_row = c.get("/api/transactions").json()[0]
+    assert pending_row["pending"] is True
+
+    _mock_sync(
+        monkeypatch,
+        added=[_txn("t1-posted", "Venmo", 2500, pending=False)],
+        removed=["t1-pending"],
+    )
+    body = c.post("/api/plaid/sync").json()
+    assert body["removed"] == 1
+    assert body["added"] == 1
+    assert _txn_count(uid) == 1  # pending row replaced, not duplicated
+    posted_row = c.get("/api/transactions").json()[0]
+    assert posted_row["pending"] is False
+    assert posted_row["id"] != pending_row["id"]
 
 
 def test_sync_match_goes_to_review_queue_not_auto_merged(client, monkeypatch) -> None:
@@ -256,7 +290,7 @@ def test_webhook_verified_triggers_item_sync(client, monkeypatch) -> None:
 
 
 def test_txn_to_dict_captures_pfc_confidence():
-    """The confidence_level Plaid reports must survive normalization (0013) — categorize()
+    """The confidence_level Plaid reports must survive normalization (0014) — categorize()
     uses it to decide whether the coarse primary outranks our keyword classifier. Pure: no DB."""
     from types import SimpleNamespace
 
@@ -308,7 +342,7 @@ def test_txn_to_dict_tolerates_missing_pfc():
 
 
 def test_sync_categorizes_from_detailed_pfc(client, monkeypatch):
-    """End-to-end wiring for 0013: the detailed leaf reaches categorize(), so a gym charge
+    """End-to-end wiring for 0014: the detailed leaf reaches categorize(), so a gym charge
     lands in Health instead of Shopping (which is where its PERSONAL_CARE primary would put
     it), and the leaf + confidence are persisted on the transaction."""
     c, user_id = client

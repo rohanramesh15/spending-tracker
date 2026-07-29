@@ -55,14 +55,14 @@ def test_obsolete_is_exactly_the_non_surviving_old_categories():
                 assert old in mig.OBSOLETE, f"{mig.__name__}: {old!r} missing from OBSOLETE"
 
 
-# --- 0013: no taxonomy change, but a recategorization pass (detailed PFC) ------------------
+# --- 0014: no taxonomy change, but a recategorization pass (detailed PFC) ------------------
 
-mig13 = _load("0013_pfc_detailed_recategorize.py", "mig0013")
+mig14 = _load("0014_pfc_detailed_recategorize.py", "mig0014")
 
 
-def test_0013_old_resolver_reproduces_pre_change_behavior():
-    """0013 rewrites a row only when its category still equals what the OLD resolver produced,
-    so that frozen copy must keep matching the pre-0013 rule: confident-agnostic primary map
+def test_0014_old_resolver_reproduces_pre_change_behavior():
+    """0014 rewrites a row only when its category still equals what the OLD resolver produced,
+    so that frozen copy must keep matching the pre-0014 rule: confident-agnostic primary map
     first, then the keyword classifier."""
     from app.services.categorize import from_plaid_pfc, from_text
 
@@ -75,10 +75,10 @@ def test_0013_old_resolver_reproduces_pre_change_behavior():
         expected = (
             from_plaid_pfc(pfc) if pfc and from_plaid_pfc(pfc) != "Other" else from_text(vendor)
         )
-        assert mig13._old_categorize(vendor, pfc) == expected
+        assert mig14._old_categorize(vendor, pfc) == expected
 
 
-def test_0013_only_rewrites_rows_the_new_resolver_actually_moves():
+def test_0014_only_rewrites_rows_the_new_resolver_actually_moves():
     """The straddling leaves are the point of the migration: old and new must disagree there,
     and agree everywhere the primary was already right (so untouched rows aren't churned)."""
     from app.services.categorize import categorize
@@ -98,7 +98,7 @@ def test_0013_only_rewrites_rows_the_new_resolver_actually_moves():
     for vendor, primary, detailed, expected in moved:
         new = categorize(name=vendor, plaid_pfc=primary, plaid_pfc_detailed=detailed)
         assert new == expected, vendor
-        assert new != mig13._old_categorize(vendor, primary), vendor
+        assert new != mig14._old_categorize(vendor, primary), vendor
 
     unchanged = [
         ("Whole Foods", "FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES"),
@@ -108,4 +108,4 @@ def test_0013_only_rewrites_rows_the_new_resolver_actually_moves():
     for vendor, primary, detailed in unchanged:
         assert categorize(
             name=vendor, plaid_pfc=primary, plaid_pfc_detailed=detailed
-        ) == mig13._old_categorize(vendor, primary), vendor
+        ) == mig14._old_categorize(vendor, primary), vendor

@@ -123,7 +123,7 @@ def test_categorize_always_returns_a_valid_category():
         assert result in REGULAR_CATEGORIES
 
 
-# --- Detailed PFC (0013): the leaf signal, and how it composes with the others ------------
+# --- Detailed PFC (0014): the leaf signal, and how it composes with the others ------------
 
 
 def test_pfc_detailed_map_targets_are_all_valid_categories():

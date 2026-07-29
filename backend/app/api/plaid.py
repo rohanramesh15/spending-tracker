@@ -14,15 +14,18 @@ one ingest door:
 Sandbox only until the final real-account link (CLAUDE.md). If keys are unset, every
 endpoint returns 503 "not configured" rather than failing deep in the SDK.
 
-Sign / scope choices: we ingest **posted money-OUT** — purchases AND *outgoing* transfers
-(Zelle/Venmo/etc., which on a checking account are usually real expenses). We skip:
-pending transactions (they churn as pending→posted), inflows/credits/refunds (non-positive
-amount = money coming in), and the money movements that genuinely aren't spending — payroll
-& deposits (INCOME), *incoming* transfers (TRANSFER_IN), and credit-card payments
-(LOAN_PAYMENTS, which would double-count the card spending we already track) — via Plaid's
-Personal Finance Category (``_NON_SPENDING_PFC``). Plaid's ``removed`` list deletes dropped
-transactions. Bank rows carry one categorized line item (Plaid PFC → our taxonomy) until a
-receipt is merged onto them.
+Sign / scope choices: we ingest **money-OUT** — purchases AND *outgoing* transfers
+(Zelle/Venmo/etc., which on a checking account are usually real expenses), including while
+still ``pending`` (flagged as such — see docs/pending-transactions-plan.md — and excluded
+from insights.spending() until it posts, since a pending amount/category can still change).
+We skip: inflows/credits/refunds (non-positive amount = money coming in), and the money
+movements that genuinely aren't spending — payroll & deposits (INCOME), *incoming* transfers
+(TRANSFER_IN), and credit-card payments (LOAN_PAYMENTS, which would double-count the card
+spending we already track) — via Plaid's Personal Finance Category (``_NON_SPENDING_PFC``).
+When a pending transaction posts, Plaid reports the pending id in ``removed`` (deleted below)
+and the posted transaction as a fresh row with a new id (ingested normally) — no extra
+plumbing needed for the replacement. Bank rows carry one categorized line item (Plaid PFC →
+our taxonomy) until a receipt is merged onto them.
 """
 
 from __future__ import annotations
@@ -457,15 +460,21 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountS
         if c.plaid_account_id
     }
 
+    # Process removals FIRST: when a pending transaction posts, Plaid reports the pending
+    # id in `removed` and the posted transaction as a separate `added` row. Deleting the
+    # pending row before ingesting the posted one keeps find_match() from seeing the
+    # still-present pending row as a "duplicate" and routing the posted transaction to
+    # needs_review against itself.
+    removed = _remove_transactions(db, user_id, result["removed"])
+
     added = needs_review = skipped = 0
     for txn in [*result["added"], *result["modified"]]:
         if (
-            txn["pending"]
-            or txn["amount_cents"] <= 0  # inflow (money in) — not spending
+            txn["amount_cents"] <= 0  # inflow (money in) — not spending
             or txn["pfc_primary"] in _NON_SPENDING_PFC  # income / transfer-in / card payment
         ):
             skipped += 1
-            continue  # posted money-OUT only (see module docstring)
+            continue  # money-OUT only, pending or posted (see module docstring)
         card_id = card_by_plaid.get(txn.get("account_id"))
         payload = IngestRequest(
             source=TransactionSource.plaid,
@@ -476,6 +485,7 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountS
             pfc_primary=txn["pfc_primary"],
             pfc_detailed=txn.get("pfc_detailed"),
             pfc_confidence=txn.get("pfc_confidence"),
+            pending=txn["pending"],
             vendor=txn["name"],
             purchased_on=txn["purchased_on"],
             total_cents=txn["amount_cents"],
@@ -498,8 +508,6 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountS
             added += 1
         elif outcome.status == "needs_review":
             needs_review += 1
-
-    removed = _remove_transactions(db, user_id, result["removed"])
 
     account.transactions_cursor = result["next_cursor"]
     account.last_synced_at = datetime.now(UTC)
@@ -527,6 +535,7 @@ def _remove_transactions(db: Session, user_id: str, transaction_ids: list[str]) 
     ).all()
     for row in rows:
         db.delete(row)  # line items (rare for bank txns) cascade
+    db.flush()  # visible to find_match() before this Item's added/modified are ingested
     return len(rows)
 
 

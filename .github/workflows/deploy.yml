@@ -3,8 +3,18 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # Manual redeploy of an arbitrary ref. Required for the documented rollback path
+  # ("re-run deploy.yml on the previous good commit"), which was impossible without a
+  # push, and for recovering when a run dies for infrastructure reasons rather than a
+  # bad commit. A dispatch deliberately bypasses the path filters (see the backend job).
+  workflow_dispatch:
 
 concurrency:
+  # Serialize deploys; never sever one mid-`sam deploy`/`wrangler`. NOTE: this only stays
+  # safe because the `production` environment has NO required reviewer. If you ever add one,
+  # an unapproved run holds this lock indefinitely and every later push starves behind it
+  # (happened: main sat 3 commits undeployed for a day). Gate deploys some other way, or
+  # switch to cancel-in-progress: true at the same time.
   group: deploy-main
   cancel-in-progress: false
 
@@ -31,9 +41,25 @@ jobs:
 
   backend:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
-    runs-on: ubuntu-latest
-    environment: production # add a required reviewer here for a manual gate
+    # A manual dispatch always deploys everything. Path filters diff against the previous
+    # commit, which makes them wrong for recovery: if a push touches only unrelated files
+    # (say .github/**), every job skips even though earlier app commits are still
+    # undeployed — and since only one run may sit *pending* per concurrency group, a newer
+    # queued run cancels the older pending one, so the run that would have deployed those
+    # commits disappears. Net effect: commits can silently never reach production. A
+    # dispatch must therefore never be path-filtered.
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
+    # MUST be an arm64 runner: template.yaml sets `Architectures: [arm64]`, so on an x86_64
+    # runner `sam build --use-container` pulls the arm64 build image and compiles
+    # pillow-heif's native libs under QEMU emulation. SAM even warns ("Cross-architecture
+    # build detected … may cause build failures"). In practice it doesn't just get slow — it
+    # produced zero output for 21 minutes straight and never finished. Building arm64 natively
+    # keeps the Lambda-matching container CLAUDE.md requires. Free for public repos.
+    runs-on: ubuntu-24.04-arm
+    # A hung build would otherwise hold the deploy-main lock for GitHub's default 6h job
+    # limit, starving every later push — the exact shape of the outage this replaced.
+    timeout-minutes: 25
+    environment: production # scopes the deploy secrets/vars; intentionally NOT reviewer-gated
     defaults:
       run:
         working-directory: infra
@@ -51,8 +77,11 @@ jobs:
 
   frontend:
     needs: [changes, backend]
-    # run even if backend was skipped, as long as frontend changed
-    if: ${{ always() && needs.changes.outputs.frontend == 'true' && !contains(needs.backend.result, 'failure') }}
+    # Run even if backend was skipped (frontend-only change), but ONLY if backend didn't
+    # fail *or get cancelled*. The old `!contains(result,'failure')` let a cancelled backend
+    # through — observed for real: `sam build` was cancelled and the frontend deployed
+    # anyway, i.e. a new UI shipped against a backend that never updated.
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true') && (needs.backend.result == 'success' || needs.backend.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -82,7 +111,19 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=spending-tracker --branch=main
+          # Path is repo-root-relative on purpose. `defaults.run.working-directory` applies
+          # only to `run:` steps, never to `uses:` steps, so this action always executes at
+          # the repo root — hence `frontend/dist`, not `dist` (which failed with
+          # "ENOENT: scandir '<repo>/dist'").
+          #
+          # Do NOT "fix" that with `workingDirectory: frontend`. Tried, failed: the action
+          # picks its package manager from the directory it runs in, so inside frontend/ it
+          # finds pnpm-lock.yaml and runs `pnpm add wrangler` — installing wrangler into the
+          # app's own dependency tree, which exits 1. At the repo root there is no lockfile,
+          # so it installs wrangler in isolation via npm, which works.
+          #
+          # --commit-dirty: dist/ is gitignored, so the tree is always "dirty" by design.
+          command: pages deploy frontend/dist --project-name=spending-tracker --branch=main --commit-dirty=true
 
   smoke:
     needs: [backend, frontend]

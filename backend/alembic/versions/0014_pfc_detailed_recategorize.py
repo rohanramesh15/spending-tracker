@@ -25,6 +25,12 @@ frozen, since it must keep describing what ingest did *before* this change.
 
 ``downgrade()`` restores every rewritten category from ``_recat_v3_backup`` and drops the
 column. Reversible.
+
+**Renumbered 0013 → 0014 (2026-07-29).** This was authored as ``0013`` on a branch cut before
+``0013_transaction_pending`` landed on ``main``; both claimed revision ``0013`` off ``0012``,
+which alembic rejects as multiple heads. It now chains after the pending migration. Its DDL is
+written idempotently (``IF NOT EXISTS``) because production had it applied under the old
+numbering and was stamped forward rather than re-running it.
 """
 
 from __future__ import annotations
@@ -35,8 +41,8 @@ from sqlalchemy import text as _text
 
 from alembic import op
 
-revision: str = "0013"
-down_revision: str | None = "0012"
+revision: str = "0014"
+down_revision: str | None = "0013"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -57,11 +63,11 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     # 1) Persist Plaid's confidence in its own PFC guess going forward.
-    op.execute("ALTER TABLE transactions ADD COLUMN pfc_confidence text")
+    op.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS pfc_confidence text")
 
     # 2) Recategorize bank line items whose category is still whatever ingest assigned.
     op.execute("""
-        CREATE TABLE _recat_v3_backup (
+        CREATE TABLE IF NOT EXISTS _recat_v3_backup (
             row_id        uuid PRIMARY KEY,
             old_category  text NOT NULL
         );
