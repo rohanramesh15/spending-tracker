@@ -171,6 +171,7 @@ def _insert_transaction(
         card_id=payload.card_id,
         pfc_primary=payload.pfc_primary,
         pfc_detailed=payload.pfc_detailed,
+        pfc_confidence=payload.pfc_confidence,
         subtotal_cents=payload.subtotal_cents,
         tax_cents=payload.tax_cents,
         tip_cents=payload.tip_cents,
@@ -198,6 +199,9 @@ def _backfill_card_fields(db: Session, existing: Transaction, payload: IngestReq
         changed = True
     if existing.pfc_detailed is None and payload.pfc_detailed is not None:
         existing.pfc_detailed = payload.pfc_detailed
+        changed = True
+    if existing.pfc_confidence is None and payload.pfc_confidence is not None:
+        existing.pfc_confidence = payload.pfc_confidence
         changed = True
     if changed:
         db.add(existing)
@@ -233,7 +237,12 @@ def _add_line_items(db: Session, user_id: str, transaction_id, payload: IngestRe
                     c.name: str(c.id)
                     for c in db.exec(select(Category).where(Category.user_id == user_id)).all()
                 }
-            name = categorize(name=item.raw_name, plaid_pfc=item.plaid_pfc)
+            name = categorize(
+                name=item.raw_name,
+                plaid_pfc=item.plaid_pfc,
+                plaid_pfc_detailed=item.plaid_pfc_detailed,
+                plaid_pfc_confidence=item.plaid_pfc_confidence,
+            )
             # Hybrid: if the deterministic classifier can't place a MANUAL entry, escalate to
             # the Gemini fallback (bank rows already have Plaid's strong PFC signal, and a
             # bulk sync shouldn't fan out LLM calls). Degrades to "Other" if Gemini is off.

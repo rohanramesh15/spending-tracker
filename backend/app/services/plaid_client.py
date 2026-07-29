@@ -267,4 +267,7 @@ def _txn_to_dict(t) -> dict:
         "pending": bool(getattr(t, "pending", False)),
         "pfc_primary": getattr(pfc, "primary", None) if pfc else None,
         "pfc_detailed": getattr(pfc, "detailed", None) if pfc else None,
+        # How much Plaid trusts its own guess (VERY_HIGH/HIGH/MEDIUM/LOW/UNKNOWN) — lets
+        # categorize() prefer our keyword classifier over a PFC Plaid flagged as weak.
+        "pfc_confidence": getattr(pfc, "confidence_level", None) if pfc else None,
     }

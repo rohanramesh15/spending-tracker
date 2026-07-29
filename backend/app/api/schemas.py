@@ -25,9 +25,12 @@ class LineItemIn(BaseModel):
     raw_name: str
     normalized_name: str | None = None
     category_id: str | None = None
-    # Transient categorization hint (Plaid PFC primary); NOT stored — when category_id is
-    # absent, ingest uses this + the item name to auto-assign a category via categorize().
+    # Transient categorization hints (Plaid PFC primary, detailed leaf, and Plaid's confidence
+    # in them); NOT stored on the line item — when category_id is absent, ingest feeds these
+    # plus the item name to categorize(). The detailed leaf is the strongest of the three.
     plaid_pfc: str | None = None
+    plaid_pfc_detailed: str | None = None
+    plaid_pfc_confidence: str | None = None
     # Line-extended total in cents (quantity x unit price) — matches what receipts print.
     price_cents: int
     quantity: Decimal = Decimal(1)
@@ -51,6 +54,7 @@ class IngestRequest(BaseModel):
     card_id: str | None = None
     pfc_primary: str | None = None
     pfc_detailed: str | None = None
+    pfc_confidence: str | None = None
     vendor: str
     purchased_on: date
     purchased_time: time | None = None

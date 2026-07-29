@@ -2,7 +2,10 @@
 
 The fast, free, offline first tier shared by every ingest source:
 - **Bank (Plaid):** map Plaid's Personal Finance Category (already merchant-derived) to our
-  taxonomy — the strongest signal, so it's tried first.
+  taxonomy — the strongest signal, so it's tried first. Both levels are used: the *detailed*
+  leaf outranks everything (it's the only signal that separates leaves whose primary straddles
+  our taxonomy), and the coarse *primary* is trusted ahead of our keyword classifier only when
+  Plaid reports decent confidence in it. See ``categorize()`` for the full precedence.
 - **Manual / fallback:** a comprehensive keyword + merchant classifier over the item name.
 - **Receipts:** the vision model picks from the taxonomy in the prompt; this service is the
   fallback if it declines, and it backfills historical bank rows in the migration.
@@ -41,6 +44,125 @@ PLAID_PFC_MAP: dict[str, str] = {
     "BANK_FEES": "Services",
     "GOVERNMENT_AND_NON_PROFIT": "Other",
 }
+
+# Plaid personal_finance_category DETAILED → our category. The leaf is what Plaid actually
+# inferred about the merchant, so it's a strictly better signal than the primary and is tried
+# first. Crucially, several primaries straddle our taxonomy and the primary-only map gets them
+# wrong for every leaf underneath:
+#   - PERSONAL_CARE → Shopping, but gyms are Health and hair/laundry are Services.
+#   - GENERAL_MERCHANDISE → Shopping, but a convenience store is Food and Drinks.
+#   - GENERAL_SERVICES → Services, but _AUTOMOTIVE is Travel/Transportation.
+#   - GOVERNMENT_AND_NON_PROFIT → Other, but a tax payment is a bill (Services).
+# It also disambiguates the two "gas"es that the keyword classifier cannot: pumping fuel
+# (TRANSPORTATION_GAS) vs the utility bill (RENT_AND_UTILITIES_GAS_AND_ELECTRICITY).
+# Non-spending leaves (INCOME_*, TRANSFER_*, LOAN_PAYMENTS_*) are filtered upstream by the
+# Plaid sync, so they're deliberately absent here — mirroring PLAID_PFC_MAP's coverage.
+PLAID_PFC_DETAILED_MAP: dict[str, str] = {
+    # --- Food and Drinks ---
+    "FOOD_AND_DRINK_BEER_WINE_AND_LIQUOR": "Food and Drinks",
+    "FOOD_AND_DRINK_COFFEE": "Food and Drinks",
+    "FOOD_AND_DRINK_FAST_FOOD": "Food and Drinks",
+    "FOOD_AND_DRINK_GROCERIES": "Food and Drinks",
+    "FOOD_AND_DRINK_RESTAURANT": "Food and Drinks",
+    "FOOD_AND_DRINK_VENDING_MACHINES": "Food and Drinks",
+    "FOOD_AND_DRINK_OTHER_FOOD_AND_DRINK": "Food and Drinks",
+    # A convenience store is a food run in practice, not general retail.
+    "GENERAL_MERCHANDISE_CONVENIENCE_STORES": "Food and Drinks",
+    # --- Shopping ---
+    "GENERAL_MERCHANDISE_BOOKSTORES_AND_NEWSSTANDS": "Shopping",
+    "GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES": "Shopping",
+    "GENERAL_MERCHANDISE_DEPARTMENT_STORES": "Shopping",
+    "GENERAL_MERCHANDISE_DISCOUNT_STORES": "Shopping",
+    "GENERAL_MERCHANDISE_ELECTRONICS": "Shopping",
+    "GENERAL_MERCHANDISE_GIFTS_AND_NOVELTIES": "Shopping",
+    "GENERAL_MERCHANDISE_OFFICE_SUPPLIES": "Shopping",
+    "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES": "Shopping",
+    "GENERAL_MERCHANDISE_PET_SUPPLIES": "Shopping",
+    "GENERAL_MERCHANDISE_SPORTING_GOODS": "Shopping",
+    "GENERAL_MERCHANDISE_SUPERSTORES": "Shopping",
+    "GENERAL_MERCHANDISE_TOBACCO_AND_VAPE": "Shopping",
+    "GENERAL_MERCHANDISE_OTHER_GENERAL_MERCHANDISE": "Shopping",
+    "HOME_IMPROVEMENT_FURNITURE": "Shopping",
+    "HOME_IMPROVEMENT_HARDWARE": "Shopping",
+    "HOME_IMPROVEMENT_OTHER_HOME_IMPROVEMENT": "Shopping",
+    # --- Entertainment ---
+    "ENTERTAINMENT_CASINOS_AND_GAMBLING": "Entertainment",
+    "ENTERTAINMENT_MUSIC_AND_AUDIO": "Entertainment",
+    "ENTERTAINMENT_SPORTING_EVENTS_AMUSEMENT_PARKS_AND_MUSEUMS": "Entertainment",
+    "ENTERTAINMENT_TV_AND_MOVIES": "Entertainment",
+    "ENTERTAINMENT_VIDEO_GAMES": "Entertainment",
+    "ENTERTAINMENT_OTHER_ENTERTAINMENT": "Entertainment",
+    # --- Travel/Transportation ---
+    "TRANSPORTATION_BIKES_AND_SCOOTERS": "Travel/Transportation",
+    "TRANSPORTATION_GAS": "Travel/Transportation",
+    "TRANSPORTATION_PARKING": "Travel/Transportation",
+    "TRANSPORTATION_PUBLIC_TRANSIT": "Travel/Transportation",
+    "TRANSPORTATION_TAXIS_AND_RIDE_SHARES": "Travel/Transportation",
+    "TRANSPORTATION_TOLLS": "Travel/Transportation",
+    "TRANSPORTATION_OTHER_TRANSPORTATION": "Travel/Transportation",
+    "TRAVEL_FLIGHTS": "Travel/Transportation",
+    "TRAVEL_LODGING": "Travel/Transportation",
+    "TRAVEL_RENTAL_CARS": "Travel/Transportation",
+    "TRAVEL_OTHER_TRAVEL": "Travel/Transportation",
+    # Car repair/service/parts is auto spending, not a professional service.
+    "GENERAL_SERVICES_AUTOMOTIVE": "Travel/Transportation",
+    # --- Health ---
+    "MEDICAL_DENTAL_CARE": "Health",
+    "MEDICAL_EYE_EXAMS_OPTOMETRIST": "Health",
+    "MEDICAL_NURSING_CARE": "Health",
+    "MEDICAL_PHARMACIES_AND_SUPPLEMENTS": "Health",
+    "MEDICAL_PRIMARY_CARE": "Health",
+    "MEDICAL_VETERINARY_SERVICES": "Health",
+    "MEDICAL_OTHER_MEDICAL": "Health",
+    # Our Health description explicitly covers "fitness, wellness".
+    "PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS": "Health",
+    # --- Services ---
+    "PERSONAL_CARE_HAIR_AND_BEAUTY": "Services",
+    "PERSONAL_CARE_LAUNDRY_AND_DRY_CLEANING": "Services",
+    "PERSONAL_CARE_OTHER_PERSONAL_CARE": "Services",
+    "GENERAL_SERVICES_ACCOUNTING_AND_FINANCIAL_PLANNING": "Services",
+    "GENERAL_SERVICES_CHILDCARE": "Services",
+    "GENERAL_SERVICES_CONSULTING_AND_LEGAL": "Services",
+    "GENERAL_SERVICES_EDUCATION": "Services",
+    "GENERAL_SERVICES_INSURANCE": "Services",
+    "GENERAL_SERVICES_POSTAGE_AND_SHIPPING": "Services",
+    "GENERAL_SERVICES_STORAGE": "Services",
+    "GENERAL_SERVICES_OTHER_GENERAL_SERVICES": "Services",
+    "HOME_IMPROVEMENT_REPAIR_AND_MAINTENANCE": "Services",
+    "HOME_IMPROVEMENT_SECURITY": "Services",
+    "RENT_AND_UTILITIES_GAS_AND_ELECTRICITY": "Services",
+    "RENT_AND_UTILITIES_INTERNET_AND_CABLE": "Services",
+    "RENT_AND_UTILITIES_RENT": "Services",
+    "RENT_AND_UTILITIES_SEWAGE_AND_WASTE_MANAGEMENT": "Services",
+    "RENT_AND_UTILITIES_TELEPHONE": "Services",
+    "RENT_AND_UTILITIES_WATER": "Services",
+    "RENT_AND_UTILITIES_OTHER_UTILITIES": "Services",
+    "BANK_FEES_ATM_FEES": "Services",
+    "BANK_FEES_FOREIGN_TRANSACTION_FEES": "Services",
+    "BANK_FEES_INSUFFICIENT_FUNDS": "Services",
+    "BANK_FEES_INTEREST_CHARGE": "Services",
+    "BANK_FEES_LATE_PAYMENT": "Services",
+    "BANK_FEES_OVERDRAFT_FEES": "Services",
+    "BANK_FEES_OTHER_BANK_FEES": "Services",
+    # A tax bill / agency fee behaves like a bill; a donation genuinely fits nowhere.
+    "GOVERNMENT_AND_NON_PROFIT_GOVERNMENT_DEPARTMENTS_AND_AGENCIES": "Services",
+    "GOVERNMENT_AND_NON_PROFIT_TAX_PAYMENT": "Services",
+    # --- Other ---
+    "GOVERNMENT_AND_NON_PROFIT_DONATIONS": "Other",
+    "GOVERNMENT_AND_NON_PROFIT_OTHER_GOVERNMENT_AND_NON_PROFIT": "Other",
+}
+
+# Plaid's confidence in its own PFC guess. At LOW/UNKNOWN the guess is weak enough that our
+# keyword classifier — which sees the merchant string Plaid may have failed to resolve — gets
+# to answer first; the PFC is still used as a last resort before Other. Absent confidence is
+# treated as trustworthy (older synced rows predate our capturing the field).
+_WEAK_CONFIDENCE = frozenset({"LOW", "UNKNOWN"})
+
+
+def pfc_is_confident(confidence: str | None) -> bool:
+    """True when Plaid's PFC confidence is strong enough to outrank the keyword classifier."""
+    return (confidence or "").strip().upper() not in _WEAK_CONFIDENCE
+
 
 # Keyword / merchant substrings → category. First category with a hit wins, IN THIS ORDER,
 # so specific buckets are checked before broad ones and known collisions resolve correctly:
@@ -824,6 +946,26 @@ def from_plaid_pfc(primary: str | None) -> str:
     return PLAID_PFC_MAP.get((primary or "").strip().upper(), OTHER)
 
 
+def from_plaid_pfc_detailed(detailed: str | None) -> str:
+    """Map a Plaid PFC detailed leaf to our taxonomy; unknown/absent → Other.
+
+    Falls back to the leaf's primary prefix when the leaf itself is unrecognized, so a value
+    Plaid adds after this map was written still lands in the right broad bucket instead of
+    Other. Plaid guarantees every leaf is prefixed with its primary.
+    """
+    key = (detailed or "").strip().upper()
+    if not key:
+        return OTHER
+    mapped = PLAID_PFC_DETAILED_MAP.get(key)
+    if mapped:
+        return mapped
+    # Unknown leaf: longest matching primary prefix wins (GENERAL_MERCHANDISE before GENERAL).
+    for primary in sorted(PLAID_PFC_MAP, key=len, reverse=True):
+        if key.startswith(primary):
+            return PLAID_PFC_MAP[primary]
+    return OTHER
+
+
 def from_text(name: str | None) -> str:
     """Classify from a merchant/item name via bounded keyword match; no hit → Other."""
     n = (name or "").lower()
@@ -835,13 +977,33 @@ def from_text(name: str | None) -> str:
     return OTHER
 
 
-def categorize(*, name: str | None = None, plaid_pfc: str | None = None) -> str:
-    """Best category for an item. Plaid's PFC is the strongest signal (already
-    merchant-derived), so it's used when it resolves to something specific; otherwise fall
-    back to the name classifier. Always returns a valid taxonomy member."""
-    if plaid_pfc:
-        pfc = from_plaid_pfc(plaid_pfc)
-        if pfc != OTHER:
-            return pfc
+def categorize(
+    *,
+    name: str | None = None,
+    plaid_pfc: str | None = None,
+    plaid_pfc_detailed: str | None = None,
+    plaid_pfc_confidence: str | None = None,
+) -> str:
+    """Best category for an item, from every signal available, strongest first:
+
+    1. **Detailed PFC** — Plaid's merchant-resolved leaf. Most specific signal we get, and the
+       only one that separates leaves whose primary straddles our taxonomy (a gym vs a salon,
+       fuel vs a utility bill), so it outranks everything.
+    2. **Primary PFC**, when Plaid is confident in it — coarse but merchant-derived.
+    3. **The keyword classifier** over the merchant/item name — our own signal, and better
+       than a PFC that Plaid itself flagged LOW/UNKNOWN.
+    4. **Primary PFC at weak confidence** — a guess beats no answer.
+
+    Always returns a valid taxonomy member (``Other`` when nothing resolves).
+    """
+    if plaid_pfc_detailed:
+        detailed = from_plaid_pfc_detailed(plaid_pfc_detailed)
+        if detailed != OTHER:
+            return detailed
+    primary = from_plaid_pfc(plaid_pfc) if plaid_pfc else OTHER
+    if primary != OTHER and pfc_is_confident(plaid_pfc_confidence):
+        return primary
     result = from_text(name)
-    return result if result in _VALID else OTHER
+    if result in _VALID and result != OTHER:
+        return result
+    return primary if primary in _VALID else OTHER
