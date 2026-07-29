@@ -6,6 +6,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # pnpm 11 enforces a supply-chain `minimumReleaseAge` (~24h) during
+    # `pnpm install --frozen-lockfile`, so a bump to a version published hours ago fails CI
+    # with ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION — which blocked every frontend Dependabot
+    # PR (and therefore auto-merge). Waiting 7 days clears that cutoff with margin and also
+    # gives a compromised release time to be yanked. Do NOT "fix" this by relaxing the pnpm
+    # policy — the delay IS the protection.
+    cooldown:
+      default-days: 7
     groups:
       # One PR for routine minor/patch bumps instead of a swarm.
       frontend-minor:

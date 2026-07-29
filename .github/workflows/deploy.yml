@@ -3,8 +3,18 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # Manual redeploy of an arbitrary ref. Required for the documented rollback path
+  # ("re-run deploy.yml on the previous good commit"), which was impossible without a
+  # push, and for recovering when a run dies for infrastructure reasons rather than a
+  # bad commit. Path filters still apply, so a manual run deploys only what changed.
+  workflow_dispatch:
 
 concurrency:
+  # Serialize deploys; never sever one mid-`sam deploy`/`wrangler`. NOTE: this only stays
+  # safe because the `production` environment has NO required reviewer. If you ever add one,
+  # an unapproved run holds this lock indefinitely and every later push starves behind it
+  # (happened: main sat 3 commits undeployed for a day). Gate deploys some other way, or
+  # switch to cancel-in-progress: true at the same time.
   group: deploy-main
   cancel-in-progress: false
 
@@ -33,7 +43,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
     runs-on: ubuntu-latest
-    environment: production # add a required reviewer here for a manual gate
+    environment: production # scopes the deploy secrets/vars; intentionally NOT reviewer-gated
     defaults:
       run:
         working-directory: infra
@@ -51,8 +61,11 @@ jobs:
 
   frontend:
     needs: [changes, backend]
-    # run even if backend was skipped, as long as frontend changed
-    if: ${{ always() && needs.changes.outputs.frontend == 'true' && !contains(needs.backend.result, 'failure') }}
+    # Run even if backend was skipped (frontend-only change), but ONLY if backend didn't
+    # fail *or get cancelled*. The old `!contains(result,'failure')` let a cancelled backend
+    # through — observed for real: `sam build` was cancelled and the frontend deployed
+    # anyway, i.e. a new UI shipped against a backend that never updated.
+    if: ${{ always() && needs.changes.outputs.frontend == 'true' && (needs.backend.result == 'success' || needs.backend.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -82,7 +95,13 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=spending-tracker --branch=main
+          # `defaults.run.working-directory` applies ONLY to `run:` steps, never to `uses:`
+          # steps — so without this the action executes at the repo root and dies with
+          # "ENOENT: scandir '<repo>/dist'" while the build output sits in frontend/dist.
+          # This leg had never actually run to completion before, so the bug stayed hidden.
+          workingDirectory: frontend
+          # dist/ is gitignored, so the tree is always "dirty" here by design.
+          command: pages deploy dist --project-name=spending-tracker --branch=main --commit-dirty=true
 
   smoke:
     needs: [backend, frontend]
