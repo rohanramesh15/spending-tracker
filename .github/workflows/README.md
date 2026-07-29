@@ -35,7 +35,7 @@ The email goes to the `AlertEmail` template parameter. **After the first deploy,
 
 ## Rollback
 
-- **Backend:** a failed `sam deploy`/CloudFormation update rolls the stack back automatically. To undo a *successful-but-bad* deploy, re-run `deploy.yml` on the previous good commit (or `git revert` → merge).
+- **Backend:** a failed `sam deploy`/CloudFormation update rolls the stack back automatically. To undo a *successful-but-bad* deploy, re-run `deploy.yml` on the previous good commit via **Actions → Deploy → Run workflow** (`workflow_dispatch`, added for exactly this — it used to be push-only, so this documented path didn't actually exist), or `git revert` → merge.
 - **Frontend:** Cloudflare Pages keeps every deployment — roll back instantly from the Pages dashboard (Deployments → previous → "Rollback"), or redeploy the previous commit.
 - **DB:** migrations are reversible (`alembic downgrade -1`) via a manual `migrate.yml`-style run; never auto-rolled.
 
