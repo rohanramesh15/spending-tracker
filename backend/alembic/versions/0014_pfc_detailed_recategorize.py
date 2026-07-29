@@ -75,16 +75,14 @@ def upgrade() -> None:
 
     from app.services.categorize import categorize
 
-    rows = conn.execute(
-        _text("""
+    rows = conn.execute(_text("""
         SELECT li.id, li.user_id, li.raw_name, c.name AS current_category,
                t.vendor, t.pfc_primary, t.pfc_detailed
         FROM line_items li
         JOIN transactions t ON t.id = li.transaction_id
         JOIN categories c ON c.id = li.category_id
         WHERE t.source = 'plaid'
-        """)
-    ).fetchall()
+        """)).fetchall()
 
     for row_id, user_id, raw_name, current, vendor, pfc_primary, pfc_detailed in rows:
         # Untouched-since-ingest check. The line item's own name is what ingest classified
@@ -117,13 +115,11 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     conn = op.get_bind()
-    conn.execute(
-        _text("""
+    conn.execute(_text("""
         UPDATE line_items li SET category_id = c.id
         FROM _recat_v3_backup b
         JOIN categories c ON c.name = b.old_category
         WHERE li.id = b.row_id AND c.user_id = li.user_id;
-        """)
-    )
+        """))
     op.execute("DROP TABLE IF EXISTS _recat_v3_backup")
     op.execute("ALTER TABLE transactions DROP COLUMN IF EXISTS pfc_confidence")
