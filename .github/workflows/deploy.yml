@@ -5,6 +5,11 @@ on:
     branches: [main]
 
 concurrency:
+  # Serialize deploys; never sever one mid-`sam deploy`/`wrangler`. NOTE: this only stays
+  # safe because the `production` environment has NO required reviewer. If you ever add one,
+  # an unapproved run holds this lock indefinitely and every later push starves behind it
+  # (happened: main sat 3 commits undeployed for a day). Gate deploys some other way, or
+  # switch to cancel-in-progress: true at the same time.
   group: deploy-main
   cancel-in-progress: false
 
@@ -33,7 +38,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
     runs-on: ubuntu-latest
-    environment: production # add a required reviewer here for a manual gate
+    environment: production # scopes the deploy secrets/vars; intentionally NOT reviewer-gated
     defaults:
       run:
         working-directory: infra
