@@ -60,6 +60,7 @@ function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem 
     review_status: "confirmed",
     item_count: 0,
     categories: [],
+    hidden: false,
     ...overrides,
   };
 }

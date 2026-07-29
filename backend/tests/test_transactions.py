@@ -364,6 +364,56 @@ def test_insights_spending_excludes_hidden_item_from_its_category(client) -> Non
     assert after["total_cents"] == before_total - 500
 
 
+# --- Hide / unhide a whole transaction ----------------------------------------------------
+
+
+def test_hide_transaction_keeps_totals_and_list_presence(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c)
+
+    body = c.post(f"/api/transactions/{txn['id']}/hide", json={"hidden": True}).json()
+    assert body["hidden"] is True
+    # Money columns are a charting flag only — not rewritten.
+    assert body["subtotal_cents"] == 800
+    assert body["total_cents"] == 850
+    # Still listed in the ledger.
+    listed = c.get("/api/transactions").json()
+    assert any(t["id"] == txn["id"] and t["hidden"] is True for t in listed)
+
+
+def test_unhide_transaction_restores_chart_eligibility(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c)
+    c.post(f"/api/transactions/{txn['id']}/hide", json={"hidden": True})
+
+    body = c.post(f"/api/transactions/{txn['id']}/hide", json={"hidden": False}).json()
+    assert body["hidden"] is False
+
+
+def test_insights_spending_excludes_hidden_transaction_entirely(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c)
+
+    before = c.get("/api/insights/spending?start=2026-07-01&end=2026-07-31").json()
+    assert before["total_cents"] == 850  # 500 + 300 + tax 50
+
+    c.post(f"/api/transactions/{txn['id']}/hide", json={"hidden": True})
+
+    after = c.get("/api/insights/spending?start=2026-07-01&end=2026-07-31").json()
+    # Whole purchase drops out — items, tax, everything — not just one category.
+    assert after["total_cents"] == 0
+    assert after["slices"] == []
+
+
+def test_hide_transaction_404_for_unknown_id(client) -> None:
+    c, _uid = client
+    resp = c.post(f"/api/transactions/{uuid.uuid4()}/hide", json={"hidden": True})
+    assert resp.status_code == 404
+
+
 # --- DELETE transaction ------------------------------------------------------------------
 
 

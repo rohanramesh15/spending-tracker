@@ -1,12 +1,31 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { Plus, Camera, Pencil, Landmark } from "lucide-react";
-import { useTransactions } from "@/api/hooks";
+import { toast } from "sonner";
+import {
+  Plus,
+  Camera,
+  Pencil,
+  Landmark,
+  MoreHorizontal,
+  Trash2,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import {
+  useTransactions,
+  useTransaction,
+  useDeleteTransaction,
+  useUpdateTransaction,
+  useSetTransactionHidden,
+} from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { cn, formatCents } from "@/lib/utils";
 import { CategoryChips } from "@/components/CategoryChips";
 import { ListSkeleton } from "@/components/Skeletons";
+import { ActionSheet } from "@/components/ActionSheet";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { EditTransactionDialog } from "@/components/EditTransactionDialog";
 import { parseISODate } from "@/lib/dates";
 import type { TransactionListItem, TransactionSource } from "@/api/types";
 
@@ -28,10 +47,20 @@ function groupByDay(txns: TransactionListItem[]): [string, TransactionListItem[]
   return [...groups.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
 }
 
-/** Transactions — the browsable ledger (user-flow §5), grouped by day. */
+/** Transactions — the browsable ledger (user-flow §5), grouped by day.
+ *  Row tap → detail. ⋯ menu → Edit / Hide / Delete via a bottom action sheet. */
 export default function TransactionsPage() {
   const { data, isLoading } = useTransactions();
   const [filter, setFilter] = useState<Filter>("all");
+
+  const [menuTxn, setMenuTxn] = useState<TransactionListItem | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<TransactionListItem | null>(null);
+
+  const { data: editingDetail } = useTransaction(editingId ?? undefined);
+  const del = useDeleteTransaction();
+  const updateTxn = useUpdateTransaction();
+  const setHidden = useSetTransactionHidden();
 
   const all = data ?? [];
   const reviewCount = all.filter((t) => t.review_status === "needs_review").length;
@@ -40,6 +69,30 @@ export default function TransactionsPage() {
       ? all.filter((t) => t.review_status === "needs_review")
       : all;
   const groups = groupByDay(visible);
+
+  async function saveTransaction(values: {
+    vendor: string;
+    purchased_on: string;
+    tax_cents: number;
+    tip_cents: number;
+  }) {
+    if (!editingId) return;
+    await updateTxn.mutateAsync({ id: editingId, ...values });
+    toast.success("Transaction updated");
+    setEditingId(null);
+  }
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    await del.mutateAsync(deleting.id);
+    toast.success("Transaction deleted");
+    setDeleting(null);
+  }
+
+  async function toggleHidden(txn: TransactionListItem) {
+    await setHidden.mutateAsync({ id: txn.id, hidden: !txn.hidden });
+    toast.success(txn.hidden ? "Shown in spending again" : "Hidden from spending");
+  }
 
   return (
     <section className="space-y-4">
@@ -99,10 +152,13 @@ export default function TransactionsPage() {
                 {items.map((t) => {
                   const Icon = SOURCE_ICON[t.source];
                   return (
-                    <li key={t.id}>
+                    <li key={t.id} className="flex items-stretch">
                       <Link
                         to={`/transactions/${t.id}`}
-                        className="flex items-center justify-between px-4 py-3 hover:bg-muted/40"
+                        className={cn(
+                          "flex min-w-0 flex-1 items-center justify-between px-4 py-3 hover:bg-muted/40",
+                          t.hidden && "opacity-50",
+                        )}
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -113,6 +169,7 @@ export default function TransactionsPage() {
                                 ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
                                 : "Uncategorized"}
                               {t.review_status === "needs_review" && " · needs review"}
+                              {t.hidden && " · hidden from spending"}
                             </p>
                             <CategoryChips categories={t.categories} />
                           </div>
@@ -121,6 +178,18 @@ export default function TransactionsPage() {
                           {formatCents(t.total_cents, t.currency)}
                         </span>
                       </Link>
+                      <button
+                        type="button"
+                        aria-label={`Actions for ${t.vendor}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenuTxn(t);
+                        }}
+                        className="flex shrink-0 items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
                     </li>
                   );
                 })}
@@ -129,6 +198,77 @@ export default function TransactionsPage() {
           ))}
         </div>
       )}
+
+      <ActionSheet
+        open={menuTxn != null}
+        onOpenChange={(open) => !open && setMenuTxn(null)}
+        title={menuTxn?.vendor}
+        description={
+          menuTxn
+            ? formatCents(menuTxn.total_cents, menuTxn.currency)
+            : undefined
+        }
+        actions={
+          menuTxn
+            ? [
+                {
+                  label: "Edit",
+                  icon: <Pencil className="h-4 w-4" />,
+                  onSelect: () => {
+                    const id = menuTxn.id;
+                    setMenuTxn(null);
+                    setEditingId(id);
+                  },
+                },
+                {
+                  label: menuTxn.hidden ? "Unhide from spending" : "Hide from spending",
+                  icon: menuTxn.hidden ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
+                  ),
+                  disabled: setHidden.isPending,
+                  onSelect: () => {
+                    const t = menuTxn;
+                    setMenuTxn(null);
+                    void toggleHidden(t);
+                  },
+                },
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="h-4 w-4" />,
+                  destructive: true,
+                  onSelect: () => {
+                    const t = menuTxn;
+                    setMenuTxn(null);
+                    setDeleting(t);
+                  },
+                },
+              ]
+            : []
+        }
+      />
+
+      <EditTransactionDialog
+        open={editingId != null}
+        txn={editingDetail ?? null}
+        onOpenChange={(open) => !open && setEditingId(null)}
+        onSave={saveTransaction}
+        pending={updateTxn.isPending || (editingId != null && !editingDetail)}
+      />
+
+      <ConfirmDeleteDialog
+        open={deleting != null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete transaction?"
+        description={
+          deleting
+            ? `Removes "${deleting.vendor}" and all its items. Can't be undone.`
+            : ""
+        }
+        onConfirm={confirmDelete}
+        pending={del.isPending}
+      />
     </section>
   );
 }

@@ -5,6 +5,8 @@ Aggregation rule, per transaction:
   own slices; ignore the total.
 - Unitemized: chart its total under "Uncategorized".
 - review_status = needs_review transactions are excluded until resolved.
+- A hidden transaction (transactions.hidden) is excluded entirely — tax, tip, items, and
+  unitemized total all drop out of every slice. The row stays in the ledger.
 - A hidden line item (line_items.hidden) contributes nothing to any category slice, but
   does NOT change whether its transaction counts as "itemized" — a transaction where every
   item happens to be hidden still charts $0 from items (plus tax/tip if any), never falls
@@ -39,11 +41,12 @@ def spending(
     db: Session = Depends(get_db),
     user_id: str = Depends(current_user_id),
 ) -> SpendingResponse:
-    # Confirmed transactions in range only (needs_review excluded).
+    # Confirmed, non-hidden transactions in range only (needs_review + hidden excluded).
     txns = db.exec(
         select(Transaction).where(
             Transaction.user_id == user_id,
             Transaction.review_status == ReviewStatus.confirmed,
+            Transaction.hidden == False,  # noqa: E712 - SQLAlchemy needs `== False`, not `is False`
             Transaction.purchased_on >= start,
             Transaction.purchased_on <= end,
         )
