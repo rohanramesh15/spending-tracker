@@ -53,3 +53,59 @@ def test_obsolete_is_exactly_the_non_surviving_old_categories():
         for old in mig.OLD_REGULAR:
             if old not in mig.NEW_REGULAR:
                 assert old in mig.OBSOLETE, f"{mig.__name__}: {old!r} missing from OBSOLETE"
+
+
+# --- 0014: no taxonomy change, but a recategorization pass (detailed PFC) ------------------
+
+mig14 = _load("0014_pfc_detailed_recategorize.py", "mig0014")
+
+
+def test_0014_old_resolver_reproduces_pre_change_behavior():
+    """0014 rewrites a row only when its category still equals what the OLD resolver produced,
+    so that frozen copy must keep matching the pre-0014 rule: confident-agnostic primary map
+    first, then the keyword classifier."""
+    from app.services.categorize import from_plaid_pfc, from_text
+
+    for vendor, pfc in (
+        ("Equinox", "PERSONAL_CARE"),
+        ("Starbucks", "MYSTERY_PFC"),
+        ("Shell Gas", None),
+        ("qwerty zxcvbn", None),
+    ):
+        expected = (
+            from_plaid_pfc(pfc) if pfc and from_plaid_pfc(pfc) != "Other" else from_text(vendor)
+        )
+        assert mig14._old_categorize(vendor, pfc) == expected
+
+
+def test_0014_only_rewrites_rows_the_new_resolver_actually_moves():
+    """The straddling leaves are the point of the migration: old and new must disagree there,
+    and agree everywhere the primary was already right (so untouched rows aren't churned)."""
+    from app.services.categorize import categorize
+
+    moved = [
+        ("Equinox", "PERSONAL_CARE", "PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS", "Health"),
+        ("Great Clips", "PERSONAL_CARE", "PERSONAL_CARE_HAIR_AND_BEAUTY", "Services"),
+        ("Jiffy Lube", "GENERAL_SERVICES", "GENERAL_SERVICES_AUTOMOTIVE", "Travel/Transportation"),
+        ("IRS", "GOVERNMENT_AND_NON_PROFIT", "GOVERNMENT_AND_NON_PROFIT_TAX_PAYMENT", "Services"),
+        (
+            "7-Eleven",
+            "GENERAL_MERCHANDISE",
+            "GENERAL_MERCHANDISE_CONVENIENCE_STORES",
+            "Food and Drinks",
+        ),
+    ]
+    for vendor, primary, detailed, expected in moved:
+        new = categorize(name=vendor, plaid_pfc=primary, plaid_pfc_detailed=detailed)
+        assert new == expected, vendor
+        assert new != mig14._old_categorize(vendor, primary), vendor
+
+    unchanged = [
+        ("Whole Foods", "FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES"),
+        ("Delta", "TRAVEL", "TRAVEL_FLIGHTS"),
+        ("CVS", "MEDICAL", "MEDICAL_PHARMACIES_AND_SUPPLEMENTS"),
+    ]
+    for vendor, primary, detailed in unchanged:
+        assert categorize(
+            name=vendor, plaid_pfc=primary, plaid_pfc_detailed=detailed
+        ) == mig14._old_categorize(vendor, primary), vendor

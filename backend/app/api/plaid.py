@@ -484,6 +484,7 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountS
             card_id=str(card_id) if card_id else None,
             pfc_primary=txn["pfc_primary"],
             pfc_detailed=txn.get("pfc_detailed"),
+            pfc_confidence=txn.get("pfc_confidence"),
             pending=txn["pending"],
             vendor=txn["name"],
             purchased_on=txn["purchased_on"],
@@ -497,6 +498,8 @@ def _sync_account(db: Session, user_id: str, account: LinkedAccount) -> AccountS
                     raw_name=txn["name"],
                     price_cents=txn["amount_cents"],
                     plaid_pfc=txn["pfc_primary"],
+                    plaid_pfc_detailed=txn.get("pfc_detailed"),
+                    plaid_pfc_confidence=txn.get("pfc_confidence"),
                 )
             ],
         )

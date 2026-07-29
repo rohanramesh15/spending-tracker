@@ -14,6 +14,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterator
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -77,7 +78,17 @@ def client(monkeypatch) -> Iterator[tuple[TestClient, uuid.UUID]]:
             db.commit()
 
 
-def _txn(tid: str, name: str, cents: int, *, pending=False, pfc=None, day="2026-07-02") -> dict:
+def _txn(
+    tid: str,
+    name: str,
+    cents: int,
+    *,
+    pending=False,
+    pfc=None,
+    detailed=None,
+    confidence=None,
+    day="2026-07-02",
+) -> dict:
     return {
         "transaction_id": tid,
         "name": name,
@@ -86,6 +97,8 @@ def _txn(tid: str, name: str, cents: int, *, pending=False, pfc=None, day="2026-
         "purchased_on": date.fromisoformat(day),
         "pending": pending,
         "pfc_primary": pfc,
+        "pfc_detailed": detailed,
+        "pfc_confidence": confidence,
     }
 
 
@@ -274,3 +287,95 @@ def test_webhook_verified_triggers_item_sync(client, monkeypatch) -> None:
     )
     assert resp.status_code == 200
     assert _vendors(uid) == ["Starbucks"]
+
+
+def test_txn_to_dict_captures_pfc_confidence():
+    """The confidence_level Plaid reports must survive normalization (0014) — categorize()
+    uses it to decide whether the coarse primary outranks our keyword classifier. Pure: no DB."""
+    from types import SimpleNamespace
+
+    from app.services.plaid_client import _txn_to_dict
+
+    raw = SimpleNamespace(
+        transaction_id="t1",
+        account_id="acct-1",
+        merchant_name="Equinox",
+        name="EQUINOX 123",
+        amount=Decimal("85.00"),
+        iso_currency_code="USD",
+        date=date(2026, 7, 2),
+        authorized_date=None,
+        pending=False,
+        personal_finance_category=SimpleNamespace(
+            primary="PERSONAL_CARE",
+            detailed="PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS",
+            confidence_level="VERY_HIGH",
+        ),
+    )
+    out = _txn_to_dict(raw)
+    assert out["pfc_primary"] == "PERSONAL_CARE"
+    assert out["pfc_detailed"] == "PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS"
+    assert out["pfc_confidence"] == "VERY_HIGH"
+
+
+def test_txn_to_dict_tolerates_missing_pfc():
+    from types import SimpleNamespace
+
+    from app.services.plaid_client import _txn_to_dict
+
+    raw = SimpleNamespace(
+        transaction_id="t2",
+        account_id=None,
+        merchant_name=None,
+        name="MYSTERY CHARGE",
+        amount=Decimal("5.00"),
+        iso_currency_code=None,
+        date=date(2026, 7, 2),
+        authorized_date=None,
+        pending=False,
+        personal_finance_category=None,
+    )
+    out = _txn_to_dict(raw)
+    assert out["pfc_primary"] is None
+    assert out["pfc_detailed"] is None
+    assert out["pfc_confidence"] is None
+
+
+def test_sync_categorizes_from_detailed_pfc(client, monkeypatch):
+    """End-to-end wiring for 0014: the detailed leaf reaches categorize(), so a gym charge
+    lands in Health instead of Shopping (which is where its PERSONAL_CARE primary would put
+    it), and the leaf + confidence are persisted on the transaction."""
+    c, user_id = client
+    # The taxonomy is seeded by a trigger on real signup; this user is synthetic.
+    with admin_session() as db:
+        db.execute(text("SELECT seed_default_categories(cast(:u as uuid))"), {"u": str(user_id)})
+        db.commit()
+    _mock_sync(
+        monkeypatch,
+        added=[
+            _txn(
+                "gym-1",
+                "Equinox",
+                8500,
+                pfc="PERSONAL_CARE",
+                detailed="PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS",
+                confidence="VERY_HIGH",
+            )
+        ],
+    )
+    assert c.post("/api/plaid/sync").status_code == 200
+
+    with admin_session() as db:
+        row = db.execute(
+            text("""
+            SELECT cat.name, t.pfc_detailed, t.pfc_confidence
+            FROM transactions t
+            JOIN line_items li ON li.transaction_id = t.id
+            JOIN categories cat ON cat.id = li.category_id
+            WHERE t.user_id = :u AND t.external_id = 'gym-1'
+            """),
+            {"u": user_id},
+        ).one()
+    assert row[0] == "Health"
+    assert row[1] == "PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS"
+    assert row[2] == "VERY_HIGH"

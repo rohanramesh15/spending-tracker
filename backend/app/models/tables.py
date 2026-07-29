@@ -148,6 +148,10 @@ class Transaction(SQLModel, table=True):
     )
     pfc_primary: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     pfc_detailed: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    # Plaid's confidence in the PFC above (VERY_HIGH..UNKNOWN, migration 0014). Persisted so a
+    # future recategorization can weigh the signal the same way ingest did. Null on rows synced
+    # before we captured it, and on receipt/manual rows.
+    pfc_confidence: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     # Stays in the ledger but excluded from pie-chart aggregation (insights.spending()).
     # Stored totals are unchanged — hide is a charting flag, not a money rewrite (0012).
     hidden: bool = Field(
