@@ -6,7 +6,7 @@ on:
   # Manual redeploy of an arbitrary ref. Required for the documented rollback path
   # ("re-run deploy.yml on the previous good commit"), which was impossible without a
   # push, and for recovering when a run dies for infrastructure reasons rather than a
-  # bad commit. Path filters still apply, so a manual run deploys only what changed.
+  # bad commit. A dispatch deliberately bypasses the path filters (see the backend job).
   workflow_dispatch:
 
 concurrency:
@@ -41,7 +41,14 @@ jobs:
 
   backend:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
+    # A manual dispatch always deploys everything. Path filters diff against the previous
+    # commit, which makes them wrong for recovery: if a push touches only unrelated files
+    # (say .github/**), every job skips even though earlier app commits are still
+    # undeployed — and since only one run may sit *pending* per concurrency group, a newer
+    # queued run cancels the older pending one, so the run that would have deployed those
+    # commits disappears. Net effect: commits can silently never reach production. A
+    # dispatch must therefore never be path-filtered.
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
     runs-on: ubuntu-latest
     environment: production # scopes the deploy secrets/vars; intentionally NOT reviewer-gated
     defaults:
@@ -65,7 +72,7 @@ jobs:
     # fail *or get cancelled*. The old `!contains(result,'failure')` let a cancelled backend
     # through — observed for real: `sam build` was cancelled and the frontend deployed
     # anyway, i.e. a new UI shipped against a backend that never updated.
-    if: ${{ always() && needs.changes.outputs.frontend == 'true' && (needs.backend.result == 'success' || needs.backend.result == 'skipped') }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true') && (needs.backend.result == 'success' || needs.backend.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: production
     defaults:
