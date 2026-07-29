@@ -1,4 +1,4 @@
-import { categoryColor } from "@/lib/categories";
+import { categoryColor, categoryInk, categoryLabel } from "@/lib/categories";
 
 /** Small colored pills for a transaction's line-item categories (row short-view). Colors
  *  match the spending pie. Caps the count and shows "+N" so long receipts stay tidy. */
@@ -18,9 +18,10 @@ export function CategoryChips({
         <span
           key={c}
           className="rounded px-1.5 py-0.5 text-[10px] font-medium leading-none"
-          style={{ color: categoryColor(c), backgroundColor: categoryColor(c) + "1a" }}
+          // Text wears the darker ink step (WCAG text contrast); the tint carries identity.
+          style={{ color: categoryInk(c), backgroundColor: categoryColor(c) + "1a" }}
         >
-          {c}
+          {categoryLabel(c)}
         </span>
       ))}
       {extra > 0 && <span className="text-[10px] leading-none text-muted-foreground">+{extra}</span>}

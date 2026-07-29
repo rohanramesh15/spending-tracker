@@ -121,7 +121,7 @@ export default function HomePage() {
                       {format(parseISODate(t.purchased_on), "MMM d")} ·{" "}
                       {t.item_count > 0
                         ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
-                        : "Uncategorized"}
+                        : "Not itemized"}
                     </p>
                     <CategoryChips categories={t.categories} />
                   </div>
