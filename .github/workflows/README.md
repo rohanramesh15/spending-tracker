@@ -13,6 +13,19 @@ Plus **`dependabot.yml`** (not a workflow): weekly dependency-update PRs for the
 
 The frontend updater carries a **7-day `cooldown`**. pnpm 11 enforces a supply-chain `minimumReleaseAge` (~24h) during `pnpm install --frozen-lockfile`; without the cooldown Dependabot proposes versions published hours earlier and every frontend PR dies on `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`, which also silently stalls auto-merge. Don't fix that by relaxing the pnpm policy — the delay is the protection.
 
+## Deploying "whatever is currently on main"
+
+A push-triggered Deploy is **path-filtered against the previous commit**, so a push that
+touches only unrelated files deploys nothing — even if earlier app commits never shipped.
+That compounds with GitHub's concurrency rule that only one run may sit *pending* per group:
+a newer queued run **cancels** the older pending one, so the run that would have deployed
+those commits disappears. Net effect: commits can silently never reach production.
+
+To deploy the current tip of `main` regardless of what the last commit touched, use
+**Actions → Deploy → Run workflow** (`workflow_dispatch`). A dispatch skips the path filters
+entirely and deploys backend + frontend. Use it after a run of merges, or to confirm prod
+actually matches `main`.
+
 ## Why deploys aren't reviewer-gated
 
 `deploy.yml` serializes on `concurrency: deploy-main` with `cancel-in-progress: false` so a deploy is never severed mid-`sam deploy`. A required reviewer on `production` interacts badly with that: an unapproved run holds the lock indefinitely and every later push to `main` starves behind it with zero jobs. That happened — `main` sat 3 commits undeployed for a day while a run waited on an approval nobody clicked.
