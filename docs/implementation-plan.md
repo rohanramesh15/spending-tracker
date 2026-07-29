@@ -150,6 +150,33 @@ The LLM assigns each line item a category from a fixed taxonomy. **Tax and tip a
 
 > **Recategorized to 8 broad buckets (2026-07-08).** The original 21 grocery-aisle categories were replaced with 8 life-spending categories (Food & Drink, Shopping, Entertainment, Transportation, Travel, Health, Services, Other) aligned to how card issuers categorize (Tax/Tip stay as system categories). A shared deterministic `categorize()` service (`services/categorize.py`) is the single "robust algorithm" across all three sources: **receipts** (the model picks from the 8 in the prompt), **bank sync** (map Plaid's `personal_finance_category` → the 8; each bank txn now gets one categorized line item instead of charting as "Uncategorized"), and **manual entry / fallback** (keyword+merchant classifier; unresolved → `Other`). Migration `0003` reseeds the 8 per user, remaps existing line items + overrides via a confirmed old→new map, backfills existing bank rows, and is reversible via a backup table.
 
+> **Palette revalidated (2026-07-29).** The per-category colors were re-derived against the
+> data-viz color formula instead of picked by eye, because the old set had two real defects:
+> Health `#dc2626` and Food `#ea580c` separated by only ΔE 7.1 for *normal* vision (a hard
+> fail — they read as one color in small slices), and Tax/Tip/Uncategorized were three
+> near-identical grays. New assignment (`frontend/src/lib/categories.ts`, the single source of
+> truth for both the pie and the row chips): Food and Drinks amber `#eda100`, Shopping blue
+> `#2a78d6`, Travel/Transportation aqua `#1baf7a`, Health red `#e34948`, Services green
+> `#008300`, Entertainment violet `#4a3aa7`, Other neutral `#52514e`, plus selected dark-mode
+> steps for each. Passes every hard gate on the adjacent pairlist in both modes: worst
+> normal-vision ΔE 19.6 light / 19.3 dark (≥15 floor), worst CVD ΔE 9.1 light / 8.4 dark
+> (≥8 target). **Tax and Tip share the magenta hue** (`#e87ba4` / dark `#d55181`) and separate
+> by fill — Tax solid, Tip 45° hatched: Health owns red, which rules orange out of the
+> palette, capping it at 7 distinguishable hues for 8 colored slices. They are semantic
+> siblings (both transaction-level, non-item), and hatching survives both CVD and dark mode
+> where a second magenta step cannot (the dark band is too narrow — best separation ΔE 9.3,
+> under the floor). Convention #8 is unchanged: both remain their own categories and their own
+> slices. Also: the positional-cycling fallback palette in `SpendingPie` was removed (color now
+> follows the entity, never the slice index — an unknown label falls back to Other's neutral);
+> chips now use darker ink steps so the label clears WCAG text contrast; slices get a 2px
+> surface gap. **"Uncategorized" is now displayed as "Not itemized"** — display-label change
+> only, the backend key and API payloads are unchanged. It stays a separate bucket rather than
+> folding into Other, because Other is a category the classifier *chose* while this one means
+> "no line items yet", and its size is the "scan your receipts" to-do signal (§6.6, user-flow
+> §40); it's hatched at 135° to read as absence of data. Regression tests pin the validated
+> hexes, the shared-hue-plus-hatch invariant, and the no-orange rule
+> (`frontend/src/lib/categories.test.ts`, `frontend/src/components/SpendingPie.test.tsx`).
+
 ### 6.5 Per-purchase table
 Responsive: desktop = real table (item · price · category, with vendor/date/subtotal/tax/tip/total header); phone = stacked cards.
 

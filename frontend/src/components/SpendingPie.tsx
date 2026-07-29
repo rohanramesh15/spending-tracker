@@ -10,13 +10,47 @@ import {
 } from "recharts";
 import type { SpendingSlice } from "@/api/types";
 import { formatCents } from "@/lib/utils";
-import { CATEGORY_COLORS } from "@/lib/categories";
+import { categoryColor, categoryLabel, HATCHED, isHatched } from "@/lib/categories";
 
-// Fallback only for an unexpected label (the fixed taxonomy shouldn't produce one).
-const PALETTE = ["#2563eb", "#0891b2", "#4f46e5", "#0d9488", "#c026d3"];
+// Color follows the category, never the slice's position — an unknown label falls back to
+// Other's neutral rather than borrowing a category's hue.
+function colorFor(category: string): string {
+  return categoryColor(category);
+}
 
-function colorFor(category: string, i: number): string {
-  return CATEGORY_COLORS[category] ?? PALETTE[i % PALETTE.length];
+// Hatched categories (Tip, Uncategorized) fill from an SVG pattern instead of a flat color,
+// which is what separates Tip from the solid Tax slice sharing its hue.
+function patternId(category: string): string {
+  return `hatch-${category.replace(/[^a-zA-Z]/g, "")}`;
+}
+
+function fillFor(category: string): string {
+  return isHatched(category) ? `url(#${patternId(category)})` : colorFor(category);
+}
+
+// The patterns live in their own zero-size <svg> rather than inside <PieChart>, because
+// Recharts drops children it doesn't recognize — a <defs> passed to the chart never renders.
+// Pattern ids resolve document-wide, so the slices can still reference them by url(#id).
+function HatchDefs() {
+  return (
+    <svg width={0} height={0} aria-hidden="true" className="absolute">
+      <defs>
+        {Object.entries(HATCHED).map(([category, angle]) => (
+          <pattern
+            key={category}
+            id={patternId(category)}
+            width={6}
+            height={6}
+            patternTransform={`rotate(${angle})`}
+            patternUnits="userSpaceOnUse"
+          >
+            <rect width={6} height={6} fill={colorFor(category)} />
+            <line x1={0} y1={0} x2={0} y2={6} stroke="#ffffff" strokeWidth={2.5} />
+          </pattern>
+        ))}
+      </defs>
+    </svg>
+  );
 }
 
 const RADIAN = Math.PI / 180;
@@ -101,7 +135,7 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
       <text
         x={x}
         y={y}
-        fill={labelInkFor(colorFor(p.payload?.name ?? "", p.index))}
+        fill={labelInkFor(colorFor(p.payload?.name ?? ""))}
         fontSize={12}
         fontWeight={700}
         textAnchor="middle"
@@ -114,6 +148,7 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
 
   return (
     <div ref={containerRef}>
+      <HatchDefs />
       <ResponsiveContainer width="100%" height={260}>
         <PieChart>
           <Pie
@@ -123,7 +158,11 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
             innerRadius={55}
             outerRadius={95}
             paddingAngle={0}
-            stroke="none"
+            // A 2px surface-colored gap between adjacent fills — keeps neighboring slices
+            // from bleeding together, and gives the hatched Tip slice a clean edge against
+            // the solid Tax slice it shares a hue with.
+            stroke="#ffffff"
+            strokeWidth={2}
             labelLine={false}
             label={renderSelectedPercent}
             activeIndex={activeIndex}
@@ -131,16 +170,19 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
             onClick={(_, index) => setActiveIndex((cur) => (cur === index ? -1 : index))}
             className="cursor-pointer focus:outline-none [&_*]:outline-none"
           >
-            {data.map((entry, i) => (
-              <Cell key={entry.name} fill={colorFor(entry.name, i)} />
+            {data.map((entry) => (
+              <Cell key={entry.name} fill={fillFor(entry.name)} />
             ))}
           </Pie>
-          <Tooltip formatter={(value: number) => formatCents(value)} />
+          <Tooltip
+            formatter={(value: number) => formatCents(value)}
+            labelFormatter={(label: string) => categoryLabel(label)}
+          />
           <Legend
             verticalAlign="bottom"
             height={36}
-            formatter={(value) => (
-              <span className="text-xs text-foreground">{value}</span>
+            formatter={(value: string) => (
+              <span className="text-xs text-foreground">{categoryLabel(value)}</span>
             )}
           />
         </PieChart>

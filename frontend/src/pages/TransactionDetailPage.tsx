@@ -71,7 +71,7 @@ export default function TransactionDetailPage() {
                     {li.normalized_name ?? li.raw_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {li.category_name ?? "Uncategorized"}
+                    {li.category_name ?? "Not itemized"}
                     {li.hidden && " · hidden from spending"}
                   </p>
                 </div>
@@ -83,7 +83,7 @@ export default function TransactionDetailPage() {
       ) : (
         <div className="rounded-xl border bg-muted/30 p-4 text-center">
           <p className="text-sm text-muted-foreground">
-            No itemized detail — charted under Uncategorized.
+            No itemized detail — charted under “Not itemized”.
           </p>
           <input
             ref={scanInput}

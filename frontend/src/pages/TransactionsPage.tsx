@@ -167,7 +167,7 @@ export default function TransactionsPage() {
                             <p className="text-xs text-muted-foreground">
                               {t.item_count > 0
                                 ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
-                                : "Uncategorized"}
+                                : "Not itemized"}
                               {t.review_status === "needs_review" && " · needs review"}
                               {t.pending && " · pending"}
                               {t.hidden && " · hidden from spending"}
