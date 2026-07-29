@@ -1,4 +1,11 @@
 # pnpm 11 reads build-script approvals here (moved out of package.json).
 # esbuild (a vite/vitest dependency) needs its postinstall to fetch its native binary.
+#
+# workerd is NOT a dependency of this app — it arrives at deploy time. cloudflare/wrangler-action
+# finds no wrangler in the project and runs `pnpm add wrangler@3.90.0`, which pulls workerd. The
+# install succeeds, but pnpm 11 then EXITS 1 with ERR_PNPM_IGNORED_BUILDS over workerd's blocked
+# build script, and the action reports that as a failed deploy. Approving it here is what keeps
+# the exit code 0. Verified: `pnpm add wrangler@3.90.0` exits 1 without this line, 0 with it.
 allowBuilds:
   esbuild: true
+  workerd: true
