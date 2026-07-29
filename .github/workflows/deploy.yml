@@ -49,7 +49,16 @@ jobs:
     # commits disappears. Net effect: commits can silently never reach production. A
     # dispatch must therefore never be path-filtered.
     if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true' }}
-    runs-on: ubuntu-latest
+    # MUST be an arm64 runner: template.yaml sets `Architectures: [arm64]`, so on an x86_64
+    # runner `sam build --use-container` pulls the arm64 build image and compiles
+    # pillow-heif's native libs under QEMU emulation. SAM even warns ("Cross-architecture
+    # build detected … may cause build failures"). In practice it doesn't just get slow — it
+    # produced zero output for 21 minutes straight and never finished. Building arm64 natively
+    # keeps the Lambda-matching container CLAUDE.md requires. Free for public repos.
+    runs-on: ubuntu-24.04-arm
+    # A hung build would otherwise hold the deploy-main lock for GitHub's default 6h job
+    # limit, starving every later push — the exact shape of the outage this replaced.
+    timeout-minutes: 25
     environment: production # scopes the deploy secrets/vars; intentionally NOT reviewer-gated
     defaults:
       run:
@@ -102,13 +111,19 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # `defaults.run.working-directory` applies ONLY to `run:` steps, never to `uses:`
-          # steps — so without this the action executes at the repo root and dies with
-          # "ENOENT: scandir '<repo>/dist'" while the build output sits in frontend/dist.
-          # This leg had never actually run to completion before, so the bug stayed hidden.
-          workingDirectory: frontend
-          # dist/ is gitignored, so the tree is always "dirty" here by design.
-          command: pages deploy dist --project-name=spending-tracker --branch=main --commit-dirty=true
+          # Path is repo-root-relative on purpose. `defaults.run.working-directory` applies
+          # only to `run:` steps, never to `uses:` steps, so this action always executes at
+          # the repo root — hence `frontend/dist`, not `dist` (which failed with
+          # "ENOENT: scandir '<repo>/dist'").
+          #
+          # Do NOT "fix" that with `workingDirectory: frontend`. Tried, failed: the action
+          # picks its package manager from the directory it runs in, so inside frontend/ it
+          # finds pnpm-lock.yaml and runs `pnpm add wrangler` — installing wrangler into the
+          # app's own dependency tree, which exits 1. At the repo root there is no lockfile,
+          # so it installs wrangler in isolation via npm, which works.
+          #
+          # --commit-dirty: dist/ is gitignored, so the tree is always "dirty" by design.
+          command: pages deploy frontend/dist --project-name=spending-tracker --branch=main --commit-dirty=true
 
   smoke:
     needs: [backend, frontend]
