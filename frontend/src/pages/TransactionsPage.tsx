@@ -169,6 +169,7 @@ export default function TransactionsPage() {
                                 ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
                                 : "Uncategorized"}
                               {t.review_status === "needs_review" && " · needs review"}
+                              {t.pending && " · pending"}
                               {t.hidden && " · hidden from spending"}
                             </p>
                             <CategoryChips categories={t.categories} />

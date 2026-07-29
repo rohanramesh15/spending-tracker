@@ -153,6 +153,13 @@ class Transaction(SQLModel, table=True):
     hidden: bool = Field(
         default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
     )
+    # A Plaid transaction reported before it posts. Also excluded from insights.spending()
+    # (amount/category can still change) until it posts — see docs/pending-transactions-plan.md.
+    # When it posts, Plaid's sync removes this row (by external_id) and a fresh posted row is
+    # ingested; this flag is never flipped false in place (0013).
+    pending: bool = Field(
+        default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
+    )
     created_at: datetime = created_at_col()
 
 

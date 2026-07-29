@@ -414,6 +414,31 @@ def test_hide_transaction_404_for_unknown_id(client) -> None:
     assert resp.status_code == 404
 
 
+# --- Pending transactions (docs/pending-transactions-plan.md) --------------------------
+
+
+def test_pending_transaction_is_listed_and_flagged(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c, pending=True)
+
+    listed = c.get("/api/transactions").json()
+    assert any(t["id"] == txn["id"] and t["pending"] is True for t in listed)
+
+    detail = c.get(f"/api/transactions/{txn['id']}").json()
+    assert detail["pending"] is True
+
+
+def test_insights_spending_excludes_pending_transaction_entirely(client) -> None:
+    c, uid = client
+    _seed_categories(uid)
+    _create(c, pending=True)
+
+    body = c.get("/api/insights/spending?start=2026-07-01&end=2026-07-31").json()
+    assert body["total_cents"] == 0
+    assert body["slices"] == []
+
+
 # --- DELETE transaction ------------------------------------------------------------------
 
 

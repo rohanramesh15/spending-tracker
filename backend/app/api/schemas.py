@@ -51,6 +51,9 @@ class IngestRequest(BaseModel):
     card_id: str | None = None
     pfc_primary: str | None = None
     pfc_detailed: str | None = None
+    # Set by the Plaid sync for a transaction reported before it posts; null/false for every
+    # other source. See docs/pending-transactions-plan.md.
+    pending: bool = False
     vendor: str
     purchased_on: date
     purchased_time: time | None = None
@@ -141,6 +144,9 @@ class TransactionListItem(BaseModel):
     categories: list[str] = Field(default_factory=list)  # distinct line-item categories, for chips
     # Excluded from pie-chart aggregation; still listed in the ledger (dimmed in the UI).
     hidden: bool = False
+    # Reported by Plaid before it posts. Also excluded from pie-chart aggregation until it
+    # posts (amount/category can still change) — see docs/pending-transactions-plan.md.
+    pending: bool = False
 
 
 class TransactionDetail(TransactionListItem):

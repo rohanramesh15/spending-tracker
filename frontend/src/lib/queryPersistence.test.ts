@@ -61,6 +61,7 @@ function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem 
     item_count: 0,
     categories: [],
     hidden: false,
+    pending: false,
     ...overrides,
   };
 }
