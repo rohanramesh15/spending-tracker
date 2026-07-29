@@ -148,6 +148,11 @@ class Transaction(SQLModel, table=True):
     )
     pfc_primary: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     pfc_detailed: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    # Stays in the ledger but excluded from pie-chart aggregation (insights.spending()).
+    # Stored totals are unchanged — hide is a charting flag, not a money rewrite (0012).
+    hidden: bool = Field(
+        default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
+    )
     created_at: datetime = created_at_col()
 
 

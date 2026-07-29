@@ -38,6 +38,7 @@ export interface TransactionListItem {
   review_status: ReviewStatus;
   item_count: number;
   categories: string[]; // distinct line-item categories, for row chips
+  hidden: boolean; // excluded from pie charts; still shown in the ledger
 }
 
 export interface TransactionDetail extends TransactionListItem {

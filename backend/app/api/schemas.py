@@ -139,6 +139,8 @@ class TransactionListItem(BaseModel):
     review_status: ReviewStatus
     item_count: int
     categories: list[str] = Field(default_factory=list)  # distinct line-item categories, for chips
+    # Excluded from pie-chart aggregation; still listed in the ledger (dimmed in the UI).
+    hidden: bool = False
 
 
 class TransactionDetail(TransactionListItem):
@@ -172,6 +174,13 @@ class LineItemUpdate(BaseModel):
 class HideLineItemRequest(BaseModel):
     """Set (not toggle) an item's hidden state — the frontend always sends the state it
     wants, so two in-flight requests can't race into an inconsistent result."""
+
+    hidden: bool
+
+
+class HideTransactionRequest(BaseModel):
+    """Set (not toggle) a transaction's hidden state — same race-safe pattern as items.
+    Hidden purchases stay in the ledger but contribute nothing to insights.spending()."""
 
     hidden: bool
 

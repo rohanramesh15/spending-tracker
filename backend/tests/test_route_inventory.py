@@ -48,6 +48,7 @@ TESTED: set[tuple[str, str]] = {
     ("PATCH", "/api/transactions/{transaction_id}/items/{item_id}"),
     ("DELETE", "/api/transactions/{transaction_id}/items/{item_id}"),
     ("POST", "/api/transactions/{transaction_id}/items/{item_id}/hide"),
+    ("POST", "/api/transactions/{transaction_id}/hide"),
     ("GET", "/api/cards"),
     ("POST", "/api/cards/{card_id}/profile"),
     ("GET", "/api/rewards/optimization"),

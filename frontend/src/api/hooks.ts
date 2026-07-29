@@ -430,3 +430,20 @@ export function useSetLineItemHidden() {
     },
   });
 }
+
+/** Hide/unhide a whole purchase — stays in the ledger, drops out of pie charts. */
+export function useSetTransactionHidden() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, hidden }: { id: string; hidden: boolean }) =>
+      apiFetch<TransactionDetail>(`/api/transactions/${id}/hide`, {
+        method: "POST",
+        body: JSON.stringify({ hidden }),
+      }),
+    onSuccess: (_result, { id }) => {
+      qc.invalidateQueries({ queryKey: ["transaction", id] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["spending"] });
+    },
+  });
+}

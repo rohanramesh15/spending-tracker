@@ -8,9 +8,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-/** A succinct "here's what's about to happen" warning before any delete — the trash-can
- *  button never deletes immediately. Reused for both whole-transaction and single-item
- *  deletes (see TransactionDetailPage). */
+/** A succinct "here's what's about to happen" warning before any delete — delete never
+ *  fires immediately from the action sheet. Used for whole-transaction deletes from the
+ *  Transactions list. */
 export function ConfirmDeleteDialog({
   open,
   onOpenChange,

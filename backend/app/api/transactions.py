@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 
 from app.api.schemas import (
     HideLineItemRequest,
+    HideTransactionRequest,
     LineItemOut,
     LineItemUpdate,
     TransactionDetail,
@@ -59,6 +60,7 @@ def _to_detail(db: Session, txn: Transaction, user_id: str) -> TransactionDetail
         currency=txn.currency,
         review_status=txn.review_status,
         item_count=len(items),
+        hidden=txn.hidden,
         line_items=[
             LineItemOut(
                 id=str(li.id),
@@ -162,6 +164,7 @@ def list_transactions(
             review_status=t.review_status,
             item_count=counts.get(str(t.id), 0),
             categories=cats.get(str(t.id), []),
+            hidden=t.hidden,
         )
         for t in txns
     ]
@@ -279,6 +282,23 @@ def set_line_item_hidden(
     db.flush()
 
     _recompute_from_line_items(db, txn)
+    db.flush()
+    return _to_detail(db, txn, user_id)
+
+
+@router.post("/transactions/{transaction_id}/hide", response_model=TransactionDetail)
+def set_transaction_hidden(
+    transaction_id: str,
+    body: HideTransactionRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+) -> TransactionDetail:
+    """Hide/unhide a whole purchase: it stays in the ledger (and keeps its stored totals)
+    but contributes nothing to insights.spending(). Unlike item-level hide, this does not
+    recompute money columns — it's a charting flag only."""
+    txn = _get_owned_transaction(db, user_id, transaction_id)
+    txn.hidden = body.hidden
+    db.add(txn)
     db.flush()
     return _to_detail(db, txn, user_id)
 
