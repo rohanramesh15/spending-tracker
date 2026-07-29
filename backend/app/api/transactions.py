@@ -61,6 +61,7 @@ def _to_detail(db: Session, txn: Transaction, user_id: str) -> TransactionDetail
         review_status=txn.review_status,
         item_count=len(items),
         hidden=txn.hidden,
+        pending=txn.pending,
         line_items=[
             LineItemOut(
                 id=str(li.id),
@@ -165,6 +166,7 @@ def list_transactions(
             item_count=counts.get(str(t.id), 0),
             categories=cats.get(str(t.id), []),
             hidden=t.hidden,
+            pending=t.pending,
         )
         for t in txns
     ]

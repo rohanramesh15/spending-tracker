@@ -49,6 +49,7 @@ export default function TransactionDetailPage() {
           <h1 className="truncate text-xl font-semibold">{txn.vendor}</h1>
           <p className="text-sm text-muted-foreground">
             {format(parseISODate(txn.purchased_on), "EEEE, MMM d, yyyy")} · {txn.source}
+            {txn.pending && " · pending"}
             {txn.hidden && " · hidden from spending"}
           </p>
         </div>

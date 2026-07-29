@@ -171,6 +171,7 @@ def _insert_transaction(
         card_id=payload.card_id,
         pfc_primary=payload.pfc_primary,
         pfc_detailed=payload.pfc_detailed,
+        pending=payload.pending,
         subtotal_cents=payload.subtotal_cents,
         tax_cents=payload.tax_cents,
         tip_cents=payload.tip_cents,

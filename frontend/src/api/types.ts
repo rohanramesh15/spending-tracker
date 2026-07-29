@@ -39,6 +39,7 @@ export interface TransactionListItem {
   item_count: number;
   categories: string[]; // distinct line-item categories, for row chips
   hidden: boolean; // excluded from pie charts; still shown in the ledger
+  pending: boolean; // reported by Plaid before it posts; also excluded from pie charts until it posts
 }
 
 export interface TransactionDetail extends TransactionListItem {
