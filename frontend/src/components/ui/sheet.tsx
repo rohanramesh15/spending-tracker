@@ -8,12 +8,13 @@ import { cn } from "@/lib/utils";
  *
  * Motion is deliberately symmetric: opening slides up from the bottom while fading in
  * from 50% opacity; closing runs the exact same distance, fade amount, duration and
- * easing in reverse. Both directions share SHEET_DURATION/SHEET_EASING so the sheet
- * never feels snappier one way than the other.
+ * easing in reverse. Both directions share SHEET_DURATION/SHEET_EASING so the sheet never
+ * feels snappier one way than the other; both are theme tokens (tailwind.config.ts) rather
+ * than arbitrary values, which Tailwind silently declines to generate for these utilities.
  */
-const SHEET_DURATION = "duration-[400ms]";
+const SHEET_DURATION = "duration-sheet";
 /** Gentle decelerate — long tail, no bounce. Same curve both directions. */
-const SHEET_EASING = "ease-[cubic-bezier(0.32,0.72,0,1)]";
+const SHEET_EASING = "ease-sheet";
 
 const sheetMotion = cn(
   "data-[state=open]:animate-in data-[state=closed]:animate-out",
