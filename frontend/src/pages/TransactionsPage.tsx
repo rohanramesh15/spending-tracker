@@ -197,7 +197,7 @@ export default function TransactionsPage() {
             ? [
                 {
                   label: "Edit",
-                  icon: <Pencil className="h-4 w-4" />,
+                  icon: <Pencil className="h-5 w-5" />,
                   onSelect: () => {
                     const id = menuTxn.id;
                     setMenuTxn(null);
@@ -207,9 +207,9 @@ export default function TransactionsPage() {
                 {
                   label: menuTxn.hidden ? "Unhide from spending" : "Hide from spending",
                   icon: menuTxn.hidden ? (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-5 w-5" />
                   ) : (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="h-5 w-5" />
                   ),
                   disabled: setHidden.isPending,
                   onSelect: () => {
@@ -220,7 +220,7 @@ export default function TransactionsPage() {
                 },
                 {
                   label: "Delete",
-                  icon: <Trash2 className="h-4 w-4" />,
+                  icon: <Trash2 className="h-5 w-5" />,
                   destructive: true,
                   onSelect: () => {
                     const t = menuTxn;
