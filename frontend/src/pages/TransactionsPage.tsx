@@ -2,16 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import {
-  Plus,
-  Camera,
-  Pencil,
-  Landmark,
-  MoreHorizontal,
-  Trash2,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Plus, Pencil, MoreHorizontal, Trash2, Eye, EyeOff } from "lucide-react";
 import {
   useTransactions,
   useTransaction,
@@ -27,15 +18,9 @@ import { ActionSheet } from "@/components/ActionSheet";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EditTransactionDialog } from "@/components/EditTransactionDialog";
 import { parseISODate } from "@/lib/dates";
-import type { TransactionListItem, TransactionSource } from "@/api/types";
+import type { TransactionListItem } from "@/api/types";
 
 type Filter = "all" | "needs_review";
-
-const SOURCE_ICON: Record<TransactionSource, typeof Camera> = {
-  receipt: Camera,
-  manual: Pencil,
-  plaid: Landmark,
-};
 
 function groupByDay(txns: TransactionListItem[]): [string, TransactionListItem[]][] {
   const groups = new Map<string, TransactionListItem[]>();
@@ -150,7 +135,6 @@ export default function TransactionsPage() {
               </h2>
               <ul className="divide-y rounded-xl border">
                 {items.map((t) => {
-                  const Icon = SOURCE_ICON[t.source];
                   return (
                     <li key={t.id} className="flex items-stretch">
                       <Link
@@ -161,7 +145,6 @@ export default function TransactionsPage() {
                         )}
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium">{t.vendor}</p>
                             <p className="text-xs text-muted-foreground">
