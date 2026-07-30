@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Plus, Pencil, MoreHorizontal, Trash2, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, MoreVertical, Trash2, Eye, EyeOff } from "lucide-react";
 import {
   useTransactions,
   useTransaction,
@@ -172,7 +172,7 @@ export default function TransactionsPage() {
                         }}
                         className="flex shrink-0 items-center pl-1 pr-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                       >
-                        <MoreHorizontal className="h-5 w-5" />
+                        <MoreVertical className="h-5 w-5" />
                       </button>
                     </li>
                   );
