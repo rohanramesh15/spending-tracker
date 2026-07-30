@@ -32,9 +32,32 @@ describe("Sheet", () => {
     expect(cls).toContain("data-[state=closed]:fade-out-50");
     expect(cls).toContain("data-[state=open]:slide-in-from-bottom");
     expect(cls).toContain("data-[state=closed]:slide-out-to-bottom");
-    // One duration and one easing, shared by both directions.
-    expect(cls).toContain("duration-[400ms]");
-    expect(cls).toContain("ease-[cubic-bezier(0.32,0.72,0,1)]");
+    // One duration and one easing token, shared by both directions. These are theme
+    // tokens on purpose — the arbitrary-value forms generate no CSS, which shipped a
+    // sheet that animated at the plugin's default timing.
+    expect(cls).toContain("duration-sheet");
+    expect(cls).toContain("ease-sheet");
+  });
+
+  /**
+   * Regression: the motion classes were once written as arbitrary values
+   * (`duration-[400ms]`, `ease-[cubic-bezier(...)]`). Tailwind generated NO rule for
+   * either, so the sheet shipped animating at the plugin's default timing while a
+   * class-name assertion happily passed. Pin the timing to theme tokens that exist.
+   */
+  it("takes its timing from theme tokens, not arbitrary values", async () => {
+    renderSheet();
+    const cls = panel().className;
+    expect(cls).not.toMatch(/duration-\[/);
+    expect(cls).not.toMatch(/ease-\[/);
+
+    const { default: config } = await import("../../../tailwind.config");
+    const extend = config.theme?.extend as {
+      transitionDuration?: Record<string, string>;
+      transitionTimingFunction?: Record<string, string>;
+    };
+    expect(extend.transitionDuration?.sheet).toBe("400ms");
+    expect(extend.transitionTimingFunction?.sheet).toMatch(/^cubic-bezier\(/);
   });
 
   it("never grows taller than the screen — the body scrolls instead", () => {

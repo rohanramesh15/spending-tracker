@@ -47,6 +47,17 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // Motion tokens for the bottom sheet (components/ui/sheet.tsx). Named tokens, not
+      // arbitrary values: `duration-[400ms]` / `ease-[cubic-bezier(...)]` silently emit no
+      // CSS here, so the sheet fell back to the animate plugin's default timing.
+      // tailwindcss-animate maps both `duration-*` and `ease-*` onto animation-* too, so
+      // one token drives the enter and exit animations identically.
+      transitionDuration: {
+        sheet: "400ms",
+      },
+      transitionTimingFunction: {
+        sheet: "cubic-bezier(0.32, 0.72, 0, 1)",
+      },
     },
   },
   plugins: [tailwindcssAnimate],
