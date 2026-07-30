@@ -57,7 +57,8 @@ export function ActionSheet({
             <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
           </div>
 
-          <div className="px-4 pb-3 text-center">
+          {/* px-6 lines the header up with the row labels (ul px-2 + button px-4). */}
+          <div className="px-6 pb-3">
             {title && (
               <DialogPrimitive.Title className="truncate text-base font-semibold">
                 {title}
