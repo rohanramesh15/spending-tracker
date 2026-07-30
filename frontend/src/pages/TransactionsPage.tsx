@@ -140,7 +140,7 @@ export default function TransactionsPage() {
                       <Link
                         to={`/transactions/${t.id}`}
                         className={cn(
-                          "flex min-w-0 flex-1 items-center justify-between px-4 py-3 hover:bg-muted/40",
+                          "flex min-w-0 flex-1 items-center justify-between py-3 pl-4 pr-1 hover:bg-muted/40",
                           t.hidden && "opacity-50",
                         )}
                       >
@@ -170,7 +170,7 @@ export default function TransactionsPage() {
                           e.stopPropagation();
                           setMenuTxn(t);
                         }}
-                        className="flex shrink-0 items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                        className="flex shrink-0 items-center pl-1 pr-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                       >
                         <MoreHorizontal className="h-5 w-5" />
                       </button>
