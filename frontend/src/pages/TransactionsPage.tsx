@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Plus, Pencil, MoreVertical, Trash2, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import {
   useTransactions,
   useTransaction,
@@ -12,9 +12,9 @@ import {
 } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { cn, formatCents } from "@/lib/utils";
-import { CategoryChips } from "@/components/CategoryChips";
 import { ListSkeleton } from "@/components/Skeletons";
 import { ActionSheet } from "@/components/ActionSheet";
+import { TransactionRow } from "@/components/TransactionRow";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EditTransactionDialog } from "@/components/EditTransactionDialog";
 import { parseISODate } from "@/lib/dates";
@@ -134,49 +134,9 @@ export default function TransactionsPage() {
                 {format(parseISODate(day), "EEEE, MMM d")}
               </h2>
               <ul className="divide-y rounded-xl border">
-                {items.map((t) => {
-                  return (
-                    <li key={t.id} className="flex items-stretch">
-                      <Link
-                        to={`/transactions/${t.id}`}
-                        className={cn(
-                          "flex min-w-0 flex-1 items-center justify-between py-3 pl-4 pr-1 hover:bg-muted/40",
-                          t.hidden && "opacity-50",
-                        )}
-                      >
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium">{t.vendor}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {t.item_count > 0
-                                ? `${t.item_count} item${t.item_count === 1 ? "" : "s"}`
-                                : "Not itemized"}
-                              {t.review_status === "needs_review" && " · needs review"}
-                              {t.pending && " · pending"}
-                              {t.hidden && " · hidden from spending"}
-                            </p>
-                            <CategoryChips categories={t.categories} />
-                          </div>
-                        </div>
-                        <span className="shrink-0 pl-3 font-medium">
-                          {formatCents(t.total_cents, t.currency)}
-                        </span>
-                      </Link>
-                      <button
-                        type="button"
-                        aria-label={`Actions for ${t.vendor}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setMenuTxn(t);
-                        }}
-                        className="flex shrink-0 items-center pl-1 pr-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                      >
-                        <MoreVertical className="h-5 w-5" />
-                      </button>
-                    </li>
-                  );
-                })}
+                {items.map((t) => (
+                  <TransactionRow key={t.id} txn={t} onOpenMenu={setMenuTxn} />
+                ))}
               </ul>
             </div>
           ))}
@@ -188,9 +148,7 @@ export default function TransactionsPage() {
         onOpenChange={(open) => !open && setMenuTxn(null)}
         title={menuTxn?.vendor}
         description={
-          menuTxn
-            ? formatCents(menuTxn.total_cents, menuTxn.currency)
-            : undefined
+          menuTxn ? formatCents(menuTxn.total_cents, menuTxn.currency) : undefined
         }
         actions={
           menuTxn
