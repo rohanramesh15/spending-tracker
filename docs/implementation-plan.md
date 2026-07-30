@@ -190,6 +190,13 @@ Date-range picker with single-day mode (start = end), filtering on `purchased_on
 
 **Empty range** → friendly "No spending recorded between [dates]" state with an add shortcut. Guard single-day and future-date cases.
 
+### 6.6a Frontend design system (mobile-first)
+The app is used almost exclusively on a phone, so shared UI primitives live in one place rather than being re-styled per screen:
+
+- **`components/ui/sheet.tsx` — `Sheet` + `SheetRow`.** The single modal surface: a panel attached to the bottom edge (`rounded-t-3xl`, grab handle, centered or left-aligned header, `max-h-[92svh]` with a scrolling body so it can never exceed the screen). Motion is **symmetric by construction** — one duration (400ms) and one easing curve shared by both directions, slide-up + fade-in-from-50% on open, the exact reverse on close (backdrop tap, Escape). `SheetRow` is the thumb-sized (52px) row used inside it. Both the date-range picker and the transaction ⋯ menu are built from these, so they can't drift apart.
+- **`components/DateRangePicker.tsx`.** Pill trigger → `Sheet` of presets (This month / Last month / Last 90 days / Today) → "Custom range" pushes to a guided two-step calendar: a **Starting** and an **Ending** chip, where the highlighted chip is what the next calendar tap sets. Picking the start auto-advances to the end; days before the start are disabled while choosing the end; a re-picked start that would invert the range clears the end. Nothing commits until **Apply**, so the chart doesn't refetch mid-pick.
+- **`components/TransactionRow.tsx`.** One transaction in a ledger list (vendor, item count + state suffixes, category chips, amount, optional ⋯ menu), shared by every list that shows transactions.
+
 ### 6.7 Bank sync
 **Chase + banks:** Plaid. Backend creates a link token; user authenticates; access token stored server-side (SSM); `/transactions/sync` + webhooks feed `POST /api/ingest`. **The webhook endpoint verifies Plaid's JWT signature** (`Plaid-Verification` header against Plaid's verification key) before processing anything — it's a public URL feeding the ingest path. Plaid's PFC v2 category hints help reconcile against your taxonomy and label the "Uncategorized" chart bucket. **Development discipline:** iterate exclusively in Plaid Sandbox — the trial plan's 10-Item cap is *lifetime* and counts removed Items, so link real accounts exactly once, at the end.
 **Apple Card:** deferred, but rides this *same Plaid pipeline* later via an iOS agent — so it lands in `/api/ingest` with `source: "plaid"` and gets the same categorization and reconciliation as Chase. See §11.

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { CalendarDays, Check, ChevronLeft } from "lucide-react";
-import type { DateRange as DayPickerRange } from "react-day-picker";
+import { format, isBefore } from "date-fns";
+import { CalendarDays, Check } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
+import { Sheet, SheetRow } from "@/components/ui/sheet";
 import {
   rangePresets,
   todayISO,
@@ -20,8 +20,9 @@ export interface DateRangeValue {
 /**
  * Date-range control (user-flow §6.6/§8a), mobile-first. The trigger is a compact pill;
  * tapping it opens a bottom sheet (same language as ActionSheet) with thumb-sized preset
- * rows and a "Custom range" row that pushes to an in-sheet calendar. Controlled — the
- * parent owns {start,end}. Single-day ranges (start === end) are first-class.
+ * rows and a "Custom range" row that pushes to a guided two-step calendar (pick the
+ * first day, then the last). Controlled — the parent owns {start,end}. Single-day
+ * ranges (start === end) are first-class.
  */
 export function DateRangePicker({
   value,
@@ -33,8 +34,13 @@ export function DateRangePicker({
   const presets = rangePresets();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"presets" | "custom">("presets");
-  // Draft range for the calendar view — only committed on Apply.
-  const [draft, setDraft] = useState<DayPickerRange | undefined>();
+  // Draft endpoints for the custom view — only committed on Apply.
+  const [first, setFirst] = useState<Date | undefined>();
+  const [last, setLast] = useState<Date | undefined>();
+  // Which endpoint the calendar is currently choosing.
+  const [editing, setEditing] = useState<"first" | "last">("first");
+  // The visible month, so switching endpoints scrolls the calendar to that date.
+  const [month, setMonth] = useState<Date>(new Date());
 
   // Label the trigger with the active preset, or the explicit dates for a custom range.
   const activePreset = presets.find(
@@ -46,15 +52,37 @@ export function DateRangePicker({
   useEffect(() => {
     if (!open) return;
     setView("presets");
-    setDraft({ from: parseISODate(value.start), to: parseISODate(value.end) });
+    setFirst(parseISODate(value.start));
+    setLast(parseISODate(value.end));
+    setEditing("first");
+    setMonth(parseISODate(value.start));
   }, [open, value.start, value.end]);
 
+  /** Switch which endpoint the calendar edits, scrolling to its date if it has one. */
+  function focusEndpoint(which: "first" | "last") {
+    setEditing(which);
+    const target = which === "first" ? first : last;
+    if (target) setMonth(target);
+  }
+
+  /**
+   * Tapping a day fills whichever endpoint is being edited, then hands off: choosing the
+   * first day advances to the last day, so the common case is two taps and Apply. A new
+   * first day landing after the current last day clears it rather than inverting the range.
+   */
+  function pickDay(day: Date) {
+    if (editing === "first") {
+      setFirst(day);
+      if (last && isBefore(last, day)) setLast(undefined);
+      setEditing("last");
+    } else {
+      setLast(day);
+    }
+  }
+
   function applyDraft() {
-    if (!draft?.from) return;
-    onChange({
-      start: toISODate(draft.from),
-      end: toISODate(draft.to ?? draft.from),
-    });
+    if (!first || !last) return;
+    onChange({ start: toISODate(first), end: toISODate(last) });
     setOpen(false);
   }
 
@@ -73,141 +101,165 @@ export function DateRangePicker({
         <span className="max-w-[9.5rem] truncate">{label}</span>
       </button>
 
-      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay
-            className={cn(
-              "fixed inset-0 z-50 bg-black/50",
-              "data-[state=open]:animate-in data-[state=closed]:animate-out",
-              "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            )}
-          />
-          <DialogPrimitive.Content
-            className={cn(
-              "fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-lg outline-none",
-              "rounded-t-3xl bg-popover text-popover-foreground shadow-lg",
-              "data-[state=open]:animate-in data-[state=closed]:animate-out",
-              "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-              "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-              "duration-200",
-            )}
-            // Don't auto-focus the first row — feels less jumpy on mobile.
-            onOpenAutoFocus={(e) => e.preventDefault()}
-          >
-            {/* Grab handle — signals "drag/dismissable sheet", not a desktop menu. */}
-            <div className="flex justify-center pb-1 pt-2.5">
-              <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-            </div>
-
-            <div className="relative flex items-center justify-center px-4 pb-3">
-              {view === "custom" && (
-                <button
-                  type="button"
-                  onClick={() => setView("presets")}
-                  aria-label="Back to presets"
-                  className="absolute left-2 flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              )}
-              <DialogPrimitive.Title className="text-base font-semibold">
-                {view === "presets" ? "Date range" : "Custom range"}
-              </DialogPrimitive.Title>
-            </div>
-            <DialogPrimitive.Description className="sr-only">
-              Choose the date range for your spending
-            </DialogPrimitive.Description>
-
-            <div className="px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {view === "presets" ? (
-                <ul>
-                  {presets.map((p) => {
-                    const active = p.start === value.start && p.end === value.end;
-                    return (
-                      <li key={p.label}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onChange({ start: p.start, end: p.end });
-                            setOpen(false);
-                          }}
-                          className={cn(
-                            "flex min-h-[3.25rem] w-full items-center justify-between gap-3 rounded-xl px-4 text-base",
-                            "hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
-                            active ? "font-semibold text-primary" : "font-medium",
-                          )}
-                        >
-                          <span>{p.label}</span>
-                          <span className="text-sm font-normal text-muted-foreground">
-                            {active ? (
-                              <Check className="h-5 w-5 text-primary" />
-                            ) : (
-                              formatRangeLabel(p.start, p.end)
-                            )}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => setView("custom")}
-                      className={cn(
-                        "mt-1 flex min-h-[3.25rem] w-full items-center justify-between gap-3 rounded-xl border-t px-4 text-base",
-                        "hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
-                        !activePreset ? "font-semibold text-primary" : "font-medium",
-                      )}
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={view === "presets" ? "Date range" : "Custom range"}
+        onBack={view === "custom" ? () => setView("presets") : undefined}
+      >
+        <>
+          {view === "presets" ? (
+            <ul>
+              {presets.map((p) => {
+                const active = p.start === value.start && p.end === value.end;
+                return (
+                  <li key={p.label}>
+                    <SheetRow
+                      selected={active}
+                      onClick={() => {
+                        onChange({ start: p.start, end: p.end });
+                        setOpen(false);
+                      }}
+                      className="justify-between"
                     >
-                      <span>Custom range</span>
-                      {!activePreset ? (
-                        <Check className="h-5 w-5 text-primary" />
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Pick dates</span>
-                      )}
-                    </button>
+                      <span>{p.label}</span>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {active ? (
+                          <Check className="h-5 w-5 text-primary" />
+                        ) : (
+                          formatRangeLabel(p.start, p.end)
+                        )}
+                      </span>
+                    </SheetRow>
                   </li>
-                </ul>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex justify-center">
-                    <Calendar
-                      mode="range"
-                      required={false}
-                      selected={draft}
-                      onSelect={setDraft}
-                      defaultMonth={draft?.from ?? new Date()}
-                      disabled={{ after: parseISODate(todayISO()) }}
-                      // Big touch targets — the desktop 2rem cell is too small for a thumb.
-                      className="[--cell-size:2.6rem] p-0"
-                    />
-                  </div>
-                  <p className="text-center text-sm text-muted-foreground" aria-live="polite">
-                    {draft?.from
-                      ? formatRangeLabel(
-                          toISODate(draft.from),
-                          toISODate(draft.to ?? draft.from),
-                        )
-                      : "Tap a start date"}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={applyDraft}
-                    disabled={!draft?.from}
-                    className={cn(
-                      "min-h-12 w-full rounded-2xl bg-primary text-base font-semibold text-primary-foreground",
-                      "transition-transform active:scale-[0.98] disabled:opacity-50",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    )}
-                  >
-                    Apply
-                  </button>
-                </div>
-              )}
+                );
+              })}
+              <li>
+                <SheetRow
+                  selected={!activePreset}
+                  onClick={() => setView("custom")}
+                  className="mt-1 justify-between border-t"
+                >
+                  <span>Custom range</span>
+                  {!activePreset ? (
+                    <Check className="h-5 w-5 text-primary" />
+                  ) : (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      Pick dates
+                    </span>
+                  )}
+                </SheetRow>
+              </li>
+            </ul>
+          ) : (
+            <div className="space-y-3 px-2">
+              {/* Two endpoint chips: the highlighted one is what the calendar edits.
+                      Tapping a chip jumps back to that endpoint without losing the other. */}
+              <div className="flex items-stretch gap-2">
+                <EndpointChip
+                  label="Starting"
+                  date={first}
+                  active={editing === "first"}
+                  onClick={() => focusEndpoint("first")}
+                />
+                <EndpointChip
+                  label="Ending"
+                  date={last}
+                  active={editing === "last"}
+                  onClick={() => focusEndpoint("last")}
+                />
+              </div>
+
+              <div className="flex justify-center">
+                <Calendar
+                  // Controlled by `pickDay`: mode="range" is only here for the
+                  // start/middle/end highlight across the drafted span.
+                  mode="range"
+                  required={false}
+                  selected={{ from: first, to: last }}
+                  onSelect={() => {}}
+                  onDayClick={pickDay}
+                  month={month}
+                  onMonthChange={setMonth}
+                  disabled={
+                    // Never allow a last day before the first, or a future date.
+                    editing === "last" && first
+                      ? [{ after: parseISODate(todayISO()) }, { before: first }]
+                      : { after: parseISODate(todayISO()) }
+                  }
+                  // Big touch targets — the desktop 2rem cell is too small for a thumb.
+                  className="[--cell-size:2.6rem] p-0"
+                />
+              </div>
+              <p className="text-center text-sm text-muted-foreground" aria-live="polite">
+                {first && last
+                  ? formatRangeLabel(toISODate(first), toISODate(last))
+                  : editing === "first"
+                    ? "Pick the day the range starts"
+                    : "Now pick the day it ends"}
+              </p>
+              <button
+                type="button"
+                onClick={applyDraft}
+                disabled={!first || !last}
+                className={cn(
+                  "min-h-12 w-full rounded-2xl bg-primary text-base font-semibold text-primary-foreground",
+                  "transition-transform active:scale-[0.98] disabled:opacity-50",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                )}
+              >
+                Apply
+              </button>
             </div>
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+          )}
+        </>
+      </Sheet>
     </>
+  );
+}
+
+/**
+ * One of the two range endpoints, shown as a tappable chip above the calendar. The active
+ * chip is ringed so it's obvious which date the next tap on the calendar will set.
+ */
+function EndpointChip({
+  label,
+  date,
+  active,
+  onClick,
+}: {
+  label: string;
+  date: Date | undefined;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex min-h-[3.25rem] flex-1 flex-col justify-center rounded-xl border px-3 text-left",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-input",
+      )}
+    >
+      <span
+        className={cn(
+          "text-[0.7rem] font-medium uppercase tracking-wide",
+          active ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-sm font-semibold",
+          date ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {date ? format(date, "MMM d, yyyy") : "Tap to pick"}
+      </span>
+    </button>
   );
 }
