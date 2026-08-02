@@ -8,7 +8,8 @@ The public landing page for TrackIt, with an email waitlist. Independent of the 
 - **Design:** monochrome UI; the only color on the page comes from the category palette,
   so the data is the only thing that reads as colored.
 - **Waitlist:** a Cloudflare Pages Function (`functions/api/waitlist.ts`) that writes to a
-  `waitlist_signups` table in the existing Supabase project.
+  `waitlist_signups` table in the existing Supabase project, using the publishable (anon)
+  key — an RLS policy lets anon INSERT there and nothing else.
 - **Cost: $0.** Cloudflare Pages free tier (unlimited static requests, 100k Function
   invocations/day) plus the Supabase free tier already in use. Nothing new is billable.
 
@@ -29,41 +30,21 @@ waitlist form will report a connection error locally. To exercise the real endpo
 pnpm build && npx wrangler pages dev dist --compatibility-date=2024-11-01
 ```
 
-## One-time setup
+## Setup
 
-### 1. Create the Supabase table
+All of it is automated by the `website` job in `.github/workflows/deploy.yml`, which runs on
+every push to `main` that touches `website/**`. It creates the Pages project if missing,
+applies `supabase/waitlist_signups.sql` (idempotent), pushes the Function's environment, and
+deploys. **No new credentials are required** — it reuses the `VITE_SUPABASE_URL` variable and
+the `VITE_SUPABASE_PUBLISHABLE_KEY` secret the app's own build already uses.
 
-Run `supabase/waitlist_signups.sql` once in the Supabase SQL editor. It is deliberately not
-an Alembic migration — the app's migration chain owns user-data tables, and mixing a
-marketing table into it invites schema drift.
+### Why the anon key, not service-role
 
-### 2. Create the Cloudflare Pages project
-
-In the Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git, point at
-this repo and set:
-
-| Setting              | Value            |
-| -------------------- | ---------------- |
-| Production branch    | `main`           |
-| Root directory       | `website`        |
-| Build command        | `pnpm build`     |
-| Build output         | `dist`           |
-
-Add a build-watch path of `website/*` so app-only commits don't trigger a site rebuild.
-
-This is a **second, separate** Pages project. Do not point it at the existing
-`spending-tracker-1o6` project, which serves the app.
-
-### 3. Add the environment variables
-
-Pages project → Settings → Environment variables. Add to **both** Production and Preview,
-as **encrypted**:
-
-- `SUPABASE_URL` — e.g. `https://xxxx.supabase.co`
-- `SUPABASE_SERVICE_ROLE_KEY` — the service-role key
-
-The service-role key never reaches the browser; it lives only in the Function. It is used
-here against the marketing table only — never user data (see CLAUDE.md §3).
+`waitlist_signups` has RLS on with a single policy: `anon` may INSERT, nothing else. So the
+key the Function carries can add a row and cannot read the signup list back, cannot modify
+it, and has no reach into user data. Service-role would bypass RLS entirely for no benefit
+(CLAUDE.md §3). Note `Prefer: return=minimal` is load-bearing — anon has no SELECT policy,
+so asking PostgREST for the inserted row back would fail.
 
 ## Reading the signups
 
