@@ -193,15 +193,36 @@ jobs:
           printf '%s' "$SUPABASE_URL" | npx --yes wrangler@4 pages secret put SUPABASE_URL --project-name=trackit
           printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | npx --yes wrangler@4 pages secret put SUPABASE_SERVICE_ROLE_KEY --project-name=trackit
 
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Repo-root-relative, and no workingDirectory — same reasoning as the frontend job
-          # above: `uses:` steps ignore defaults.run.working-directory, and pointing the
-          # action into website/ would make it find pnpm-lock.yaml and try to install
-          # wrangler into this package's tree.
-          command: pages deploy website/dist --project-name=trackit --branch=main --commit-dirty=true
+      # Deployed with a `run:` step rather than cloudflare/wrangler-action, because wrangler
+      # discovers the Pages Functions directory as `functions/` relative to its CWD. The
+      # action always executes at the repo root (`uses:` steps ignore working-directory), so
+      # it looked for <repo-root>/functions, found nothing, and shipped a static-only site:
+      # GET /api/waitlist returned the 200 static fallback and POST returned 405.
+      #
+      # A `run:` step DOES honour working-directory, and npx resolves wrangler from its own
+      # cache rather than adding it to this package's tree — which is the failure mode the
+      # frontend job's comment warns about with `workingDirectory: website`.
+      - name: Deploy to Cloudflare Pages
+        working-directory: website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4 pages deploy dist \
+            --project-name=trackit --branch=main --commit-dirty=true
+
+      # Pins the bug above: if the Function is not routed, Pages answers GET with the 200
+      # static fallback instead of the endpoint's own 405. Deliberately does not POST — that
+      # would write a row, and it returns 503 until SUPABASE_SERVICE_ROLE_KEY is set, so it
+      # cannot distinguish "not deployed" from "not configured".
+      - name: Smoke — the waitlist Function must actually be routed
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://trackit-cms.pages.dev/api/waitlist)
+          echo "GET /api/waitlist -> $code"
+          if [ "$code" != "405" ]; then
+            echo "Function not routed (expected 405 from onRequest, got $code)."
+            exit 1
+          fi
 
   smoke:
     needs: [backend, frontend]
