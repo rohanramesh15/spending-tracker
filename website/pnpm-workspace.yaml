@@ -1,0 +1,10 @@
+# Marks website/ as its own pnpm workspace root so it isn't absorbed by an
+# ancestor workspace (which would drag in unrelated dependencies). frontend/
+# does the same thing for the same reason.
+packages:
+  - .
+
+# pnpm 11 reads build-script approvals here (moved out of package.json).
+# esbuild (a vite/vitest dependency) needs its postinstall to fetch its native binary.
+allowBuilds:
+  esbuild: true
