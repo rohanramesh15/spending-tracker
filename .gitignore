@@ -2,6 +2,9 @@
 node_modules/
 frontend/dist/
 frontend/.vite/
+website/dist/
+website/.vite/
+website/.wrangler/
 *.tsbuildinfo
 *.local
 

@@ -19,6 +19,7 @@ jobs:
       backend: ${{ steps.f.outputs.backend }}
       frontend: ${{ steps.f.outputs.frontend }}
       infra: ${{ steps.f.outputs.infra }}
+      website: ${{ steps.f.outputs.website }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -28,6 +29,7 @@ jobs:
             backend: ['backend/**']
             frontend: ['frontend/**']
             infra: ['infra/**']
+            website: ['website/**']
 
   backend:
     needs: changes
@@ -88,6 +90,30 @@ jobs:
       - run: pnpm test
       - run: pnpm build # tsc -b + vite build (catches type errors the dev server skips)
 
+  # The marketing site (TrackIt landing page). Independent of the app: its own
+  # lockfile, its own Cloudflare Pages project, no shared code.
+  website:
+    needs: changes
+    if: ${{ needs.changes.outputs.website == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: website/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test # landing-page component tests + the waitlist Pages Function
+      - run: pnpm build
+
   infra:
     needs: changes
     if: ${{ needs.changes.outputs.infra == 'true' }}
@@ -104,16 +130,16 @@ jobs:
   # block a PR forever on a skipped job. This gate always runs and fails only if a job
   # that actually ran ended in failure/cancelled — skipped is fine.
   ci-success:
-    needs: [changes, backend, frontend, infra]
+    needs: [changes, backend, frontend, website, infra]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require all triggered jobs to have succeeded
         run: |
-          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}" "${{ needs.infra.result }}"; do
+          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}" "${{ needs.website.result }}" "${{ needs.infra.result }}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
-              echo "A required CI job did not pass (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} infra=${{ needs.infra.result }})"
+              echo "A required CI job did not pass (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} website=${{ needs.website.result }} infra=${{ needs.infra.result }})"
               exit 1
             fi
           done
-          echo "CI gate OK (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} infra=${{ needs.infra.result }})"
+          echo "CI gate OK (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} website=${{ needs.website.result }} infra=${{ needs.infra.result }})"
