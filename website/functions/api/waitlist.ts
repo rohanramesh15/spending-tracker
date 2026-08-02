@@ -1,21 +1,22 @@
 /**
  * POST /api/waitlist — Cloudflare Pages Function.
  *
- * Runs on the Pages free tier (100k requests/day) and holds the only copy of the
- * Supabase credentials, so the browser never sees a key. Writes to `waitlist_signups`
+ * Runs on the Pages free tier (100k requests/day) and writes to `waitlist_signups`
  * in the existing Supabase project via PostgREST — no new service, no new bill.
  *
- * Required Pages environment variables (set as encrypted, Production + Preview):
- *   SUPABASE_URL              e.g. https://xxxx.supabase.co
- *   SUPABASE_SERVICE_ROLE_KEY the service-role key
+ * Uses the PUBLISHABLE (anon) key, deliberately NOT the service-role key: an RLS
+ * policy grants anon INSERT on this one table and nothing else, so the worst a
+ * leaked key can do is add a row. It cannot read the signup list back, and it has
+ * no reach into user data at all. See website/supabase/waitlist_signups.sql.
  *
- * Note this is the one place a service-role connection is used, and it touches a
- * marketing table only — never user data (CLAUDE.md §3).
+ * Required Pages environment variables (Production + Preview):
+ *   SUPABASE_URL       e.g. https://xxxx.supabase.co
+ *   SUPABASE_ANON_KEY  the publishable / anon key
  */
 
 type Env = {
   SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
+  SUPABASE_ANON_KEY: string;
 };
 
 type PagesContext = {
@@ -34,7 +35,7 @@ function json(body: unknown, status: number): Response {
 }
 
 export const onRequestPost = async ({ request, env }: PagesContext): Promise<Response> => {
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
     console.error("waitlist: Supabase env vars are not configured");
     return json({ error: "The waitlist isn't available right now." }, 503);
   }
@@ -59,9 +60,11 @@ export const onRequestPost = async ({ request, env }: PagesContext): Promise<Res
   const response = await fetch(`${env.SUPABASE_URL}/rest/v1/waitlist_signups`, {
     method: "POST",
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
       "Content-Type": "application/json",
+      // Load-bearing, not an optimisation: anon has no SELECT policy, so asking
+      // PostgREST to return the inserted row would fail the RLS check.
       Prefer: "return=minimal",
     },
     body: JSON.stringify({

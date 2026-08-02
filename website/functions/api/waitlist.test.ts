@@ -4,7 +4,7 @@ import { onRequest, onRequestPost } from "./waitlist";
 
 const ENV = {
   SUPABASE_URL: "https://project.supabase.co",
-  SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  SUPABASE_ANON_KEY: "publishable-key",
 };
 
 function post(body: unknown, headers: Record<string, string> = {}) {
@@ -42,7 +42,8 @@ describe("POST /api/waitlist", () => {
     expect(response.status).toBe(201);
     const [url, init] = supabase.mock.calls[0];
     expect(url).toBe("https://project.supabase.co/rest/v1/waitlist_signups");
-    expect(init.headers.apikey).toBe("service-role-key");
+    expect(init.headers.apikey).toBe("publishable-key");
+    expect(init.headers.Prefer).toContain("return=minimal");
     expect(JSON.parse(init.body)).toMatchObject({
       email: "rohan@example.com",
       referrer: "https://trackit.dev/",
@@ -111,7 +112,7 @@ describe("POST /api/waitlist", () => {
     const response = await onRequestPost({
       request: post({ email: "rohan@example.com" }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      env: { SUPABASE_URL: "", SUPABASE_SERVICE_ROLE_KEY: "" } as any,
+      env: { SUPABASE_URL: "", SUPABASE_ANON_KEY: "" } as any,
     });
 
     expect(response.status).toBe(503);
