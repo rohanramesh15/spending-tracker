@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, apiUpload } from "./client";
+import { apiFetch, apiUpload, appendUploadFile } from "./client";
+import type { UploadFilePart } from "./client";
 import type {
   Card,
   AppNotification,
@@ -193,9 +194,9 @@ export function useIngest() {
 
 export function useExtractReceipt() {
   return useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: (file: UploadFilePart) => {
       const form = new FormData();
-      form.append("file", file);
+      appendUploadFile(form, "file", file);
       return apiUpload<ReceiptDraft>("/api/receipts/extract", form);
     },
   });
@@ -314,9 +315,9 @@ export function useSyncBank() {
 export function useImportAppleCard() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: (file: UploadFilePart) => {
       const form = new FormData();
-      form.append("file", file);
+      appendUploadFile(form, "file", file);
       return apiUpload<ImportSummary>("/api/import/apple-card", form);
     },
     onSuccess: () => {

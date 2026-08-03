@@ -50,7 +50,27 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return (await res.json()) as T;
 }
 
-/** Upload multipart form data (e.g. a receipt photo). Lets the browser set the
+/**
+ * A file to upload, in whichever form the current platform produces.
+ *
+ * The web gives us a `File` (a Blob) from an <input type="file">. React Native has no File or
+ * Blob for on-device media — its FormData accepts a `{ uri, name, type }` descriptor instead and
+ * streams the file from disk. Both are valid multipart parts; only the runtime differs.
+ */
+export type UploadFilePart = Blob | { uri: string; name: string; type: string };
+
+/**
+ * Append a file part to a FormData in a way that works on both platforms.
+ *
+ * The cast is unavoidable: TypeScript's DOM lib types `FormData.append` as accepting only
+ * `Blob | string`, but React Native's implementation specifically requires the URI descriptor.
+ * Confining the cast here keeps it out of every call site.
+ */
+export function appendUploadFile(form: FormData, field: string, file: UploadFilePart): void {
+  form.append(field, file as Blob);
+}
+
+/** Upload multipart form data (e.g. a receipt photo). Lets the platform set the
  * multipart Content-Type/boundary — never set it manually. */
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   const token = getAccessToken();
