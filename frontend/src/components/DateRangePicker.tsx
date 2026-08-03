@@ -9,7 +9,7 @@ import {
   toISODate,
   parseISODate,
   formatRangeLabel,
-} from "@/lib/dates";
+} from "@shared/lib/dates";
 import { cn } from "@/lib/utils";
 
 export interface DateRangeValue {

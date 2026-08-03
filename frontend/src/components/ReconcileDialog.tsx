@@ -7,9 +7,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { Resolution, ReconcileMatch } from "@/api/types";
-import { formatCents } from "@/lib/utils";
-import { parseISODate } from "@/lib/dates";
+import type { Resolution, ReconcileMatch } from "@shared/api/types";
+import { formatCents } from "@shared/lib/money";
+import { parseISODate } from "@shared/lib/dates";
 
 interface Props {
   /** The existing transaction we collided with. Dialog is open iff this is non-null. */

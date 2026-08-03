@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCategories } from "@/api/hooks";
+import { useCategories } from "@shared/api/hooks";
 
 interface Props {
   value: string | null;

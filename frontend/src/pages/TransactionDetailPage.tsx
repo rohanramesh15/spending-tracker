@@ -2,11 +2,12 @@ import { useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ArrowLeft, Camera } from "lucide-react";
-import { useTransaction } from "@/api/hooks";
+import { useTransaction } from "@shared/api/hooks";
 import { Button } from "@/components/ui/button";
 import { DetailSkeleton } from "@/components/Skeletons";
-import { cn, formatCents } from "@/lib/utils";
-import { parseISODate } from "@/lib/dates";
+import { cn } from "@/lib/utils";
+import { formatCents } from "@shared/lib/money";
+import { parseISODate } from "@shared/lib/dates";
 import { setPendingReceipt } from "@/lib/scanFile";
 
 /**

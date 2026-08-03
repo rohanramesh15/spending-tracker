@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCents } from "./utils";
+import { formatCents } from "./money";
 
 describe("formatCents", () => {
   it("renders integer cents as USD, dividing only at the edge", () => {

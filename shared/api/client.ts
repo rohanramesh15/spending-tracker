@@ -8,7 +8,15 @@
  * Auth: the Supabase access token (JWT) is attached as a Bearer header; the backend
  * verifies it and sets its claims on the DB session so RLS applies (see backend db.py).
  */
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+// Injected by each app at startup rather than read from import.meta.env: Metro (React
+// Native) has no import.meta, so the base URL must come in from the platform. Web passes
+// import.meta.env.VITE_API_BASE_URL; Expo passes its own env value.
+let API_BASE = "";
+
+/** Set the backend origin. Call once at app init, before any request. */
+export function configureApi(options: { baseUrl: string }) {
+  API_BASE = options.baseUrl;
+}
 
 export class ApiError extends Error {
   constructor(

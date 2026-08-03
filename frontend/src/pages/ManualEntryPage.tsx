@@ -7,15 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
-import { useIngest } from "@/api/hooks";
+import { useIngest } from "@shared/api/hooks";
 import type {
   IngestRequest,
   IngestResult,
   ReconcileMatch,
   Resolution,
-} from "@/api/types";
-import { dollarsToCents, formatCents } from "@/lib/utils";
-import { todayISO } from "@/lib/dates";
+} from "@shared/api/types";
+import { dollarsToCents, formatCents } from "@shared/lib/money";
+import { todayISO } from "@shared/lib/dates";
 
 interface Row {
   name: string;

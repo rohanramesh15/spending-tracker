@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TransactionRow } from "./TransactionRow";
-import type { TransactionListItem } from "@/api/types";
+import type { TransactionListItem } from "@shared/api/types";
 
 const base: TransactionListItem = {
   id: "t1",

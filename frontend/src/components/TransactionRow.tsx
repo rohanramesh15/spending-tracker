@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { MoreVertical } from "lucide-react";
 import { CategoryChips } from "@/components/CategoryChips";
-import { cn, formatCents } from "@/lib/utils";
-import type { TransactionListItem } from "@/api/types";
+import { cn } from "@/lib/utils";
+import { formatCents } from "@shared/lib/money";
+import type { TransactionListItem } from "@shared/api/types";
 
 /**
  * One transaction in a ledger list: vendor, item count + state suffixes, category chips

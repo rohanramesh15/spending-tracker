@@ -9,13 +9,14 @@ import {
   useNotifications,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
-} from "@/api/hooks";
-import type { Subscription, SubscriptionStatus, Cadence } from "@/api/types";
+} from "@shared/api/hooks";
+import type { Subscription, SubscriptionStatus, Cadence } from "@shared/api/types";
 import { TotalSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { SubscriptionInsights } from "@/components/SubscriptionInsights";
 import { Button } from "@/components/ui/button";
-import { formatCents, cn } from "@/lib/utils";
-import { parseISODate } from "@/lib/dates";
+import { cn } from "@/lib/utils";
+import { formatCents } from "@shared/lib/money";
+import { parseISODate } from "@shared/lib/dates";
 
 /**
  * Agents — automated insights from the user's spending. First agent: subscription detection

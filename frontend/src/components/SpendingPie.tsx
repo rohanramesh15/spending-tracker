@@ -8,9 +8,9 @@ import {
   Legend,
   Sector,
 } from "recharts";
-import type { SpendingSlice } from "@/api/types";
-import { formatCents } from "@/lib/utils";
-import { categoryColor, categoryLabel, HATCHED, isHatched } from "@/lib/categories";
+import type { SpendingSlice } from "@shared/api/types";
+import { formatCents } from "@shared/lib/money";
+import { categoryColor, categoryLabel, HATCHED, isHatched } from "@shared/lib/categories";
 
 // Color follows the category, never the slice's position — an unknown label falls back to
 // Other's neutral rather than borrowing a category's hue.
