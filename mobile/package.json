@@ -8,6 +8,7 @@
     "@supabase/supabase-js": "^2.111.0",
     "@tamagui/babel-plugin": "^2.6.2",
     "@tamagui/config": "^2.6.2",
+    "@tamagui/toast": "^2.6.2",
     "@tanstack/query-async-storage-persister": "^5.101.4",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-query-persist-client": "^5.101.4",
@@ -35,15 +36,23 @@
     "tamagui": "^2.6.2"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
     "babel-preset-expo": "^57.0.5",
+    "jest": "^29.7.0",
+    "jest-expo": "^57.0.3",
+    "react-test-renderer": "^19.2.8",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "typecheck": "tsc --noEmit"
   },
   "private": true
 }

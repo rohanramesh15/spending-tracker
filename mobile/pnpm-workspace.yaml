@@ -15,3 +15,4 @@ allowBuilds:
   "@firebase/util": true
   esbuild: true # native binary postinstall, same as frontend/
   protobufjs: true
+  unrs-resolver: true # native binary postinstall (eslint import resolver)

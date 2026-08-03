@@ -243,8 +243,8 @@ Each step must be independently green before the next starts.
 | 1 | Extract `shared/`, repoint `frontend/`, prove web still green | **[x] DONE** | — | n/a (web) |
 | 2 | Expo scaffold: Tamagui config, expo-router, tab nav | **[x] DONE** | 1 | yes |
 | 3 | **Google OAuth (PKCE) end-to-end on device** | **[~] CODE COMPLETE — blocked on credentials** | 2 | yes |
-| 4 | Tamagui primitives (§5) | [ ] TODO | 2 | yes |
-| 5 | RN query persistence (AsyncStorage) + `apiUpload` FormData shape | [ ] TODO | 1, 2 | yes |
+| 4 | Tamagui primitives (§5) | **[x] DONE** | 2 | yes |
+| 5 | RN query persistence (AsyncStorage) + `apiUpload` FormData shape | [~] persistence done in step 2; `apiUpload` still TODO | 1, 2 | yes |
 | 6 | Home + spending pie + date range | [ ] TODO | 4, 5 | yes |
 | 7 | Transactions list + detail + row/sheet/edit/delete | [ ] TODO | 6 | yes |
 | 8 | Manual entry + receipt scan (camera) | [ ] TODO | 4, 5 | yes |
@@ -325,6 +325,41 @@ workable without credentials.
 Then also verify the privacy control, which is the easiest thing here to get quietly wrong:
 sign in as one Google account, sign out, sign in as a second, and confirm the first account's
 cached data is gone rather than briefly visible.
+
+#### Step 4 — design system and the mobile test suite
+
+`components/ui/` (import via the `components/ui/index.ts` barrel, not the individual files):
+`Screen`, `Card`, `Field` + `TextField`, `Skeleton`/`ChartSkeleton`/`ListSkeleton`,
+`EmptyState`/`ErrorState`, `AppSheet` + `SheetRow`, `ConfirmDialog`. Plus `components/CategoryChip.tsx`.
+
+`EmptyState`/`ErrorState`/the skeletons exist as first-class primitives because user-flow §10 and
+CLAUDE.md's definition of done require those states on every screen; putting them in the design
+system stops each screen re-improvising them.
+
+**The test suite was pulled forward from step 12** into this step, because CLAUDE.md requires
+tests to ship in the same commit as the feature. `jest-expo` + `@testing-library/react-native`,
+run with `pnpm test` from `mobile/`. `test-utils.tsx` wraps renders in `TamaguiProvider`.
+19 tests currently pass. Step 12 now only owes CI wiring and the screen-level tests that arrive
+with each screen.
+
+Four traps worth knowing before writing more mobile tests:
+
+1. **Jest must be v29, not v30.** `jest-expo` pulls `jest-environment-jsdom@29`; mixing it with
+   jest 30 fails every suite at startup with
+   `this._moduleMocker.clearMocksOnScope is not a function`.
+2. **RTL v14 made `render`, `rerender`, `unmount` and every `fireEvent` helper async.** Forgetting
+   an `await` doesn't throw — it leaves `screen` unpopulated and every query fails with the
+   misleading **"`render` function has not been called"**. If you see that error, you forgot an await.
+3. **`accessibilityRole` alone is not queryable.** RN elements also need `accessible` before
+   `getByRole` (or a screen reader) can see them.
+4. **React Native has no "invalid" accessibility state**, unlike `aria-invalid` on the web. Invalid
+   inputs are styled visually; the spoken cue comes from `Field`'s `accessibilityRole="alert"` text.
+
+**Known gap:** `AppSheet` and `ConfirmDialog` have no `animation` prop. The drivers are configured
+via `createAnimations` and work at runtime, but spreading Tamagui's v4 preset into `createTamagui`
+loses the animation-key types, so `animation="medium"` fails to typecheck; augmenting both
+`tamagui` and `@tamagui/core` did not help. Sheets and dialogs currently open without a spring.
+Tracked as follow-up — likely needs the config built without the preset spread, or a version bump.
 
 #### Step 2 — install-layout gotchas (these cost real time; read before touching deps)
 
@@ -505,3 +540,10 @@ Specific things to pin with tests, because they are easy to silently break in a 
   credentials exist in this environment. See the human steps in §7.1. Found and fixed a Metro
   module-identity bug (TanStack dual builds → "No QueryClient set"), documented in §7.1.
   Missing config now degrades to a clear on-screen message instead of crashing the app.
+- **2026-08-03** — **Step 4 complete.** Tamagui design-system primitives built (Screen, Card,
+  Field, Skeletons, Empty/Error states, AppSheet, ConfirmDialog, CategoryChip). The mobile test
+  suite was pulled forward from step 12 to satisfy CLAUDE.md's "tests ship with the feature"
+  rule: jest-expo + @testing-library/react-native, 19 tests passing, typecheck clean. Four
+  RN-testing traps documented in §7.1 (jest 29 vs 30, RTL v14's async render, `accessible`
+  needed for role queries, no RN "invalid" a11y state). One known gap: Sheet/Dialog animation
+  props removed pending a Tamagui type fix.

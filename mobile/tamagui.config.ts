@@ -1,5 +1,18 @@
+import { createAnimations } from "@tamagui/animations-react-native";
 import { defaultConfig } from "@tamagui/config/v4";
 import { createTamagui } from "tamagui";
+
+/**
+ * Animation presets, declared explicitly rather than inherited from the preset spread.
+ * Spreading defaultConfig loses the animation key types, so `animation="medium"` on a Sheet or
+ * Dialog fails to typecheck even though it works at runtime. Naming them here makes the set
+ * concrete and the prop type real.
+ */
+const animations = createAnimations({
+  quick: { type: "spring", damping: 25, mass: 1.2, stiffness: 250 },
+  medium: { type: "spring", damping: 20, mass: 1.2, stiffness: 180 },
+  lazy: { type: "spring", damping: 22, stiffness: 90 },
+});
 
 /**
  * Tamagui base configuration.
@@ -15,6 +28,7 @@ import { createTamagui } from "tamagui";
  */
 export const config = createTamagui({
   ...defaultConfig,
+  animations,
   settings: {
     ...defaultConfig.settings,
     // The v4 preset defaults this to true, which rejects `alignItems`/`padding`/`borderRadius`
@@ -33,7 +47,15 @@ export const config = createTamagui({
 
 export type AppConfig = typeof config;
 
+// Both modules must be augmented. Component props (Sheet's `animation`, theme token names)
+// are derived from @tamagui/core's TamaguiCustomConfig; augmenting only the `tamagui` re-export
+// leaves those props untyped, which shows up as "Property 'animation' does not exist".
 declare module "tamagui" {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  interface TamaguiCustomConfig extends AppConfig {}
+}
+
+declare module "@tamagui/core" {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface TamaguiCustomConfig extends AppConfig {}
 }

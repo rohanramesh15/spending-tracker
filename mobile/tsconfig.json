@@ -2,6 +2,9 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // Jest globals (describe/it/expect) for the *.test.tsx files. jest-expo provides the
+    // runtime; these are the types only.
+    "types": ["jest"],
     "paths": {
       "@/*": ["./*"],
       "@shared/*": ["../shared/*"],
