@@ -12,6 +12,11 @@ module.exports = {
     "^@shared/(.*)$": "<rootDir>/../shared/$1",
     "^@/(.*)$": "<rootDir>/$1",
   },
+  // shared/ sits above mobile/node_modules and has none of its own, so bare specifiers inside
+  // it (date-fns, @tanstack/*, and Babel's injected @babel/runtime helpers) don't resolve by
+  // walking up. This is the Jest counterpart of metro.config.js's nodeModulesPaths and
+  // frontend/vite.config.ts's aliases — all three teach one resolver the same thing.
+  modulePaths: ["<rootDir>/node_modules"],
   // The RN ecosystem ships untranspiled ESM; these must go through Babel.
   transformIgnorePatterns: [
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@tamagui/.*|tamagui|@gorhom/.*))",
