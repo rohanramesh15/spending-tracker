@@ -9,9 +9,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider } from "tamagui";
 
 import { configureApi } from "@shared/api/client";
+import { useProtectedRoute } from "@/components/AuthGate";
 import { useColorScheme } from "@/components/useColorScheme";
-import { API_BASE_URL } from "@/lib/env";
+import { API_BASE_URL, AUTH_DEV_BYPASS } from "@/lib/env";
 import { queryPersister, QUERY_CACHE_BUSTER, QUERY_CACHE_MAX_AGE } from "@/lib/queryPersistence";
+import { useAuth } from "@/lib/useAuth";
 import tamaguiConfig from "@/tamagui.config";
 
 export {
@@ -54,12 +56,28 @@ export default function RootLayout() {
       >
         <SafeAreaProvider>
           <StatusBar style="auto" />
-          {/* Auth gating arrives in step 3; until then the tabs render unguarded. */}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-          </Stack>
+          {/* useProtectedRoute must live INSIDE the providers (it reads the query client to
+              wipe the cache on a user change) and inside the navigation tree (it redirects). */}
+          <RootNavigator />
         </SafeAreaProvider>
       </PersistQueryClientProvider>
     </TamaguiProvider>
+  );
+}
+
+/**
+ * Session-aware navigator. Both route groups are always registered — useProtectedRoute
+ * decides which one the user is allowed to be on, rather than the tree changing shape
+ * underneath the router (which strands in-flight navigations).
+ */
+function RootNavigator() {
+  const { session, loading } = useAuth();
+  useProtectedRoute(session, loading, AUTH_DEV_BYPASS);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="login" options={{ animation: "fade" }} />
+    </Stack>
   );
 }

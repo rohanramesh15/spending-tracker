@@ -14,21 +14,49 @@ const config = getDefaultConfig(projectRoot);
 config.watchFolders = [sharedRoot];
 
 // ...and because shared/ sits above mobile/node_modules, Node's "walk up from the importing
-// file" resolution finds nothing for its bare imports (date-fns, @tanstack/*). Point them at
-// this app's install. frontend/vite.config.ts does the equivalent via resolve.alias, so both
-// clients resolve shared/'s dependencies the same way.
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, "node_modules"),
-  path.resolve(sharedRoot, "node_modules"),
-];
-config.resolver.extraNodeModules = new Proxy(
-  {},
-  {
-    get: (_target, name) => path.resolve(projectRoot, "node_modules", String(name)),
-  },
-);
+// file" resolution finds nothing for its bare imports (date-fns, @tanstack/*). Adding this
+// app's node_modules to the search path fixes that for every importer, including shared/.
+// frontend/vite.config.ts does the equivalent via resolve.alias.
+//
+// Deliberately NOT using a catch-all `extraNodeModules` Proxy here. Mapping every bare
+// specifier to a hard directory path bypasses package.json "exports"/"react-native"
+// resolution, which let @tanstack/react-query load under two different module identities —
+// the provider and useQueryClient then saw separate React contexts and every screen died with
+// "No QueryClient set". nodeModulesPaths does the same job without rewriting resolution.
+config.resolver.nodeModulesPaths = [path.resolve(projectRoot, "node_modules")];
 
 // Tamagui ships its source as .mjs in places; keep the default source extensions plus mjs.
 config.resolver.sourceExts = [...config.resolver.sourceExts, "mjs"];
+
+/**
+ * Pin the TanStack packages to a single build.
+ *
+ * Each of them declares BOTH `"react-native": "src/index.ts"` and an `exports` map pointing at
+ * `build/modern/index.js`. Metro honours the react-native field for our direct imports but the
+ * exports map for imports made from inside another package — so `@tanstack/react-query` loaded
+ * twice under two file paths, i.e. two module instances with two separate React contexts.
+ * PersistQueryClientProvider then published a client that useQueryClient could not see, and
+ * every screen failed with "No QueryClient set, use QueryClientProvider to set one".
+ *
+ * Forcing one concrete file per package makes the identity unambiguous. If a TanStack upgrade
+ * ever changes this layout, that error message is the symptom to look for.
+ */
+const PINNED_SINGLETONS = [
+  "@tanstack/react-query",
+  "@tanstack/react-query-persist-client",
+  "@tanstack/query-async-storage-persister",
+  "@tanstack/query-core",
+  "@tanstack/query-persist-client-core",
+];
+
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (PINNED_SINGLETONS.includes(moduleName)) {
+    return {
+      type: "sourceFile",
+      filePath: path.resolve(projectRoot, "node_modules", moduleName, "build/modern/index.js"),
+    };
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
 
 module.exports = config;

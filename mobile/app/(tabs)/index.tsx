@@ -1,9 +1,10 @@
 import { SafeAreaView } from "react-native-safe-area-context";
-import { H1, Paragraph, ScrollView, Separator, Text, XStack, YStack } from "tamagui";
+import { Button, H1, Paragraph, ScrollView, Separator, Text, XStack, YStack } from "tamagui";
 
 import { categoryColor, categoryLabel } from "@shared/lib/categories";
 import { formatRangeLabel, rangePresets } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
+import { signOut } from "@/lib/useAuth";
 
 /**
  * Home — PLACEHOLDER (step 2 scaffold). The real screen (spending total, pie chart, recent
@@ -58,6 +59,14 @@ export default function HomeScreen() {
             ))}
           </YStack>
         </YStack>
+
+        <Separator />
+
+        {/* TEMPORARY: the real sign-out lives on Settings (step 10). Until that screen exists
+            this is the only way to exercise the sign-out half of the auth flow. Remove it then. */}
+        <Button size="$3" theme="red" onPress={() => void signOut()}>
+          Sign out (temporary)
+        </Button>
       </ScrollView>
     </SafeAreaView>
   );
