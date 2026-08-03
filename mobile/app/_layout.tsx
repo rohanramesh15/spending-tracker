@@ -13,6 +13,7 @@ import { useProtectedRoute } from "@/components/AuthGate";
 import { useColorScheme } from "@/components/useColorScheme";
 import { API_BASE_URL, AUTH_DEV_BYPASS } from "@/lib/env";
 import { queryPersister, QUERY_CACHE_BUSTER, QUERY_CACHE_MAX_AGE } from "@/lib/queryPersistence";
+import { ToastProvider } from "@/components/ui";
 import { useAuth } from "@/lib/useAuth";
 import tamaguiConfig from "@/tamagui.config";
 
@@ -56,9 +57,11 @@ export default function RootLayout() {
       >
         <SafeAreaProvider>
           <StatusBar style="auto" />
-          {/* useProtectedRoute must live INSIDE the providers (it reads the query client to
-              wipe the cache on a user change) and inside the navigation tree (it redirects). */}
-          <RootNavigator />
+          <ToastProvider>
+            {/* useProtectedRoute must live INSIDE the providers (it reads the query client to
+                wipe the cache on a user change) and inside the navigation tree (it redirects). */}
+            <RootNavigator />
+          </ToastProvider>
         </SafeAreaProvider>
       </PersistQueryClientProvider>
     </TamaguiProvider>
