@@ -1,0 +1,17 @@
+# Workspace BOUNDARY — this file's main job is to stop pnpm walking up and adopting
+# ~/pnpm-workspace.yaml as the root (which silently installs nothing here). frontend/ has
+# one for the same reason. Do not delete it.
+#
+# pnpm 11 reads these settings from here rather than package.json/.npmrc.
+
+# React Native's Metro bundler resolves modules by walking up node_modules directories and
+# does NOT understand pnpm's isolated symlink layout: transitive packages that a dependency
+# re-exports (e.g. @tamagui/core behind `tamagui`, babel-preset-expo behind `expo`) simply
+# fail to resolve. Hoisting is the layout Expo documents for pnpm. Without it you get a long
+# tail of "Unable to resolve module X" errors that look like app bugs but are install-layout bugs.
+nodeLinker: hoisted
+
+allowBuilds:
+  "@firebase/util": true
+  esbuild: true # native binary postinstall, same as frontend/
+  protobufjs: true
