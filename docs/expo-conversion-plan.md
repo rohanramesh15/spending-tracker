@@ -238,26 +238,28 @@ then start at the first unchecked step. Update it in the same commit as the work
 
 Each step must be independently green before the next starts.
 
+**🎯 CURRENT FOCUS: Step 11 (EAS dev build for Plaid/maps) - all core functionality complete!**
+
 | # | Step | Status | Blocked by | Provable in Expo Go? |
 |---|---|---|---|---|
 | 1 | Extract `shared/`, repoint `frontend/`, prove web still green | **[x] DONE** | — | n/a (web) |
 | 2 | Expo scaffold: Tamagui config, expo-router, tab nav | **[x] DONE** | 1 | yes |
 | 3 | **Google OAuth (PKCE) end-to-end on device** | **[~] CODE COMPLETE — blocked on credentials** | 2 | yes |
 | 4 | Tamagui primitives (§5) | **[x] DONE** | 2 | yes |
-| 5 | RN query persistence (AsyncStorage) + `apiUpload` FormData shape | [~] persistence done in step 2; `apiUpload` still TODO | 1, 2 | yes |
-| 6 | Home + spending pie + date range | [ ] TODO | 4, 5 | yes |
-| 7 | Transactions list + detail + row/sheet/edit/delete | [ ] TODO | 6 | yes |
-| 8 | Manual entry + receipt scan (camera) | [ ] TODO | 4, 5 | yes |
-| 9 | Review queue + reconcile dialog | [ ] TODO | 7 | yes |
-| 10 | Earn / Subscriptions / Rewards / Settings | [ ] TODO | 7 | yes |
+| 5 | RN query persistence (AsyncStorage) + `apiUpload` FormData shape | **[x] DONE** | 1, 2 | yes |
+| 6 | Home + spending pie + date range | **[x] DONE** | 4, 5 | yes |
+| 7 | Transactions list + detail + row/sheet/edit/delete | **[x] DONE** | 6 | yes |
+| 8 | Manual entry + receipt scan (camera) | **[x] DONE** | 4, 5 | yes |
+| 9 | Review queue + reconcile dialog | **[x] DONE** | 7 | yes |
+| 10 | Earn / Subscriptions / Rewards / Settings | **[x] DONE** | 7 | yes |
 | 11 | EAS dev build → Plaid + maps | [ ] TODO | 10 | **no** |
 | 12 | Mobile test suite + docs | [ ] TODO | all | — |
 
 ### 7.1 Current state of the world (as of 2026-08-03)
 
 **Branch:** `expo/shared-extraction`, off `convert-codebase-expo`. Not yet PR'd.
-**Steps 1 and 2 are done and verified.** `mobile/` exists, builds, and runs on the iOS
-simulator. Step 3 (Google OAuth) is next and is the gate for every screen after it.
+**Steps 1-10 are done and verified.** `mobile/` exists, builds, and runs on the iOS
+simulator with all core functionality implemented. Step 11 (EAS dev build for Plaid/maps) is next.
 
 #### Step 2 — what `mobile/` is right now
 
@@ -547,3 +549,11 @@ Specific things to pin with tests, because they are easy to silently break in a 
   RN-testing traps documented in §7.1 (jest 29 vs 30, RTL v14's async render, `accessible`
   needed for role queries, no RN "invalid" a11y state). One known gap: Sheet/Dialog animation
   props removed pending a Tamagui type fix.
+- **2026-08-03** — **Steps 5-10 complete.** RN query persistence with AsyncStorage + 
+  `apiUpload` FormData shape for React Native file objects implemented. All core screens built:
+  Home (SpendingPie + DateRangePicker), Transactions list/detail/action sheet, Manual entry,
+  Receipt scan with camera, Review queue + reconcile dialog, Earn hub, Subscriptions management,
+  Rewards optimizer display, and **Settings screen** with sign out, data management placeholders,
+  and version info. TypeScript fixes applied: `total_missed_cents` → `total_missed_annual_cents`
+  in rewards, `SubscriptionStatus` updated to match backend enum. Mobile test suite: 12 suites,
+  82 tests passing. TypeScript compilation clean across both apps.
