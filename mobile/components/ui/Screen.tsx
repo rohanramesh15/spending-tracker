@@ -5,7 +5,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme, YStack } from "tamagui";
 
 import { SCREEN_BACKGROUND, SCREEN_PADDING_X } from "./grouped";
@@ -57,11 +57,6 @@ export function Screen({
   const theme = useTheme();
   const pageBackground = theme[SCREEN_BACKGROUND.replace("$", "")]?.val as string | undefined;
 
-  // An absolutely-positioned child is laid out against the parent's PADDING box, so it ignores
-  // SafeAreaView's inset — `top: 0` put the title and the + button up behind the status bar.
-  // The inset has to be applied to the header itself.
-  const insets = useSafeAreaInsets();
-
   const [headerHeight, setHeaderHeight] = useState(0);
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -85,7 +80,22 @@ export function Screen({
    */
   const headerY = useMemo(() => {
     const span = headerHeight || 1;
-    return Animated.diffClamp(scrollY, 0, span).interpolate({
+
+    /*
+     * Negative offsets are clamped away BEFORE diffClamp sees them.
+     *
+     * iOS rubber-bands past the top, driving contentOffset.y negative. diffClamp measures
+     * distance travelled, so a bounce feeds it real movement in both directions and its window
+     * drifts — the header crept upward a little on every pull-to-bounce and never came back.
+     * Feeding it a floor of 0 means the top of the list is a hard reference point.
+     */
+    const downwardOnly = scrollY.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+      extrapolateLeft: "clamp",
+    });
+
+    return Animated.diffClamp(downwardOnly, 0, span).interpolate({
       inputRange: [0, span],
       outputRange: [0, -span],
       extrapolate: "clamp",
@@ -103,30 +113,42 @@ export function Screen({
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: pageBackground }}
+      // Clips the header as its negative margin carries it up past the top edge, so it slides
+      // away instead of continuing on over the status bar.
+      style={{ flex: 1, backgroundColor: pageBackground, overflow: "hidden" }}
       edges={["top"]}
       testID={testID}
     >
       {collapsingHeader ? (
+        /*
+         * A NORMAL flex child with an animated negative top margin — deliberately not absolutely
+         * positioned.
+         *
+         * Three separate bugs came from the absolute version, all of them coordinate arithmetic:
+         * absolute children are not laid out against SafeAreaView's padded box, so the header
+         * either sat under the status bar or, once compensated, left an empty band the height of
+         * the notch; and the list needed a matching paddingTop that had to be kept in sync by
+         * hand.
+         *
+         * As a flex sibling there is no arithmetic at all: the layout is correct by construction at
+         * every point in between, and the parent's overflow clips the header as it goes.
+         *
+         * Both the header AND the scroll view are translated, by the same value, so the list
+         * follows the header up rather than leaving a blank band where it was. Transform, not
+         * marginTop — the native animated module rejects layout properties outright ("Style
+         * property 'marginTop' is not supported"), and a transform runs on the native thread.
+         */
         <Animated.View
           onLayout={onHeaderLayout}
-          style={{
-            position: "absolute",
-            top: insets.top,
-            left: 0,
-            right: 0,
-            zIndex: 2,
-            elevation: 2,
-            backgroundColor: pageBackground,
-            paddingHorizontal: padded ? SCREEN_PADDING_X : 0,
-            paddingTop: padded ? SCREEN_PADDING_X : 0,
-            // No bottom padding: the list starts immediately under the header.
-            paddingBottom: 0,
-            transform: [{ translateY: headerY }],
-          }}
-          testID="collapsing-header"
+          style={{ transform: [{ translateY: headerY }] }}
         >
-          {collapsingHeader}
+          <YStack
+            paddingHorizontal={padded ? SCREEN_PADDING_X : 0}
+            paddingTop={padded ? SCREEN_PADDING_X : 0}
+            testID="collapsing-header"
+          >
+            {collapsingHeader}
+          </YStack>
         </Animated.View>
       ) : null}
 
@@ -135,10 +157,21 @@ export function Screen({
         // Animated component. On a plain ScrollView the handler is silently ignored and the
         // header never moves — which is exactly what happened.
         <Animated.ScrollView
+          style={
+            collapsingHeader
+              ? {
+                  transform: [{ translateY: headerY }],
+                  // Translating up by H would leave H of empty space at the bottom; growing the
+                  // view by the same amount keeps it filling the screen. Static, not animated.
+                  marginBottom: -headerHeight,
+                }
+              : undefined
+          }
           contentContainerStyle={{
             padding: padded ? SCREEN_PADDING_X : 0,
-            // The pinned header floats over the list, so the content starts below it.
-            paddingTop: collapsingHeader ? headerHeight : padded ? SCREEN_PADDING_X : 0,
+            // The header is a sibling above the list, not an overlay, so the list needs no
+            // top padding of its own when one is present.
+            paddingTop: collapsingHeader ? 0 : padded ? SCREEN_PADDING_X : 0,
             gap: onBackgroundPress ? 0 : 16,
             paddingBottom: 32,
           }}

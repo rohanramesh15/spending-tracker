@@ -7,12 +7,6 @@ import { fireEvent, renderWithProviders, screen } from "@/test-utils";
 const HEADER_HEIGHT = 100;
 
 /** The safe-area inset the provider reports in tests. */
-const mockInsets = { top: 44, bottom: 34, left: 0, right: 0 };
-jest.mock("react-native-safe-area-context", () => {
-  const actual = jest.requireActual("react-native-safe-area-context");
-  return { ...actual, useSafeAreaInsets: () => mockInsets };
-});
-
 function harness() {
   return (
     <Screen testID="s" collapsingHeader={<Paragraph>HEADER</Paragraph>} scrollViewTestID="scroller">
@@ -59,48 +53,32 @@ describe("the collapsing header", () => {
     expect(screen.getByText("HEADER")).toBeTruthy();
   });
 
-  it("pins the header below the safe-area inset, not under the status bar", async () => {
-    // An absolutely-positioned child is laid out against the parent's padding box, so it ignores
-    // SafeAreaView's inset entirely. `top: 0` put the title and the + button behind the clock.
+  it("lays the header out in flow, not as an overlay", async () => {
+    // Absolute positioning is what produced the status-bar collision and the empty band: it
+    // isn't laid out against SafeAreaView's padded box, so every fix was coordinate arithmetic.
     await renderWithProviders(harness());
 
     const style = StyleSheet.flatten(screen.getByTestId("collapsing-header").props.style);
-    expect(style.position).toBe("absolute");
-    expect(style.top).toBe(mockInsets.top);
+    expect(style.position).toBeUndefined();
   });
 
-  it("starts the list below the header once the header has been measured", async () => {
+  it("clips at the screen edge so the header slides away instead of over the status bar", async () => {
+    await renderWithProviders(harness());
+
+    const style = StyleSheet.flatten(screen.getByTestId("s").props.style);
+    expect(style.overflow).toBe("hidden");
+  });
+
+  it("gives the list no top padding of its own — the header is a sibling, not an overlay", async () => {
+    // A paddingTop kept in sync with the measured height by hand is exactly what left a gap
+    // the size of the notch under the search bar.
     await renderWithProviders(harness());
     await measureHeader();
 
     const style = StyleSheet.flatten(
       screen.getByTestId("scroller").props.contentContainerStyle,
     );
-    expect(style.paddingTop).toBe(HEADER_HEIGHT);
-  });
-
-  it("re-measures when the header's height changes", async () => {
-    // The search field and title settle after the first frame; translating by a stale height is
-    // what left the header half-hidden with only the search bar showing.
-    await renderWithProviders(harness());
-    await measureHeader(60);
-    await measureHeader(120);
-
-    const style = StyleSheet.flatten(
-      screen.getByTestId("scroller").props.contentContainerStyle,
-    );
-    expect(style.paddingTop).toBe(120);
-  });
-
-  it("ignores a zero-height measurement rather than collapsing the padding", async () => {
-    await renderWithProviders(harness());
-    await measureHeader(HEADER_HEIGHT);
-    await measureHeader(0);
-
-    const style = StyleSheet.flatten(
-      screen.getByTestId("scroller").props.contentContainerStyle,
-    );
-    expect(style.paddingTop).toBe(HEADER_HEIGHT);
+    expect(style.paddingTop).toBe(0);
   });
 
   it("survives scrolling in both directions without the header unmounting", async () => {
@@ -128,5 +106,29 @@ describe("the scroll view the header listens to", () => {
     const scroller = screen.getByTestId("scroller");
     expect(typeof scroller.props.onScroll).toBe("function");
     expect(scroller.props.scrollEventThrottle).toBe(16);
+  });
+});
+
+describe("what gets animated", () => {
+  it("animates a transform, not a layout property", async () => {
+    // The native animated module rejects layout props outright: "Style property 'marginTop' is
+    // not supported by native animated module" — a red box at runtime, invisible to tsc.
+    await renderWithProviders(harness());
+
+    const style = StyleSheet.flatten(
+      screen.getByTestId("collapsing-header").parent?.props.style,
+    );
+    expect(style.transform).toBeTruthy();
+    expect(style.marginTop).toBeUndefined();
+  });
+
+  it("moves the list with the header so no blank band is left behind", async () => {
+    await renderWithProviders(harness());
+    await measureHeader();
+
+    const style = StyleSheet.flatten(screen.getByTestId("scroller").props.style);
+    expect(style.transform).toBeTruthy();
+    // ...and grows by the same amount, so translating up doesn't expose a gap at the bottom.
+    expect(style.marginBottom).toBe(-HEADER_HEIGHT);
   });
 });
