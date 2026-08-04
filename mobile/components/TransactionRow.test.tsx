@@ -68,4 +68,55 @@ describe("TransactionRow", () => {
     await fireEvent(screen.getByTestId("transaction-row-t1"), "longPress");
     expect(onLongPress).toHaveBeenCalledTimes(1);
   });
+
+  describe("row actions", () => {
+    // Long-press alone is invisible: nothing on screen advertises it, so Edit/Hide/Delete were
+    // unreachable unless you happened to guess the gesture. Both affordances must keep working.
+    it("opens the menu from the visible actions button", async () => {
+      const onOpenMenu = jest.fn();
+      await renderWithProviders(<TransactionRow transaction={txn()} onOpenMenu={onOpenMenu} />);
+
+      await fireEvent.press(screen.getByTestId("transaction-actions-t1"));
+
+      expect(onOpenMenu).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not navigate to the detail screen when the actions button is pressed", async () => {
+      const onPress = jest.fn();
+      const onOpenMenu = jest.fn();
+      await renderWithProviders(
+        <TransactionRow transaction={txn()} onPress={onPress} onOpenMenu={onOpenMenu} />,
+      );
+
+      await fireEvent.press(screen.getByTestId("transaction-actions-t1"));
+
+      expect(onOpenMenu).toHaveBeenCalledTimes(1);
+      expect(onPress).not.toHaveBeenCalled();
+    });
+
+    it("still opens the menu on long-press", async () => {
+      const onLongPress = jest.fn();
+      await renderWithProviders(
+        <TransactionRow transaction={txn()} onLongPress={onLongPress} onOpenMenu={jest.fn()} />,
+      );
+
+      await fireEvent(screen.getByTestId("transaction-row-t1"), "longPress");
+
+      expect(onLongPress).toHaveBeenCalledTimes(1);
+    });
+
+    it("names the button for screen readers", async () => {
+      await renderWithProviders(<TransactionRow transaction={txn()} onOpenMenu={jest.fn()} />);
+
+      // A bare "⋮" tells a screen-reader user nothing; the web row labels it the same way.
+      expect(screen.getByLabelText("Actions for Kroger")).toBeTruthy();
+    });
+
+    it("renders no actions button where the caller offers no menu", async () => {
+      // The Home screen's recent list is navigation-only, matching the web `onOpenMenu &&` guard.
+      await renderWithProviders(<TransactionRow transaction={txn()} />);
+
+      expect(screen.queryByTestId("transaction-actions-t1")).toBeNull();
+    });
+  });
 });

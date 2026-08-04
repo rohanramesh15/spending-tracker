@@ -128,6 +128,7 @@ export default function TransactionsScreen() {
                       transaction={t}
                       onPress={() => router.push(`/transactions/${t.id}`)}
                       onLongPress={() => setMenuTxn(t)}
+                      onOpenMenu={() => setMenuTxn(t)}
                     />
                   </YStack>
                 ))}
