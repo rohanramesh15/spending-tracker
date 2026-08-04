@@ -686,6 +686,29 @@ Specific things to pin with tests, because they are easy to silently break in a 
   Still remaining, unchanged: on-device verification of steps 3 and 11 (your credentials + an EAS
   build), and the two tracked follow-ups.
 
+- **2026-08-03** — **Design pass on a running app, and a design system to hold it.** With real
+  credentials in place the app was driven on the simulator and reshaped from what was actually on
+  screen. Navigation: Scan stopped being a tab (it is one of three ways to *add* a transaction, so
+  Transactions → Add now offers manual / camera / library, and `/scan?source=` opens the chosen
+  picker directly); Settings became a tab instead of a gear on Home, and doubles as the profile
+  page. Visuals: grouped-block rows, category pills as dark ink on a contrast-tested tint of the
+  same hue, no stroke between pie slices, selection dismissed by tapping the page, `Aug 1–31, 2026`
+  for same-month ranges, "Food & Drinks".
+
+  **The durable part is `components/ui/grouped.ts` + `components/TransactionList.tsx` +
+  `components/ui/README.md`.** Home and Transactions had each built the same row stack by hand, so
+  every styling change had to be made twice and was silently half-applied when it wasn't. The
+  README records who owns which visual decision, so "change how X looks" lands in one file. Two
+  bugs from this session argue for it: rows were briefly invisible because the block surface and
+  the page were both `$color2`, and a custom `$blockBackground` token could have silently resolved
+  to nothing. Both now have regression tests — the second asserts the token resolves to a real
+  colour, because "renders as nothing on a white page" is invisible in a diff and in a screenshot.
+
+  174 → 242 mobile tests. Web at its documented baseline (3 pre-existing DateRangePicker failures),
+  lint and build clean, iOS export green. `shared/` gained `categoryTint` (WCAG-AA tested against
+  every category's ink) and a `formatRangeLabel` same-month collapse, with `shared/lib/dates.test.ts`
+  added — that function had no direct test before.
+
 - **2026-08-03** — **Two bugs found the moment the app was actually run with real credentials.**
   Both were invisible to typecheck and the whole test suite; both were found in the first two
   minutes on a simulator. That is the argument for §6a item 6, and for running the thing.

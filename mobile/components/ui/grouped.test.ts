@@ -1,4 +1,9 @@
-import { BLOCK_RADIUS, blockCorners } from "@/components/ui/grouped";
+import {
+  BLOCK_BACKGROUND,
+  BLOCK_RADIUS,
+  SCREEN_BACKGROUND,
+  blockCorners,
+} from "@/components/ui/grouped";
 
 /**
  * Pure geometry, tested directly. Every grouped list in the app derives its corners from this,
@@ -32,5 +37,13 @@ describe("blockCorners", () => {
     expect(Object.values(blockCorners(true, true))).toEqual(
       Array(4).fill(BLOCK_RADIUS),
     );
+  });
+});
+
+describe("grouped surfaces", () => {
+  it("keeps the block a different colour from the page it sits on", () => {
+    // Setting these equal makes every row invisible against the background while still
+    // rendering, laying out and passing every other test. It has already happened once.
+    expect(BLOCK_BACKGROUND).not.toBe(SCREEN_BACKGROUND);
   });
 });

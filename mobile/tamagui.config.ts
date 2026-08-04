@@ -29,6 +29,19 @@ const animations = createAnimations({
 export const config = createTamagui({
   ...defaultConfig,
   animations,
+  /**
+   * One custom token: the surface used by grouped blocks (transaction rows, settings rows).
+   *
+   * The v4 ramp jumps straight from `$color1` (100%) to `$color2` (95%), and against a white
+   * page that 5% step reads heavier than intended. This adds the missing in-between step.
+   * Defined per theme rather than as a raw hex because dark mode is live — the root provider
+   * follows the system scheme — and a hard-coded light grey would be near-white on a dark page.
+   */
+  themes: {
+    ...defaultConfig.themes,
+    light: { ...defaultConfig.themes.light, blockBackground: "hsla(0, 0%, 96%, 1)" },
+    dark: { ...defaultConfig.themes.dark, blockBackground: "hsla(0, 0%, 11%, 1)" },
+  },
   settings: {
     ...defaultConfig.settings,
     // The v4 preset defaults this to true, which rejects `alignItems`/`padding`/`borderRadius`

@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ScrollView, YStack } from "tamagui";
+import { ScrollView, useTheme, YStack } from "tamagui";
+
+import { SCREEN_BACKGROUND } from "./grouped";
 
 /**
  * Standard screen frame: safe-area insets, consistent padding, optional scrolling.
@@ -29,6 +31,9 @@ export function Screen({
   onBackgroundPress?: () => void;
 }) {
   const padding = padded ? "$4" : 0;
+  // Resolved rather than passed as a token: SafeAreaView is a plain RN view and takes a style.
+  const theme = useTheme();
+  const pageBackground = theme[SCREEN_BACKGROUND.replace("$", "")]?.val as string | undefined;
 
   // One wrapper carrying the gap, so the pressable and non-pressable paths lay out identically.
   const body = onBackgroundPress ? (
@@ -40,7 +45,11 @@ export function Screen({
   );
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top"]} testID={testID}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: pageBackground }}
+      edges={["top"]}
+      testID={testID}
+    >
       {scrollable ? (
         <ScrollView
           contentContainerStyle={{

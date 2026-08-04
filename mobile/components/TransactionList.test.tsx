@@ -94,3 +94,16 @@ describe("TransactionList", () => {
     expect(screen.getByText("Vendor a")).toBeTruthy();
   });
 });
+
+describe("block surface", () => {
+  it("resolves the custom blockBackground token to a real colour", async () => {
+    // $blockBackground is defined by hand in tamagui.config.ts rather than coming from the v4
+    // ramp. If that definition were dropped or misspelled, Tamagui would quietly render no
+    // background at all — invisible on a white page, and invisible in a diff.
+    await renderWithProviders(<TransactionList items={[txn("a")]} />);
+
+    const style = screen.getByTestId("transaction-row-a").props.style;
+    expect(style.backgroundColor).toMatch(/^hsla?\(/);
+    expect(style.backgroundColor).not.toBe("transparent");
+  });
+});
