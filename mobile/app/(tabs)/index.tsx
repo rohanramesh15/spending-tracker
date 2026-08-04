@@ -50,7 +50,8 @@ export default function HomeScreen() {
         <Banner
           icon="alert-triangle"
           tone="$yellow4"
-          label={`${reviewCount} transaction${reviewCount === 1 ? "" : "s"} need review`}
+          // The verb agrees too: web says "1 transaction need review", which is simply wrong.
+          label={`${reviewCount} transaction${reviewCount === 1 ? " needs" : "s need"} review`}
           onPress={() => router.push("/review")}
         />
       ) : null}

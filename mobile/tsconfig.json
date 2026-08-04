@@ -4,7 +4,7 @@
     "strict": true,
     // Jest globals (describe/it/expect) for the *.test.tsx files. jest-expo provides the
     // runtime; these are the types only.
-    "types": ["jest"],
+    "types": ["jest", "node"],
     "paths": {
       "@/*": ["./*"],
       "@shared/*": ["../shared/*"],

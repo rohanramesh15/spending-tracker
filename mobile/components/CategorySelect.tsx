@@ -44,7 +44,14 @@ export function CategorySelect({
               backgroundColor={categoryColor(selected.name)}
             />
           ) : null}
-          <Paragraph flex={1} size="$3" theme={selected ? undefined : "alt2"}>
+          <Paragraph
+            flex={1}
+            size="$3"
+            theme={selected ? undefined : "alt2"}
+            // Addressable on its own: Tamagui's Sheet mounts the option list even while closed,
+            // so a bare text query would match both the trigger and the hidden option.
+            testID="category-select-label"
+          >
             {selected ? categoryLabel(selected.name) : isLoading ? "Loading…" : "Pick a category"}
           </Paragraph>
           <Feather name="chevron-down" size={16} />

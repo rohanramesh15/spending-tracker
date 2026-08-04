@@ -3,7 +3,9 @@ import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
 import { Button, H3, Paragraph, Separator, Spinner, XStack, YStack } from "tamagui";
 
-import { useLinkedAccounts, useSyncBank } from "@shared/api/hooks";
+import * as DocumentPicker from "expo-document-picker";
+
+import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@shared/api/hooks";
 import type { AccountStatus } from "@shared/api/types";
 import { accountActionLabel, usePlaidLinkFlow } from "@/components/PlaidLink";
 import { signOut, useAuth } from "@/lib/useAuth";
@@ -21,6 +23,7 @@ export default function SettingsScreen() {
   const { session } = useAuth();
   const accounts = useLinkedAccounts();
   const sync = useSyncBank();
+  const importCsv = useImportAppleCard();
   const plaid = usePlaidLinkFlow({ onSuccess: toast.success, onError: toast.error });
 
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
@@ -50,6 +53,37 @@ export default function SettingsScreen() {
       toast.success(changes.length ? `Synced — ${changes.join(", ")}` : "You're up to date");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Sync failed");
+    }
+  }
+
+  /**
+   * Apple Card statement import (Phase 3). Goes through the SAME idempotent ingest endpoint as
+   * receipts, manual entry and bank sync (CLAUDE.md #4), so an overlapping statement is matched
+   * rather than double-counted — which is why the result is reported in three parts.
+   */
+  async function handleImport() {
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ["text/csv", "text/comma-separated-values", "public.comma-separated-values-text"],
+      copyToCacheDirectory: true,
+    });
+    // Backing out of the picker is a normal action, not a failure.
+    if (picked.canceled || !picked.assets?.[0]) return;
+
+    const asset = picked.assets[0];
+    try {
+      const result = await importCsv.mutateAsync({
+        uri: asset.uri,
+        name: asset.name || "apple-card.csv",
+        type: asset.mimeType || "text/csv",
+      });
+      const parts = [
+        result.imported ? `${result.imported} added` : null,
+        result.needs_review ? `${result.needs_review} to review` : null,
+        result.duplicates ? `${result.duplicates} already imported` : null,
+      ].filter(Boolean);
+      toast.success(parts.length ? `Imported — ${parts.join(", ")}` : "Nothing new to import");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't import that file");
     }
   }
 
@@ -127,21 +161,19 @@ export default function SettingsScreen() {
           </Card>
         </Section>
 
-        <Section title="Data">
+        <Section title="Apple Card">
           <Card flat padding="$0">
             <SettingRow
-              label="Export CSV"
-              icon={<Feather name="download" size={18} />}
-              onPress={() => toast.success("CSV export coming soon")}
-              testID="export-csv"
-            />
-            <SettingRow
-              label="Import CSV"
+              label={importCsv.isPending ? "Importing…" : "Import a statement CSV"}
               icon={<Feather name="upload" size={18} />}
-              onPress={() => toast.success("CSV import coming soon")}
+              onPress={() => void handleImport()}
               testID="import-csv"
             />
           </Card>
+          <Paragraph size="$2" theme="alt2" paddingHorizontal="$1" paddingTop="$2">
+            Goes through the same ingest door as everything else, so re-importing an overlapping
+            statement is matched rather than duplicated.
+          </Paragraph>
         </Section>
 
         <Section title="About">
