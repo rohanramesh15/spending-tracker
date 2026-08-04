@@ -136,6 +136,15 @@ describe("transaction-level amounts", () => {
     expect(screen.getByText("Food & Drinks · Tax")).toBeTruthy();
   });
 
+  it("keeps Other behind Tax, so the least informative label is last of all", async () => {
+    await renderWithProviders(
+      <TransactionRow
+        transaction={txn({ categories: ["Food and Drinks", "Other"], tax_cents: 50 })}
+      />,
+    );
+    expect(screen.getByText("Food & Drinks · Tax · Other")).toBeTruthy();
+  });
+
   it("keeps tax visible even when the line-item cap is already reached", async () => {
     await renderWithProviders(
       <TransactionRow

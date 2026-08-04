@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Animated, useWindowDimensions } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
@@ -19,12 +20,12 @@ function formatDayLabel(iso: string): string {
 }
 
 /**
- * A preset's actual span, in the same day-first form as the From/To fields beneath it, with the
- * repeated parts collapsed: "1 – 31 Aug 2026" rather than "1 Aug 2026 – 31 Aug 2026".
+ * A range in the same day-first form as the fields beside it, with the repeated parts collapsed:
+ * "1 – 31 Aug 2026" rather than "1 Aug 2026 – 31 Aug 2026".
  *
  * Deliberately NOT the shared `formatRangeLabel` used on the trigger — that one is month-first
- * ("Aug 1–31, 2026"). Inside this sheet every date reads day-first, so the rows agree with the
- * fields directly below them.
+ * ("Aug 1–31, 2026"). Inside this sheet every date reads day-first, so the rows agree with each
+ * other.
  */
 function formatDayRange(start: string, end: string): string {
   if (start === end) return formatDayLabel(start);
@@ -47,7 +48,12 @@ export interface DateRangeValue {
  * Date range control (user-flow §8a — single day is first-class).
  *
  * Native-first: web used a popover with an inline two-month calendar, which doesn't fit a phone.
- * Here the presets are a bottom sheet, and a custom range uses the platform date picker.
+ * Here the presets are a bottom sheet.
+ *
+ * The sheet has two panels. Presets are the common case and lead; "Custom" is a row like any
+ * other, and choosing it slides in a second panel for From and To. The pickers are NOT on the
+ * first panel: they doubled its height for a path most people never take, and sat two date
+ * spinners next to a list of one-tap answers.
  *
  * The preset list comes from shared/lib/dates so both clients offer the same ranges, and all
  * dates stay local calendar dates — never converted through UTC (CLAUDE.md #2).
@@ -60,38 +66,80 @@ export function DateRangePicker({
   onChange: (next: DateRangeValue) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [customField, setCustomField] = useState<"start" | "end" | null>(null);
+  const [panel, setPanel] = useState<"presets" | "custom">("presets");
+  /** Which field the custom panel's picker is currently driving. */
+  const [editing, setEditing] = useState<"start" | "end">("start");
+  /**
+   * The custom range being assembled. Held locally rather than committed field by field:
+   * writing a half-chosen range straight to `onChange` refetches the screen behind the sheet
+   * against a range the user hasn't finished describing.
+   */
+  const [draft, setDraft] = useState<DateRangeValue>(value);
+
   const presets = rangePresets();
+  const { width } = useWindowDimensions();
+  const slide = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(slide, {
+      toValue: panel === "custom" ? 1 : 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [panel, slide]);
+
+  function openSheet() {
+    setDraft(value);
+    setPanel("presets");
+    setEditing("start");
+    setOpen(true);
+  }
 
   function choosePreset(start: string, end: string) {
     onChange({ start, end });
     setOpen(false);
   }
 
-  function onPickDate(field: "start" | "end", picked?: Date) {
-    setCustomField(null);
-    if (!picked) return;
-
-    const iso = toISODate(picked);
-    // Keep the range coherent: choosing a start after the current end (or an end before the
-    // current start) would otherwise produce an inverted range the backend reads as empty.
-    if (field === "start") {
-      onChange({ start: iso, end: iso > value.end ? iso : value.end });
-    } else {
-      onChange({ start: iso < value.start ? iso : value.start, end: iso });
-    }
+  function openCustom() {
+    setDraft(value);
+    setEditing("start");
+    setPanel("custom");
   }
+
+  /**
+   * Collect From, then To, then commit and return to the presets list.
+   *
+   * The range is kept coherent as it is built: a start after the current end (or an end before
+   * the current start) would otherwise produce an inverted range the backend reads as empty.
+   */
+  function onPickDate(picked?: Date) {
+    if (!picked) return;
+    const iso = toISODate(picked);
+
+    if (editing === "start") {
+      setDraft((d) => ({ start: iso, end: iso > d.end ? iso : d.end }));
+      setEditing("end");
+      return;
+    }
+
+    const next = { start: iso < draft.start ? iso : draft.start, end: iso };
+    setDraft(next);
+    onChange(next);
+    setPanel("presets");
+  }
+
+  const panelShift = slide.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
 
   return (
     <>
       {/* Not chromeless: as bare text next to a large total it read as a caption rather than a
-          control. It now carries the same filled treatment as the Add button so it is visibly
+          control. It carries the same filled treatment as the Add button so it is visibly
           tappable. */}
       <Button
         variant="secondary"
         size="sm"
         icon={<Feather name="calendar" size={14} />}
-        onPress={() => setOpen(true)}
+        onPress={openSheet}
         accessibilityLabel="Change date range"
         testID="date-range-trigger"
       >
@@ -101,40 +149,114 @@ export function DateRangePicker({
       {/* No "Date range" heading: the sheet is opened from a button that already says what it
           is, so the title only repeated it and pushed the presets down. */}
       <AppSheet open={open} onOpenChange={setOpen}>
-        <YStack>
-          {presets.map((p) => (
-            <SheetRow
-              key={p.label}
-              label={p.label}
-              value={formatDayRange(p.start, p.end)}
-              testID={`preset-${p.label}`}
-              onPress={() => choosePreset(p.start, p.end)}
-            />
-          ))}
+        <YStack overflow="hidden">
+          <Animated.View
+            style={{ flexDirection: "row", transform: [{ translateX: panelShift }] }}
+          >
+            {/* Panel 1 — presets, with Custom as a row like any other. */}
+            <YStack width={width} paddingRight="$4">
+              {presets.map((p) => (
+                <SheetRow
+                  key={p.label}
+                  label={p.label}
+                  value={formatDayRange(p.start, p.end)}
+                  testID={`preset-${p.label}`}
+                  onPress={() => choosePreset(p.start, p.end)}
+                />
+              ))}
+              <SheetRow
+                label="Custom"
+                // States what Custom currently resolves to, so the row gives the answer rather
+                // than only offering to ask the question.
+                value={formatDayRange(value.start, value.end)}
+                icon={<Feather name="sliders" size={18} />}
+                testID="preset-Custom"
+                onPress={openCustom}
+              />
+            </YStack>
+
+            {/* Panel 2 — From, then To. */}
+            <YStack width={width} paddingRight="$4" gap="$2" testID="custom-panel">
+              <XStack alignItems="center" gap="$2">
+                <Button
+                  variant="ghost"
+                  circular
+                  size="sm"
+                  icon={<Feather name="chevron-left" size={18} />}
+                  accessibilityLabel="Back to presets"
+                  testID="custom-back"
+                  onPress={() => setPanel("presets")}
+                />
+                <Paragraph fontWeight="700" size="$5">
+                  Custom range
+                </Paragraph>
+              </XStack>
+
+              <FieldHeading
+                label="From"
+                date={draft.start}
+                active={editing === "start"}
+                onPress={() => setEditing("start")}
+                testID="custom-from"
+              />
+              <FieldHeading
+                label="To"
+                date={draft.end}
+                active={editing === "end"}
+                onPress={() => setEditing("end")}
+                testID="custom-to"
+              />
+
+              {/* One picker, driven by whichever field is active — two spinners side by side
+                  don't fit a phone, and only one can be answered at a time anyway. */}
+              {panel === "custom" ? (
+                <DateTimePicker
+                  value={parseISODate(editing === "start" ? draft.start : draft.end)}
+                  mode="date"
+                  display="spinner"
+                  testID="date-picker"
+                  onChange={(_event, picked) => onPickDate(picked)}
+                />
+              ) : null}
+            </YStack>
+          </Animated.View>
         </YStack>
-
-        {/* No divider here: SheetRow already draws one below every row, so the last preset
-            supplies the line between the list and Custom. */}
-        <Paragraph theme="alt2" size="$2">
-          Custom
-        </Paragraph>
-        <XStack gap="$3">
-          <Button variant="secondary" fullWidth onPress={() => setCustomField("start")} testID="custom-start">
-            From {formatDayLabel(value.start)}
-          </Button>
-          <Button variant="secondary" fullWidth onPress={() => setCustomField("end")} testID="custom-end">
-            To {formatDayLabel(value.end)}
-          </Button>
-        </XStack>
-
-        {customField ? (
-          <DateTimePicker
-            value={parseISODate(customField === "start" ? value.start : value.end)}
-            mode="date"
-            onChange={(_event, picked) => onPickDate(customField, picked)}
-          />
-        ) : null}
       </AppSheet>
     </>
+  );
+}
+
+/** From / To heading with its current value. The active one is the field the picker drives. */
+function FieldHeading({
+  label,
+  date,
+  active,
+  onPress,
+  testID,
+}: {
+  label: string;
+  date: string;
+  active: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      paddingVertical="$2"
+      onPress={onPress}
+      pressStyle={{ opacity: 0.6 }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      testID={testID}
+    >
+      <Paragraph fontWeight="700" color={active ? "$color12" : "$color10"}>
+        {label}
+      </Paragraph>
+      <Paragraph theme={active ? undefined : "alt2"} fontWeight={active ? "600" : "400"}>
+        {formatDayLabel(date)}
+      </Paragraph>
+    </XStack>
   );
 }

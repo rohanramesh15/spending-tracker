@@ -41,12 +41,18 @@ export function TransactionRow({
   // Tax and Tip are transaction-level, so they are never in `categories` (CLAUDE.md #8) — they
   // have to be appended from their own amounts or they'd be invisible on the row despite being
   // their own slices on the chart.
+  // Ordered before the cap, so a transaction with four categories doesn't drop an informative
+  // one to make room for "Other".
+  const shown = orderCategories(categories).slice(0, 3);
+  const hasOther = shown.includes("Other");
+
+  // "Other" goes last of everything, after Tax and Tip. It is the classifier's fallback and the
+  // least informative thing on the line, so nothing meaningful should sit behind it.
   const labels = [
-    // Ordered before the cap, so a transaction with four categories doesn't drop an informative
-    // one to make room for "Other".
-    ...orderCategories(categories).slice(0, 3).map(categoryLabel),
+    ...shown.filter((c) => c !== "Other").map(categoryLabel),
     ...(tax_cents > 0 ? [categoryLabel("Tax")] : []),
     ...(tip_cents > 0 ? [categoryLabel("Tip")] : []),
+    ...(hasOther ? [categoryLabel("Other")] : []),
   ];
 
   return (
