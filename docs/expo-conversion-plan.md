@@ -231,6 +231,43 @@ Constraints that still apply from CLAUDE.md:
 
 ---
 
+## 6a. Definition of done for a conversion step — READ BEFORE CLAIMING ANY STEP COMPLETE
+
+This section exists because it was learned the hard way. Steps 10 and 11 were reported done
+while shipping **zero tests**; the suite passed identically before and after (82 tests either
+way) because nothing exercised the new code. Settings also shipped two **fake features** —
+"Import CSV" and "Export CSV" rows that called `toast.success("… coming soon")`, looking
+implemented, doing nothing, and reporting success for a non-action.
+
+A step is done only when **all** of these are true. Verify them; do not assume them.
+
+1. **Every new screen and component has a test.** Enforced by `mobile/screen-inventory.test.ts`,
+   which fails the build otherwise. The only escape is its `KNOWN_UNTESTED` backlog, which may
+   only ever SHRINK. Never add an entry to make the build pass.
+2. **The tests actually exercise the new code.** A green suite proves nothing if the test count
+   didn't move. Note the before/after count. Mocking a module does **not** cover it — the guard
+   strips `jest.mock()` targets specifically to close that loophole.
+3. **No placeholder pretending to be a feature.** A control that renders but does nothing is
+   worse than an absent one: it reads as complete. If something isn't built, either leave it out
+   or label it visibly unavailable (see Earn's "SOON" cards). Never report success for a no-op.
+4. **No invented scope.** Port what the web app does. "Export CSV" was never a web feature.
+5. **All four states exist**, not just the happy path: loading, empty, error-with-recovery, and
+   the populated case (user-flow §10, CLAUDE.md definition of done).
+6. **`pnpm typecheck` and `pnpm test` pass in `mobile/`, and `npx expo export --platform ios`
+   succeeds.** The export is not redundant: it catches Metro resolution breakage — especially
+   anything touching the out-of-root `shared/` — that neither tsc nor Jest can see.
+7. **The web app is still green** if `shared/` was touched: `pnpm lint && pnpm test && pnpm build`
+   in `frontend/`. The baseline is 57 passed / 3 failed; those 3 are pre-existing (see §7.1).
+8. **Nothing outside the client changed.** `backend/`, `infra/`, and `website/` are out of scope.
+   A deleted `backend/.env.example` was found in the working tree during step 11 — that kind of
+   stray change must be caught before committing, not after.
+9. **The work is committed and §7 status + the change log below are updated in the same commit.**
+   An uncommitted step is a step that does not survive a context reset.
+
+CI enforces 1, 2, 6 and 7. The rest need a human or agent to actually look.
+
+---
+
 ## 7. Execution order and status
 
 **This section is the handoff record. Any agent picking this work up should read §7.1 first,
@@ -252,9 +289,9 @@ are complete; a signed-in Expo account plus mobile runtime env are now the remai
 | 7 | Transactions list + detail + row/sheet/edit/delete | **[x] DONE** | 6 | yes |
 | 8 | Manual entry + receipt scan (camera) | **[x] DONE** | 4, 5 | yes |
 | 9 | Review queue + reconcile dialog | **[x] DONE** | 7 | yes |
-| 10 | Earn / Subscriptions / Rewards / Settings | **[x] DONE** | 7 | yes |
-| 11 | EAS dev build → Plaid + maps | **[~] CODE COMPLETE — blocked on EAS/mobile credentials** | 10 | **no** |
-| 12 | Mobile test suite + docs | [ ] TODO | all | — |
+| 10 | Earn / Subscriptions / Rewards / Settings | **[x] DONE** (tests backfilled; see §6a) | 7 | yes |
+| 11 | EAS dev build → Plaid + maps | **[~] CODE COMPLETE — blocked on EAS credentials; needs a real dev build to verify** | 10 | **no** |
+| 12 | Mobile test suite + docs | **[x] DONE** — 174 tests, screen-inventory guard, CI job | all | — |
 
 ### 7.1 Current state of the world (as of 2026-08-03)
 
@@ -599,3 +636,17 @@ Specific things to pin with tests, because they are easy to silently break in a 
   not authenticated in this environment and the mobile public runtime config has not been supplied,
   so no development build or live Sandbox Link session has been attempted. The backend `.env` was
   detected and deliberately not copied into mobile because it contains server-only secrets.
+
+- **2026-08-03** — **Steps 10–12 audited and repaired.** Steps 10 and 11 had been reported
+  complete while shipping zero tests (the suite sat at 82 before and after), and Settings
+  contained two fake features that reported success for a no-op. Added
+  `mobile/screen-inventory.test.ts` — the mobile counterpart of the backend route-inventory
+  guard — which fails the build when a screen or component has no test; it flagged 15 files
+  immediately, and caught a loophole in itself (it had been counting `jest.mock()` as coverage).
+  Backfilled tests: **82 → 174 across 28 suites**. Wired a `mobile` CI job (typecheck, test,
+  `expo export`) and added `shared/**` to both clients' path filters, since the mobile tests had
+  never run on a PR. Replaced the fake CSV rows with the real Apple Card import, removed the
+  invented "Export CSV", fixed "1 transaction need review", and restored a stray-deleted
+  `backend/.env.example`. §6a now states the definition of done that was missing.
+  Remaining: on-device verification of steps 3 and 11, which needs your credentials and an EAS
+  build; plus the two tracked follow-ups (web DateRangePicker failures, Tamagui animation props).
