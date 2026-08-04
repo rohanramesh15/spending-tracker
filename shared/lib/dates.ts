@@ -24,7 +24,18 @@ export function formatRangeLabel(start: string, end: string): string {
   const s = parseISODate(start);
   const e = parseISODate(end);
   if (start === end) return format(s, "MMM d, yyyy");
-  return `${format(s, "MMM d")} – ${format(e, "MMM d, yyyy")}`;
+
+  // Within one month, name the month once: "Aug 1 – Aug 31, 2026" becomes "Aug 1–31, 2026".
+  // Same-year ranges drop the repeated year for the same reason. The en dash tightens to no
+  // surrounding spaces when it joins bare numbers, which is the usual typographic convention.
+  const sameYear = s.getFullYear() === e.getFullYear();
+  if (sameYear && s.getMonth() === e.getMonth()) {
+    return `${format(s, "MMM d")}–${format(e, "d, yyyy")}`;
+  }
+  if (sameYear) return `${format(s, "MMM d")} – ${format(e, "MMM d, yyyy")}`;
+
+  // Spanning a year boundary, both years must be stated or the range is ambiguous.
+  return `${format(s, "MMM d, yyyy")} – ${format(e, "MMM d, yyyy")}`;
 }
 
 export interface DateRange {

@@ -70,9 +70,15 @@ export const HATCHED: Record<string, number> = {
   Uncategorized: 135,
 };
 
-/** Display labels where the stored key reads badly in the UI. The backend key is unchanged. */
+/**
+ * Display labels where the stored key reads badly in the UI. The backend key is unchanged —
+ * "Food and Drinks" is the taxonomy value the classifier emits and the DB stores, and renaming
+ * it would break category matching everywhere. Only the rendering differs.
+ */
 export const CATEGORY_LABELS: Record<string, string> = {
   Uncategorized: "Not itemized",
+  // "&" reads better than "and" in a short label, and keeps the chip narrow.
+  "Food and Drinks": "Food & Drinks",
 };
 
 const FALLBACK_LIGHT = CATEGORY_COLORS.Other;
@@ -87,6 +93,48 @@ export function categoryColor(name: string, mode: ColorMode = "light"): string {
 /** Chip text color — darker than the fill so the label clears text contrast. */
 export function categoryInk(name: string): string {
   return CATEGORY_INK[name] ?? CATEGORY_INK.Other;
+}
+
+/**
+ * How much of the category hue survives in a chip background. 0 = white, 1 = the full fill.
+ * Low by design: the chip is a quiet label behind dark text, not a color swatch.
+ */
+const TINT_STRENGTH = 0.14;
+
+/**
+ * Very light tint of a category's hue, for chip BACKGROUNDS.
+ *
+ * Chips used to be filled with the solid category color and rely on `categoryInk` to stay
+ * legible on top of it. That made a row of chips shout louder than the transaction itself.
+ * Pairing the existing dark ink with a wash of the same hue keeps the category identifiable
+ * while letting the vendor and amount lead.
+ *
+ * Derived from `CATEGORY_COLORS` rather than hand-picked so a chip can never drift out of sync
+ * with its slice — the pie and the chip stay the same hue by construction. The pairing is not
+ * assumed safe: categories.test.ts asserts every ink/tint pair clears WCAG AA (4.5:1).
+ */
+export function categoryTint(name: string): string {
+  return mixWithWhite(categoryColor(name), TINT_STRENGTH);
+}
+
+/** Blend `hex` toward white. `strength` is the fraction of the original color retained. */
+function mixWithWhite(hex: string, strength: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const mix = (c: number) => Math.round(c * strength + 255 * (1 - strength));
+  return rgbToHex(mix(r), mix(g), mix(b));
+}
+
+export function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 }
 
 export function isHatched(name: string): boolean {

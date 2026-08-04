@@ -2,7 +2,7 @@ import { processColor } from "react-native";
 
 import { SpendingPie, donutSegmentPath, labelInkFor, percentLabel } from "@/components/SpendingPie";
 import { categoryColor } from "@shared/lib/categories";
-import { fireEvent, renderWithProviders, screen } from "@/test-utils";
+import { fireEvent, renderWithProviders, screen, within } from "@/test-utils";
 
 const slices = [
   { category: "Food and Drinks", cents: 5000 },
@@ -111,5 +111,71 @@ describe("SpendingPie", () => {
   it("renders nothing when the total is zero rather than dividing by it", async () => {
     await renderWithProviders(<SpendingPie slices={[{ category: "Shopping", cents: 0 }]} />);
     expect(screen.queryByTestId("spending-pie")).toBeNull();
+  });
+});
+
+describe("controlled selection", () => {
+  // Home owns the selection so it can clear it when the user taps somewhere else on the page —
+  // a tap outside the chart is invisible to the chart itself.
+  const slices = [
+    { category: "Health", cents: 500 },
+    { category: "Shopping", cents: 500 },
+  ];
+
+  it("reports a tapped slice to the owner instead of selecting internally", async () => {
+    const onActiveIndexChange = jest.fn();
+    await renderWithProviders(
+      <SpendingPie slices={slices} activeIndex={-1} onActiveIndexChange={onActiveIndexChange} />,
+    );
+
+    await fireEvent.press(screen.getByTestId("pie-slice-Shopping"));
+
+    expect(onActiveIndexChange).toHaveBeenCalledWith(1);
+    // Still showing the default prompt: the owner decides, so nothing changed on its own.
+    expect(screen.getByText("Tap a slice for details")).toBeTruthy();
+  });
+
+  it("shows the readout for whichever slice the owner selected", async () => {
+    await renderWithProviders(
+      <SpendingPie slices={slices} activeIndex={0} onActiveIndexChange={jest.fn()} />,
+    );
+
+    // Scoped to the readout: the legend below also lists every category by name.
+    const readout = screen.getByTestId("pie-selection");
+    expect(within(readout).getByText("Health")).toBeTruthy();
+    expect(within(readout).getByText("$5.00")).toBeTruthy();
+  });
+
+  it("returns to the default view when the owner clears the selection", async () => {
+    const view = await renderWithProviders(
+      <SpendingPie slices={slices} activeIndex={0} onActiveIndexChange={jest.fn()} />,
+    );
+    expect(screen.getByTestId("pie-selection")).toBeTruthy();
+
+    await view.rerender(
+      <SpendingPie slices={slices} activeIndex={-1} onActiveIndexChange={jest.fn()} />,
+    );
+
+    expect(screen.queryByTestId("pie-selection")).toBeNull();
+    expect(screen.getByText("Tap a slice for details")).toBeTruthy();
+  });
+
+  it("asks the owner to deselect when the selected slice is tapped again", async () => {
+    const onActiveIndexChange = jest.fn();
+    await renderWithProviders(
+      <SpendingPie slices={slices} activeIndex={0} onActiveIndexChange={onActiveIndexChange} />,
+    );
+
+    await fireEvent.press(screen.getByTestId("pie-slice-Health"));
+
+    expect(onActiveIndexChange).toHaveBeenCalledWith(-1);
+  });
+
+  it("still manages its own selection when left uncontrolled", async () => {
+    await renderWithProviders(<SpendingPie slices={slices} />);
+
+    await fireEvent.press(screen.getByTestId("pie-slice-Health"));
+
+    expect(screen.getByTestId("pie-selection")).toBeTruthy();
   });
 });

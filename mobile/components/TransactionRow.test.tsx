@@ -20,27 +20,14 @@ function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem 
 }
 
 describe("TransactionRow", () => {
-  it("shows vendor, date and formatted total", async () => {
+  // The row deliberately shows only vendor / categories / amount. Date and item count were
+  // removed; the Transactions list states the date once per day group instead. That heading is
+  // now where the CLAUDE.md #2 local-date guard lives — see the "Monday, Mar 2" assertion in
+  // app/(tabs)/transactions.test.tsx.
+  it("shows vendor and formatted total", async () => {
     await renderWithProviders(<TransactionRow transaction={txn()} />);
     expect(screen.getByText("Kroger")).toBeTruthy();
     expect(screen.getByText("$42.12")).toBeTruthy();
-  });
-
-  it("renders purchased_on as a LOCAL date, not shifted through UTC", async () => {
-    // new Date("2026-03-02") parses as UTC midnight and renders "Mar 1" anywhere behind UTC.
-    // This is the regression CLAUDE.md #2 exists to prevent, so it's pinned explicitly.
-    await renderWithProviders(<TransactionRow transaction={txn()} />);
-    expect(screen.getByText(/Mar 2/)).toBeTruthy();
-  });
-
-  it("pluralises the item count", async () => {
-    await renderWithProviders(<TransactionRow transaction={txn({ item_count: 1 })} />);
-    expect(screen.getByText(/1 item(?!s)/)).toBeTruthy();
-  });
-
-  it("labels an unitemized transaction rather than showing '0 items'", async () => {
-    await renderWithProviders(<TransactionRow transaction={txn({ item_count: 0 })} />);
-    expect(screen.getByText(/Not itemized/)).toBeTruthy();
   });
 
   it("caps the category chips so a busy receipt can't overrun the row", async () => {
@@ -51,7 +38,7 @@ describe("TransactionRow", () => {
         })}
       />,
     );
-    expect(screen.getByText("Food and Drinks")).toBeTruthy();
+    expect(screen.getByText("Food & Drinks")).toBeTruthy();
     expect(screen.queryByText("Entertainment")).toBeNull();
   });
 

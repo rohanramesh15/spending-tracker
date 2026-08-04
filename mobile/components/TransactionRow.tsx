@@ -1,17 +1,20 @@
 import Feather from "@expo/vector-icons/Feather";
-import { format } from "date-fns";
 import { Paragraph, XStack, YStack } from "tamagui";
 
 import type { TransactionListItem } from "@shared/api/types";
-import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
 import { CategoryChip } from "@/components/CategoryChip";
+import { BLOCK_BACKGROUND, blockCorners } from "@/components/ui";
 
 /**
  * One transaction in a list. Ported from the web TransactionRow.
  *
- * `parseISODate` is used rather than `new Date(iso)`: purchased_on is a LOCAL calendar date,
- * and parsing it as UTC renders the previous day in behind-UTC timezones (CLAUDE.md #2).
+ * Deliberately reduced to vendor / categories / amount. The date and item count were dropped
+ * from the row: in the Transactions list the date is already the day-group heading directly
+ * above, so repeating it on every row was noise.
+ *
+ * NOTE for whoever adds the next list: this row no longer carries a date at all, so any list
+ * that is not grouped by day must supply that context itself. See app/(tabs)/index.tsx.
  *
  * The row actions are reachable two ways on purpose. Long-press is the iOS idiom, but it is
  * invisible — nothing on screen tells you it exists, so Edit/Hide/Delete were effectively
@@ -23,21 +26,32 @@ export function TransactionRow({
   onPress,
   onLongPress,
   onOpenMenu,
+  first = true,
+  last = true,
 }: {
   transaction: TransactionListItem;
   onPress?: () => void;
   onLongPress?: () => void;
   /** Omit to render no actions button — the Home screen's recent list has no row menu. */
   onOpenMenu?: () => void;
+  /**
+   * Position within its day group, which decides which corners are rounded. Rows in the middle
+   * of a group are square on both ends so the group reads as one continuous surface; a lone row
+   * is both first and last, hence the defaults.
+   */
+  first?: boolean;
+  last?: boolean;
 }) {
-  const { vendor, purchased_on, item_count, categories, total_cents, currency } = transaction;
+  const { vendor, categories, total_cents, currency } = transaction;
 
   return (
     <XStack
       alignItems="center"
       gap="$3"
       paddingVertical="$3"
-      paddingHorizontal="$1"
+      paddingHorizontal="$3"
+      backgroundColor={BLOCK_BACKGROUND}
+      {...blockCorners(first, last)}
       pressStyle={{ opacity: 0.6 }}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -47,10 +61,6 @@ export function TransactionRow({
       <YStack flex={1} gap="$1">
         <Paragraph fontWeight="600" numberOfLines={1}>
           {vendor}
-        </Paragraph>
-        <Paragraph size="$2" theme="alt2">
-          {format(parseISODate(purchased_on), "MMM d")} ·{" "}
-          {item_count > 0 ? `${item_count} item${item_count === 1 ? "" : "s"}` : "Not itemized"}
         </Paragraph>
         {categories.length > 0 ? (
           <XStack flexWrap="wrap" gap="$1.5" paddingTop="$1">

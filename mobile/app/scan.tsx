@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, H3, Paragraph, Spinner, XStack, YStack } from "tamagui";
 
 import { useExtractReceipt, useIngest } from "@shared/api/hooks";
@@ -31,9 +31,15 @@ type Stage = "idle" | "extracting" | "confirm" | "error";
  * Native-first: this is where the mobile app is genuinely better than web. Instead of a file
  * input with a capture hint, it opens the real camera, and the gallery is a first-class second
  * option for a receipt photographed earlier.
+ *
+ * Reached from Transactions → Add, which picks the source, so `?source=camera|library` opens the
+ * corresponding picker immediately rather than making the user choose twice. The landing screen
+ * below is the fallback for a bare /scan (e.g. the "scan a receipt" action on a transaction).
  */
 export default function ScanScreen() {
   const router = useRouter();
+  const { source: sourceParam } = useLocalSearchParams<{ source?: string }>();
+  const autoSource = sourceParam === "camera" || sourceParam === "library" ? sourceParam : null;
   const toast = useToast();
   const extract = useExtractReceipt();
   const ingest = useIngest();
@@ -66,7 +72,20 @@ export default function ScanScreen() {
     setStage("confirm");
   }
 
-  async function capture(source: "camera" | "library") {
+  /**
+   * Opens the picker once when arrived at with ?source=. The ref guard matters: without it a
+   * re-render would relaunch the camera on top of itself.
+   */
+  const launched = useRef(false);
+  useEffect(() => {
+    if (!autoSource || launched.current) return;
+    launched.current = true;
+    void capture(autoSource, { returnOnCancel: true });
+    // capture is a stable function declaration; re-running on its identity would relaunch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSource]);
+
+  async function capture(source: "camera" | "library", opts?: { returnOnCancel?: boolean }) {
     setError(null);
 
     // Permissions are requested at the moment of use, not on mount — asking before the user has
@@ -91,8 +110,13 @@ export default function ScanScreen() {
         ? await ImagePicker.launchCameraAsync({ quality: 0.8, exif: false })
         : await ImagePicker.launchImageLibraryAsync({ quality: 0.8, exif: false });
 
-    // Backing out of the camera is a normal action, not an error.
-    if (result.canceled || !result.assets?.[0]) return;
+    // Backing out of the camera is a normal action, not an error. When the picker was opened
+    // automatically there is no landing screen worth returning to, so go back to where the
+    // user pressed Add rather than stranding them on an empty scan screen.
+    if (result.canceled || !result.assets?.[0]) {
+      if (opts?.returnOnCancel) router.back();
+      return;
+    }
 
     const asset = result.assets[0];
     setStage("extracting");

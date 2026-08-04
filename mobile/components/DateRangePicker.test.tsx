@@ -24,7 +24,7 @@ const march = { start: "2026-03-01", end: "2026-03-31" };
 describe("DateRangePicker", () => {
   it("shows the current range on the trigger", async () => {
     await renderWithProviders(<Harness initial={march} onChange={jest.fn()} />);
-    expect(screen.getByText("Mar 1 – Mar 31, 2026")).toBeTruthy();
+    expect(screen.getByText("Mar 1–31, 2026")).toBeTruthy();
   });
 
   it("renders a single day as one date, not a range", async () => {

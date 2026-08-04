@@ -14,26 +14,47 @@ export function Screen({
   scrollable = true,
   padded = true,
   testID,
+  onBackgroundPress,
 }: {
   children: ReactNode;
   scrollable?: boolean;
   padded?: boolean;
   testID?: string;
+  /**
+   * Called when the user taps the screen away from any interactive element — the native
+   * equivalent of clicking off a popover. Used to dismiss a transient selection (e.g. the
+   * spending pie's selected slice). Child pressables still win the touch, so this only fires
+   * for taps that would otherwise do nothing.
+   */
+  onBackgroundPress?: () => void;
 }) {
   const padding = padded ? "$4" : 0;
+
+  // One wrapper carrying the gap, so the pressable and non-pressable paths lay out identically.
+  const body = onBackgroundPress ? (
+    <YStack gap="$4" onPress={onBackgroundPress} testID="screen-background">
+      {children}
+    </YStack>
+  ) : (
+    children
+  );
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]} testID={testID}>
       {scrollable ? (
         <ScrollView
-          contentContainerStyle={{ padding: padded ? 16 : 0, gap: 16, paddingBottom: 32 }}
+          contentContainerStyle={{
+            padding: padded ? 16 : 0,
+            gap: onBackgroundPress ? 0 : 16,
+            paddingBottom: 32,
+          }}
           keyboardShouldPersistTaps="handled"
         >
-          {children}
+          {body}
         </ScrollView>
       ) : (
         <YStack flex={1} padding={padding} gap="$4">
-          {children}
+          {body}
         </YStack>
       )}
     </SafeAreaView>

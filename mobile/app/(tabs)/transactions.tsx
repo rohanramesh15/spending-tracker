@@ -2,7 +2,7 @@ import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
 import { useRouter } from "expo-router";
-import { Button, H2, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { Button, H2, Paragraph, XStack, YStack } from "tamagui";
 
 import {
   useDeleteTransaction,
@@ -15,7 +15,7 @@ import type { TransactionListItem } from "@shared/api/types";
 import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
 import { EditTransactionDialog, type EditTransactionValues } from "@/components/EditTransactionDialog";
-import { TransactionRow } from "@/components/TransactionRow";
+import { TransactionList } from "@/components/TransactionList";
 import {
   AppSheet,
   Card,
@@ -33,10 +33,12 @@ type Filter = "all" | "needs_review";
 
 /**
  * Transactions — the browsable ledger (user-flow §5), grouped by day.
- * Row tap → detail. Long press → the action sheet (Edit / Hide / Delete).
+ * Row tap → detail. The ⋮ button or a long press → the action sheet (Edit / Hide / Delete).
  *
- * Native-first difference: web exposed a ⋯ button per row. Here a long press opens the same
- * sheet, which is the platform gesture for "act on this item" and keeps the row uncluttered.
+ * This screen also owns *adding* a transaction. All three ways in live behind one Add button:
+ * typing it yourself, photographing a receipt, or picking a photo you already took. Scanning
+ * used to be a bottom tab, which framed it as a destination and hid the other two; it is
+ * really just one source among three, so it belongs here next to its siblings.
  */
 export default function TransactionsScreen() {
   const router = useRouter();
@@ -45,6 +47,7 @@ export default function TransactionsScreen() {
   const [filter, setFilter] = useState<Filter>("all");
 
   const [menuTxn, setMenuTxn] = useState<TransactionListItem | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<TransactionListItem | null>(null);
 
@@ -81,7 +84,7 @@ export default function TransactionsScreen() {
     <Screen testID="transactions-screen">
       <XStack alignItems="center" justifyContent="space-between">
         <H2>Transactions</H2>
-        <Button size="$3" onPress={() => router.push("/add")} testID="add-transaction">
+        <Button size="$3" onPress={() => setAddOpen(true)} testID="add-transaction">
           <XStack alignItems="center" gap="$1.5">
             <Feather name="plus" size={14} />
             <Paragraph size="$2">Add</Paragraph>
@@ -120,23 +123,57 @@ export default function TransactionsScreen() {
               <Paragraph size="$1" theme="alt2" textTransform="uppercase" fontWeight="600">
                 {format(parseISODate(day), "EEEE, MMM d")}
               </Paragraph>
-              <Card flat padding="$0">
-                {items.map((t, i) => (
-                  <YStack key={t.id} opacity={t.hidden ? 0.5 : 1}>
-                    {i > 0 ? <Separator /> : null}
-                    <TransactionRow
-                      transaction={t}
-                      onPress={() => router.push(`/transactions/${t.id}`)}
-                      onLongPress={() => setMenuTxn(t)}
-                      onOpenMenu={() => setMenuTxn(t)}
-                    />
-                  </YStack>
-                ))}
-              </Card>
+              <TransactionList
+                items={items}
+                onPressItem={(t) => router.push(`/transactions/${t.id}`)}
+                onOpenMenu={setMenuTxn}
+              />
             </YStack>
           ))}
         </YStack>
       )}
+
+      {/* The three ways to add a transaction. Ordered fastest-first for the common case:
+          most entries are typed, and a receipt you just bought is more likely to be
+          photographed now than found in the library later. */}
+      <AppSheet open={addOpen} onOpenChange={setAddOpen} snapPoints={[40]}>
+        <YStack gap="$1">
+          <Paragraph fontWeight="700" size="$5">
+            Add a transaction
+          </Paragraph>
+          <Paragraph theme="alt2" size="$2">
+            Type it in, or let us read a receipt for you.
+          </Paragraph>
+        </YStack>
+
+        <SheetRow
+          label="Enter manually"
+          testID="add-manual"
+          icon={<Feather name="edit-3" size={18} />}
+          onPress={() => {
+            setAddOpen(false);
+            router.push("/add");
+          }}
+        />
+        <SheetRow
+          label="Scan a receipt"
+          testID="add-scan-camera"
+          icon={<Feather name="camera" size={18} />}
+          onPress={() => {
+            setAddOpen(false);
+            router.push("/scan?source=camera");
+          }}
+        />
+        <SheetRow
+          label="Choose from library"
+          testID="add-scan-library"
+          icon={<Feather name="image" size={18} />}
+          onPress={() => {
+            setAddOpen(false);
+            router.push("/scan?source=library");
+          }}
+        />
+      </AppSheet>
 
       <AppSheet open={menuTxn != null} onOpenChange={(o) => !o && setMenuTxn(null)} snapPoints={[40]}>
         {menuTxn ? (

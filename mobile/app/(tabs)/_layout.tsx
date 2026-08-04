@@ -3,11 +3,12 @@ import { Tabs } from "expo-router";
 import { useTheme } from "tamagui";
 
 /**
- * Bottom tab bar — mirrors the web AppShell's four tabs (user-flow §0).
+ * Bottom tab bar — Home, Transactions, Earn, Settings.
  *
- * One deliberate difference from web: "Scan" is a real route here, not a hidden file input.
- * Native gets a proper camera screen (expo-camera, step 8) rather than the browser's capture
- * hack — one of the places the native app should simply be better.
+ * Scan is deliberately NOT a tab. It isn't a place you go, it's one of three ways to add a
+ * transaction, so it lives behind Transactions → Add alongside manual entry and the photo
+ * library. A tab implied it was a destination and pushed the other two ways of adding a
+ * transaction out of sight. The route still exists at /scan, entered with a `source` param.
  *
  * The web shell also renders unread-count badges on Home and Earn, driven by useReviews /
  * useNotifications. Those are intentionally NOT wired yet: the queries need an authenticated
@@ -41,17 +42,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="scan"
-        options={{
-          title: "Scan",
-          tabBarIcon: ({ color, size }) => <Feather name="camera" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="earn"
         options={{
           title: "Earn",
           tabBarIcon: ({ color, size }) => <Feather name="trending-up" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color, size }) => <Feather name="settings" size={size} color={color} />,
         }}
       />
     </Tabs>

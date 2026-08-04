@@ -122,4 +122,48 @@ describe("TransactionsScreen", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
     expect(screen.getByText("Delete transaction?")).toBeTruthy();
   });
+  describe("the Add menu", () => {
+    // Scanning used to be a bottom tab, which framed it as a destination and left manual entry
+    // and the photo library with no shared home. All three sources now sit behind Add.
+    it("offers all three ways to add a transaction", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+
+      expect(screen.getByTestId("add-manual")).toBeTruthy();
+      expect(screen.getByTestId("add-scan-camera")).toBeTruthy();
+      expect(screen.getByTestId("add-scan-library")).toBeTruthy();
+    });
+
+    it("does not navigate until a source is chosen", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("routes manual entry to the add screen", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+      await fireEvent.press(screen.getByTestId("add-manual"));
+
+      expect(mockPush).toHaveBeenCalledWith("/add");
+    });
+
+    it("routes the camera option to scan with the camera source", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+      await fireEvent.press(screen.getByTestId("add-scan-camera"));
+
+      // The source travels in the URL so scan opens the right picker without asking again.
+      expect(mockPush).toHaveBeenCalledWith("/scan?source=camera");
+    });
+
+    it("routes the library option to scan with the library source", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+      await fireEvent.press(screen.getByTestId("add-scan-library"));
+
+      expect(mockPush).toHaveBeenCalledWith("/scan?source=library");
+    });
+  });
 });

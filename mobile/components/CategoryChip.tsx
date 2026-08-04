@@ -1,13 +1,16 @@
 import { Paragraph, XStack } from "tamagui";
 
-import { categoryColor, categoryInk, categoryLabel, isHatched } from "@shared/lib/categories";
+import { categoryInk, categoryLabel, categoryTint } from "@shared/lib/categories";
 
 /**
- * Category pill. Ported from the web CategoryChips.
+ * Category pill: the category's dark ink on a very light wash of the same hue.
  *
- * The colors come from shared/lib/categories.ts and are NOT re-picked here: that palette was
- * validated for contrast and color-vision deficiency (fill ≥3:1, chip text ≥4.5:1), so the
- * fill/ink split must be preserved rather than approximated with a tint.
+ * Both values come from shared/lib/categories.ts and are NOT re-picked here — the chip and its
+ * pie slice derive from one hue by construction, so they can never drift apart. The ink/tint
+ * pairing is contrast-tested there (WCAG AA) rather than eyeballed.
+ *
+ * A solid fill was previously used, which made a row of chips compete with the vendor and
+ * amount for attention. The tint keeps the category identifiable while letting the row lead.
  *
  * Tip and Uncategorized share a hue with Tax and Other respectively and are distinguished by
  * hatching in the chart. A chip can't hatch legibly at this size, so it leans on its text
@@ -18,12 +21,11 @@ export function CategoryChip({ name, testID }: { name: string; testID?: string }
 
   return (
     <XStack
-      backgroundColor={categoryColor(name)}
+      backgroundColor={categoryTint(name)}
       borderRadius="$10"
       paddingHorizontal="$2.5"
       paddingVertical="$1"
       alignItems="center"
-      opacity={isHatched(name) ? 0.85 : 1}
       testID={testID ?? `category-chip-${name}`}
       accessibilityLabel={label}
     >

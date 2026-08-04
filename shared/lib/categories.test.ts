@@ -5,6 +5,8 @@ import {
   HATCHED,
   categoryColor,
   categoryInk,
+  categoryTint,
+  hexToRgb,
   categoryLabel,
   isHatched,
 } from "./categories";
@@ -158,7 +160,54 @@ describe("display labels", () => {
     expect(categoryLabel("Uncategorized")).toBe("Not itemized");
   });
 
-  it("passes real categories through unchanged", () => {
-    for (const c of [...TAXONOMY, ...SYSTEM]) expect(categoryLabel(c)).toBe(c);
+  it("passes categories without an override through unchanged", () => {
+    const overridden = new Set(["Uncategorized", "Food and Drinks"]);
+    for (const c of [...TAXONOMY, ...SYSTEM].filter((c) => !overridden.has(c))) {
+      expect(categoryLabel(c)).toBe(c);
+    }
+  });
+
+  it("renders 'Food and Drinks' with an ampersand without changing the stored key", () => {
+    // The key is the taxonomy value the classifier emits and the DB stores. Only the label
+    // differs — renaming the key would break category matching end to end.
+    expect(categoryLabel("Food and Drinks")).toBe("Food & Drinks");
+    expect(CATEGORY_COLORS["Food and Drinks"]).toBeDefined();
+  });
+});
+
+describe("categoryTint", () => {
+  /** WCAG relative luminance. */
+  function luminance(hex: string): number {
+    const channel = (c: number) => {
+      const s = c / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    const [r, g, b] = hexToRgb(hex);
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  }
+
+  function contrast(a: string, b: string): number {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  const names = Object.keys(CATEGORY_COLORS);
+
+  it.each(names)("keeps %s chip text readable on its tint (WCAG AA)", (name) => {
+    // The whole point of the tint is that it stays quiet enough for the dark ink to lead.
+    // If a future palette edit breaks that, it must fail here rather than in someone's eyes.
+    expect(contrast(categoryInk(name), categoryTint(name))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(names)("makes the %s tint far lighter than its solid fill", (name) => {
+    expect(luminance(categoryTint(name))).toBeGreaterThan(luminance(categoryColor(name)));
+  });
+
+  it("still gives an unknown category Other's tint rather than inventing one", () => {
+    expect(categoryTint("Nonsense")).toBe(categoryTint("Other"));
+  });
+
+  it("returns a valid 6-digit hex", () => {
+    for (const name of names) expect(categoryTint(name)).toMatch(/^#[0-9a-f]{6}$/);
   });
 });

@@ -1,9 +1,14 @@
 import * as ImagePicker from "expo-image-picker";
 
-import ScanScreen from "@/app/(tabs)/scan";
+import ScanScreen from "@/app/scan";
 import { fireEvent, mutation, query, renderScreen, screen, waitFor } from "@/test-screen";
 
-jest.mock("expo-router", () => ({ useRouter: () => ({ replace: jest.fn(), back: jest.fn() }) }));
+const mockBack = jest.fn();
+let mockParams: Record<string, string> = {};
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ replace: jest.fn(), back: mockBack, push: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
+}));
 jest.mock("expo-image-picker", () => ({
   requestCameraPermissionsAsync: jest.fn(),
   requestMediaLibraryPermissionsAsync: jest.fn(),
@@ -31,6 +36,7 @@ const draft = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
   mockHooks.useExtractReceipt.mockReturnValue(mutation({ mutateAsync: jest.fn().mockResolvedValue(draft) }));
   mockHooks.useIngest.mockReturnValue(mutation({ mutateAsync: jest.fn().mockResolvedValue({ status: "created" }) }));
   mockHooks.useCategories.mockReturnValue(query({ data: [{ id: "c1", name: "Food and Drinks" }] }));
@@ -116,5 +122,57 @@ describe("ScanScreen", () => {
 
     await waitFor(() => expect(screen.getByText("Couldn't read that")).toBeTruthy());
     expect(screen.getByText("Try again")).toBeTruthy();
+  });
+  describe("entered from Transactions → Add with a chosen source", () => {
+    // Scan is no longer a tab: the Add sheet already asked which source, so arriving here must
+    // open that picker straight away rather than asking the same question a second time.
+    it("opens the camera immediately for ?source=camera", async () => {
+      mockParams = { source: "camera" };
+      (picker.launchCameraAsync as jest.Mock).mockResolvedValue({ canceled: true });
+
+      await renderScreen(<ScanScreen />);
+
+      await waitFor(() => expect(picker.launchCameraAsync).toHaveBeenCalled());
+      expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled();
+    });
+
+    it("opens the photo library immediately for ?source=library", async () => {
+      mockParams = { source: "library" };
+      (picker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({ canceled: true });
+
+      await renderScreen(<ScanScreen />);
+
+      await waitFor(() => expect(picker.launchImageLibraryAsync).toHaveBeenCalled());
+      expect(picker.launchCameraAsync).not.toHaveBeenCalled();
+    });
+
+    it("goes back when the picker is cancelled, rather than stranding an empty screen", async () => {
+      mockParams = { source: "camera" };
+      (picker.launchCameraAsync as jest.Mock).mockResolvedValue({ canceled: true });
+
+      await renderScreen(<ScanScreen />);
+
+      await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    });
+
+    it("launches the picker only once, even across re-renders", async () => {
+      // Without the ref guard a re-render reopens the camera on top of itself.
+      mockParams = { source: "camera" };
+      (picker.launchCameraAsync as jest.Mock).mockResolvedValue({ canceled: true });
+
+      const view = await renderScreen(<ScanScreen />);
+      await waitFor(() => expect(picker.launchCameraAsync).toHaveBeenCalledTimes(1));
+      await view.rerender(<ScanScreen />);
+
+      expect(picker.launchCameraAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it("still shows the landing screen for a bare /scan", async () => {
+      // Reached from a transaction's "scan a receipt" action, which names no source.
+      await renderScreen(<ScanScreen />);
+
+      expect(screen.getByTestId("take-photo")).toBeTruthy();
+      expect(picker.launchCameraAsync).not.toHaveBeenCalled();
+    });
   });
 });

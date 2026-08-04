@@ -1,14 +1,14 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H2, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { Button, H2, Paragraph, XStack, YStack } from "tamagui";
 
 import { useNotifications, useReviews, useSpending, useTransactions } from "@shared/api/hooks";
 import { formatRangeLabel, rangePresets } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
 import { SpendingPie } from "@/components/SpendingPie";
-import { TransactionRow } from "@/components/TransactionRow";
+import { TransactionList } from "@/components/TransactionList";
 import { Card, ChartSkeleton, EmptyState, ErrorState, ListSkeleton, Screen, Skeleton } from "@/components/ui";
 
 /**
@@ -17,6 +17,9 @@ import { Card, ChartSkeleton, EmptyState, ErrorState, ListSkeleton, Screen, Skel
  */
 export default function HomeScreen() {
   const router = useRouter();
+  // Owned here, not inside the chart: dismissing the selection is a tap that lands OUTSIDE the
+  // chart, so only the screen can see it.
+  const [pieIndex, setPieIndex] = useState(-1);
   const [range, setRange] = useState<DateRangeValue>(() => {
     const p = rangePresets()[0]; // This month
     return { start: p.start, end: p.end };
@@ -28,23 +31,15 @@ export default function HomeScreen() {
   const alerts = useNotifications(true);
 
   const hasSpending = (spending.data?.slices.length ?? 0) > 0;
+  const recentItems = recent.data?.slice(0, 6) ?? [];
   const reviewCount = reviews.data?.length ?? 0;
   const alertCount = alerts.data?.length ?? 0;
 
   return (
-    <Screen testID="home-screen">
-      <XStack alignItems="center" justifyContent="space-between">
-        <H2>Home</H2>
-        <Button
-          size="$3"
-          circular
-          chromeless
-          accessibilityLabel="Settings"
-          onPress={() => router.push("/settings")}
-        >
-          <Feather name="settings" size={20} />
-        </Button>
-      </XStack>
+    <Screen testID="home-screen" onBackgroundPress={() => setPieIndex(-1)}>
+      {/* Settings used to be a gear in this header; it is a bottom tab now, so the header is
+          just the title. */}
+      <H2>Home</H2>
 
       {reviewCount > 0 ? (
         <Banner
@@ -73,14 +68,12 @@ export default function HomeScreen() {
           {spending.isLoading ? (
             <Skeleton width={160} height={34} />
           ) : (
-            <>
-              <Paragraph fontSize={32} fontWeight="700" lineHeight={38}>
-                {formatCents(spending.data?.total_cents ?? 0)}
-              </Paragraph>
-              <Paragraph size="$2" theme="alt2">
-                spent · {formatRangeLabel(range.start, range.end)}
-              </Paragraph>
-            </>
+            // The "spent · <range>" caption is gone by request. The range is not lost: the
+            // DateRangePicker sitting immediately to the right of this total states it, so the
+            // caption was repeating its neighbour.
+            <Paragraph fontSize={32} fontWeight="700" lineHeight={38}>
+              {formatCents(spending.data?.total_cents ?? 0)}
+            </Paragraph>
           )}
         </YStack>
         <DateRangePicker value={range} onChange={setRange} />
@@ -91,7 +84,11 @@ export default function HomeScreen() {
       ) : spending.isError ? (
         <ErrorState message="Couldn't load your spending." onRetry={() => void spending.refetch()} />
       ) : hasSpending ? (
-        <SpendingPie slices={spending.data!.slices} />
+        <SpendingPie
+          slices={spending.data!.slices}
+          activeIndex={pieIndex}
+          onActiveIndexChange={setPieIndex}
+        />
       ) : (
         <EmptyState
           title="Nothing tracked in this range"
@@ -115,17 +112,10 @@ export default function HomeScreen() {
         ) : recent.isError ? (
           <ErrorState message="Couldn't load transactions." onRetry={() => void recent.refetch()} />
         ) : recent.data && recent.data.length > 0 ? (
-          <Card flat padding="$0">
-            {recent.data.slice(0, 6).map((t, i) => (
-              <YStack key={t.id}>
-                {i > 0 ? <Separator /> : null}
-                <TransactionRow
-                  transaction={t}
-                  onPress={() => router.push(`/transactions/${t.id}`)}
-                />
-              </YStack>
-            ))}
-          </Card>
+          <TransactionList
+            items={recentItems}
+            onPressItem={(t) => router.push(`/transactions/${t.id}`)}
+          />
         ) : (
           <Paragraph size="$2" theme="alt2">
             No transactions yet.

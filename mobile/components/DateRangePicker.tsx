@@ -52,9 +52,11 @@ export function DateRangePicker({
 
   return (
     <>
+      {/* Not chromeless: as bare text next to a large total it read as a caption rather than a
+          control. It now carries the same filled treatment as the Add button so it is visibly
+          tappable. */}
       <Button
         size="$3"
-        chromeless
         onPress={() => setOpen(true)}
         accessibilityLabel="Change date range"
         testID="date-range-trigger"

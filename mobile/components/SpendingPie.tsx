@@ -91,14 +91,33 @@ export function donutSegmentPath(
  *  - Tip and Uncategorized are hatched (45°/135°). They share a hue with Tax and Other, so the
  *    hatch — not the color — is what distinguishes them, and it survives color-vision
  *    deficiency and dark mode where a second hue step would not.
- *  - A surface-colored stroke separates adjacent fills so neighbours don't bleed together.
+ *  - Slices are drawn WITHOUT a separating stroke, by request. The hatching above is doing the
+ *    real work of telling same-hue neighbours apart; the stroke was belt-and-braces. Selection
+ *    is shown by the slice popping outward (+4px) and the readout, not by an outline.
  *
  * Interaction is native-first: tapping a slice selects it and reveals its percentage plus an
  * amount readout in the donut hole, where web used a hover tooltip that a phone has no
  * equivalent for.
  */
-export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
-  const [activeIndex, setActiveIndex] = useState(-1);
+export function SpendingPie({
+  slices,
+  activeIndex: controlledIndex,
+  onActiveIndexChange,
+}: {
+  slices: SpendingSlice[];
+  /**
+   * Optional controlled selection. Supplied by a screen that needs to clear the selection from
+   * outside the chart — tapping elsewhere on the page should return the pie to its default
+   * view, and only the screen knows about taps that land outside the chart.
+   */
+  activeIndex?: number;
+  onActiveIndexChange?: (index: number) => void;
+}) {
+  const [uncontrolledIndex, setUncontrolledIndex] = useState(-1);
+  const isControlled = controlledIndex !== undefined;
+  const activeIndex = isControlled ? controlledIndex : uncontrolledIndex;
+  const setActiveIndex = (next: number) =>
+    isControlled ? onActiveIndexChange?.(next) : setUncontrolledIndex(next);
 
   const total = slices.reduce((sum, s) => sum + s.cents, 0);
   if (total <= 0) return null;
@@ -140,10 +159,7 @@ export function SpendingPie({ slices }: { slices: SpendingSlice[] }) {
                 key={slice.category}
                 d={donutSegmentPath(startAngle, endAngle, selected ? OUTER + 4 : OUTER)}
                 fill={fillFor(slice.category)}
-                stroke={selected ? "#0f172a" : "#ffffff"}
-                strokeWidth={2}
-                strokeLinejoin="round"
-                onPress={() => setActiveIndex((cur) => (cur === index ? -1 : index))}
+                onPress={() => setActiveIndex(activeIndex === index ? -1 : index)}
                 testID={`pie-slice-${slice.category}`}
               />
             );

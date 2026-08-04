@@ -1,6 +1,6 @@
 import * as DocumentPicker from "expo-document-picker";
 
-import SettingsScreen from "@/app/settings";
+import SettingsScreen from "@/app/(tabs)/settings";
 import { fireEvent, mutation, query, renderScreen, screen, waitFor } from "@/test-screen";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
@@ -13,8 +13,14 @@ jest.mock("@/components/PlaidLink", () => ({
   }),
   accountActionLabel: (s: string) => (s === "active" ? "Manage" : "Reconnect"),
 }));
+let mockSession: unknown = {
+  user: {
+    email: "someone@example.com",
+    user_metadata: { full_name: "Ada Lovelace", avatar_url: "https://example.com/a.png" },
+  },
+};
 jest.mock("@/lib/useAuth", () => ({
-  useAuth: () => ({ session: { user: { email: "someone@example.com" } }, loading: false }),
+  useAuth: () => ({ session: mockSession, loading: false }),
   signOut: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -33,6 +39,12 @@ const picker = DocumentPicker.getDocumentAsync as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSession = {
+    user: {
+      email: "someone@example.com",
+      user_metadata: { full_name: "Ada Lovelace", avatar_url: "https://example.com/a.png" },
+    },
+  };
   mockHooks.useLinkedAccounts.mockReturnValue(query({ data: [] }));
   mockHooks.useSyncBank.mockReturnValue(mutation());
   mockHooks.useImportAppleCard.mockReturnValue(mutation());
@@ -154,5 +166,40 @@ describe("Settings — accounts", () => {
     mockHooks.useLinkedAccounts.mockReturnValue(query({ isError: true }));
     await renderScreen(<SettingsScreen />);
     expect(screen.getByTestId("error-state")).toBeTruthy();
+  });
+});
+
+describe("profile block", () => {
+  // Settings doubles as the profile page, so the identity has to actually render — not just
+  // sit in a caption that says "Signed in as".
+  it("shows the signed-in name and email", async () => {
+    await renderScreen(<SettingsScreen />);
+
+    expect(screen.getByText("Ada Lovelace")).toBeTruthy();
+    expect(screen.getByText("someone@example.com")).toBeTruthy();
+  });
+
+  it("falls back to the email's local part when Google sent no name", async () => {
+    mockSession = { user: { email: "someone@example.com", user_metadata: {} } };
+
+    await renderScreen(<SettingsScreen />);
+
+    expect(screen.getByText("someone")).toBeTruthy();
+  });
+
+  it("renders an initial instead of an avatar when there is no picture", async () => {
+    mockSession = { user: { email: "zoe@example.com", user_metadata: { name: "Zoe" } } };
+
+    await renderScreen(<SettingsScreen />);
+
+    expect(screen.getByText("Z")).toBeTruthy();
+  });
+
+  it("still renders the block when signed out rather than crashing", async () => {
+    mockSession = null;
+
+    await renderScreen(<SettingsScreen />);
+
+    expect(screen.getByTestId("profile-block")).toBeTruthy();
   });
 });

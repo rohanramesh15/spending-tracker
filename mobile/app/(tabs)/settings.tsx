@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H3, Paragraph, Separator, Spinner, XStack, YStack } from "tamagui";
+import { Button, H3, Image, Paragraph, Separator, Spinner, XStack, YStack } from "tamagui";
 
 import * as DocumentPicker from "expo-document-picker";
 
@@ -9,13 +9,25 @@ import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@shared/api/
 import type { AccountStatus } from "@shared/api/types";
 import { accountActionLabel, usePlaidLinkFlow } from "@/components/PlaidLink";
 import { signOut, useAuth } from "@/lib/useAuth";
-import { Card, ConfirmDialog, ErrorState, ListSkeleton, Screen, useToast } from "@/components/ui";
+import {
+  BLOCK_BACKGROUND,
+  blockCorners,
+  Card,
+  ConfirmDialog,
+  ErrorState,
+  ListSkeleton,
+  Screen,
+  useToast,
+} from "@/components/ui";
 
 /**
- * Settings — user account, data management, and app info (user-flow §9).
+ * Settings — profile, connected accounts, data management and app info (user-flow §9).
  *
- * Native-first: as a pushed screen on top of the current tab, keeping the tab bar visible.
- * This is a v1 with the essentials; Plaid account management comes later with the EAS dev build.
+ * This is a bottom tab, not a pushed screen, so it has no back button. It doubles as the
+ * profile page: the signed-in identity leads, because it is the thing you come here to check.
+ *
+ * Rows use the shared grouped-block geometry (components/ui/grouped.ts), the same one the
+ * transaction list uses, so every list in the app reads as the same kind of surface.
  */
 export default function SettingsScreen() {
   const router = useRouter();
@@ -89,23 +101,30 @@ export default function SettingsScreen() {
 
   const hasAccounts = (accounts.data?.length ?? 0) > 0;
 
+  // Google puts the display name and picture in user_metadata; the keys it populates vary
+  // ("full_name" vs "name"), so try both before falling back to the email's local part.
+  const metadata = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
+  const metaName = typeof metadata.full_name === "string" ? metadata.full_name : undefined;
+  const altName = typeof metadata.name === "string" ? metadata.name : undefined;
+  const email = session?.user.email ?? undefined;
+  const displayName = metaName ?? altName ?? email?.split("@")[0];
+  const avatarUrl =
+    typeof metadata.avatar_url === "string"
+      ? metadata.avatar_url
+      : typeof metadata.picture === "string"
+        ? metadata.picture
+        : undefined;
+
   return (
     <Screen testID="settings-screen">
-      <XStack alignItems="center" gap="$2">
-        <Button size="$3" circular chromeless accessibilityLabel="Back" onPress={() => router.back()}>
-          <Feather name="arrow-left" size={20} />
-        </Button>
-        <H3 flex={1}>Settings</H3>
-      </XStack>
+      <H3>Settings</H3>
 
       <YStack gap="$4">
-        <Section title="Account">
-          <Card flat padding="$3">
-            <Paragraph size="$2" theme="alt2">
-              Signed in as {session?.user.email ?? "—"}
-            </Paragraph>
-          </Card>
-        </Section>
+        <ProfileBlock
+          name={displayName}
+          email={email}
+          avatarUrl={avatarUrl}
+        />
 
         <Section title="Connected accounts">
           {accounts.isLoading ? (
@@ -113,7 +132,7 @@ export default function SettingsScreen() {
           ) : accounts.isError ? (
             <ErrorState message="Couldn't load connected accounts." onRetry={() => void accounts.refetch()} />
           ) : hasAccounts ? (
-            <Card flat padding="$0">
+            <YStack>
               {accounts.data!.map((account, index) => (
                 <YStack key={account.id}>
                   {index > 0 ? <Separator /> : null}
@@ -123,11 +142,17 @@ export default function SettingsScreen() {
                     busy={plaid.busy}
                     pending={plaid.openingAccountId === account.id}
                     onPress={() => void plaid.startUpdate(account.id)}
+                    first={index === 0}
                   />
                 </YStack>
               ))}
               <Separator />
-              <XStack padding="$3" gap="$2">
+              <XStack
+                padding="$3"
+                gap="$2"
+                backgroundColor={BLOCK_BACKGROUND}
+                {...blockCorners(false, true)}
+              >
                 <Button flex={1} onPress={() => void plaid.startConnect()} disabled={plaid.busy}>
                   {plaid.openingAccountId === "connect" ? <Spinner color="#ffffff" /> : "Connect another"}
                 </Button>
@@ -135,7 +160,7 @@ export default function SettingsScreen() {
                   {sync.isPending ? "Syncing…" : "Sync now"}
                 </Button>
               </XStack>
-            </Card>
+            </YStack>
           ) : (
             <Card padding="$4" gap="$2" alignItems="center">
               <Paragraph fontWeight="600">No accounts connected</Paragraph>
@@ -149,27 +174,13 @@ export default function SettingsScreen() {
           )}
         </Section>
 
-        <Section title="Sign out">
-          <Card flat padding="$0">
-            <SettingRow
-              label="Sign out"
-              icon={<Feather name="log-out" size={18} color="#e34948" />}
-              destructive
-              onPress={() => setConfirmingSignOut(true)}
-              testID="sign-out"
-            />
-          </Card>
-        </Section>
-
         <Section title="Apple Card">
-          <Card flat padding="$0">
-            <SettingRow
-              label={importCsv.isPending ? "Importing…" : "Import a statement CSV"}
-              icon={<Feather name="upload" size={18} />}
-              onPress={() => void handleImport()}
-              testID="import-csv"
-            />
-          </Card>
+          <SettingRow
+            label={importCsv.isPending ? "Importing…" : "Import a statement CSV"}
+            icon={<Feather name="upload" size={18} />}
+            onPress={() => void handleImport()}
+            testID="import-csv"
+          />
           <Paragraph size="$2" theme="alt2" paddingHorizontal="$1" paddingTop="$2">
             Goes through the same ingest door as everything else, so re-importing an overlapping
             statement is matched rather than duplicated.
@@ -177,15 +188,23 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="About">
-          <Card flat padding="$0">
-            <SettingRow
-              label="Version"
-              icon={<Feather name="info" size={18} />}
-              value="1.0.0"
-              testID="version"
-            />
-          </Card>
+          <SettingRow
+            label="Version"
+            icon={<Feather name="info" size={18} />}
+            value="1.0.0"
+            testID="version"
+          />
         </Section>
+
+        {/* Last, and visually separated: signing out is the one destructive action here, so it
+            sits below everything rather than among the things you came to read. */}
+        <SettingRow
+          label="Sign out"
+          icon={<Feather name="log-out" size={18} color="#e34948" />}
+          destructive
+          onPress={() => setConfirmingSignOut(true)}
+          testID="sign-out"
+        />
       </YStack>
 
       <ConfirmDialog
@@ -213,15 +232,25 @@ function AccountRow({
   busy,
   pending,
   onPress,
+  first = false,
 }: {
   institution: string;
   status: AccountStatus;
   busy: boolean;
   pending: boolean;
   onPress: () => void;
+  /** The connect/sync bar below always closes the block, so a row is never `last`. */
+  first?: boolean;
 }) {
   return (
-    <XStack padding="$3" alignItems="center" justifyContent="space-between" gap="$3">
+    <XStack
+      padding="$3"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+      backgroundColor={BLOCK_BACKGROUND}
+      {...blockCorners(first, false)}
+    >
       <YStack flex={1} gap="$1">
         <Paragraph fontWeight="600">{institution}</Paragraph>
         <Paragraph size="$2" theme="alt2">{statusLabel[status]}</Paragraph>
@@ -229,6 +258,61 @@ function AccountRow({
       <Button size="$2" chromeless onPress={onPress} disabled={busy}>
         {pending ? "Opening…" : accountActionLabel(status)}
       </Button>
+    </XStack>
+  );
+}
+
+/**
+ * Profile header — the signed-in identity, in the same block surface as everything else.
+ *
+ * Settings doubles as the profile page, so who you are signed in as leads rather than sitting
+ * in a caption. Falls back through Google's display name, then the email's local part, so the
+ * block never renders nameless.
+ */
+function ProfileBlock({
+  name,
+  email,
+  avatarUrl,
+}: {
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
+}) {
+  const initial = (name ?? email ?? "?").trim().charAt(0).toUpperCase();
+
+  return (
+    <XStack
+      alignItems="center"
+      gap="$3"
+      padding="$3"
+      backgroundColor={BLOCK_BACKGROUND}
+      {...blockCorners(true, true)}
+      testID="profile-block"
+    >
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} width={48} height={48} borderRadius={24} />
+      ) : (
+        <YStack
+          width={48}
+          height={48}
+          borderRadius={24}
+          backgroundColor="$color5"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Paragraph fontWeight="700" fontSize={20}>
+            {initial}
+          </Paragraph>
+        </YStack>
+      )}
+      <YStack flex={1} gap="$1">
+        <Paragraph fontWeight="700" fontSize={17} numberOfLines={1}>
+          {name ?? "Signed in"}
+        </Paragraph>
+        <Paragraph size="$2" theme="alt2" numberOfLines={1}>
+          {email ?? "—"}
+        </Paragraph>
+      </YStack>
     </XStack>
   );
 }
@@ -262,6 +346,8 @@ function SettingRow({
       padding="$3"
       justifyContent="space-between"
       alignItems="center"
+      backgroundColor={BLOCK_BACKGROUND}
+      {...blockCorners(true, true)}
       onPress={onPress}
       pressStyle={{ opacity: 0.7 }}
       accessibilityRole={onPress ? "button" : undefined}
