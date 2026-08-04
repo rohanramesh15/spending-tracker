@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H3, Image, Paragraph, Spinner, XStack, YStack } from "tamagui";
+import { H3, Image, Paragraph, Spinner, XStack, YStack } from "tamagui";
 
 import * as DocumentPicker from "expo-document-picker";
 
@@ -11,6 +11,7 @@ import { accountActionLabel, usePlaidLinkFlow } from "@/components/PlaidLink";
 import { signOut, useAuth } from "@/lib/useAuth";
 import {
   BLOCK_PADDING_X,
+  Button,
   BlockGroup,
   BlockGroupTitle,
   Card,
@@ -145,10 +146,21 @@ export default function SettingsScreen() {
                 />
               ))}
               <XStack paddingVertical="$3" paddingHorizontal={BLOCK_PADDING_X} gap="$2">
-                <Button flex={1} onPress={() => void plaid.startConnect()} disabled={plaid.busy}>
-                  {plaid.openingAccountId === "connect" ? <Spinner color="#ffffff" /> : "Connect another"}
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  loading={plaid.openingAccountId === "connect"}
+                  disabled={plaid.busy}
+                  onPress={() => void plaid.startConnect()}
+                >
+                  Connect another
                 </Button>
-                <Button chromeless onPress={() => void handleSync()} disabled={sync.isPending || plaid.busy}>
+                <Button
+                  variant="ghost"
+                  loading={sync.isPending}
+                  disabled={plaid.busy}
+                  onPress={() => void handleSync()}
+                >
                   {sync.isPending ? "Syncing…" : "Sync now"}
                 </Button>
               </XStack>
@@ -159,8 +171,12 @@ export default function SettingsScreen() {
               <Paragraph size="$2" theme="alt2" textAlign="center">
                 Connect a bank to pull in transactions automatically. Receipts and manual entry work without it.
               </Paragraph>
-              <Button onPress={() => void plaid.startConnect()} disabled={plaid.busy} marginTop="$1">
-                {plaid.busy ? <Spinner color="#ffffff" /> : "Connect a bank"}
+              <Button
+                variant="primary"
+                loading={plaid.busy}
+                onPress={() => void plaid.startConnect()}
+              >
+                Connect a bank
               </Button>
             </Card>
           )}
@@ -250,7 +266,7 @@ function AccountRow({
         <Paragraph fontWeight="600">{institution}</Paragraph>
         <Paragraph size="$2" theme="alt2">{statusLabel[status]}</Paragraph>
       </YStack>
-      <Button size="$2" chromeless onPress={onPress} disabled={busy}>
+      <Button variant="ghost" size="sm" loading={pending} disabled={busy} onPress={onPress}>
         {pending ? "Opening…" : accountActionLabel(status)}
       </Button>
     </XStack>

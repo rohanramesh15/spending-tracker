@@ -1,6 +1,8 @@
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
-import { AlertDialog, Button, Paragraph, XStack, YStack } from "tamagui";
+import { AlertDialog, Paragraph, XStack, YStack } from "tamagui";
+
+import { Button } from "@/components/ui";
 
 import type { ReconcileMatch, Resolution } from "@shared/api/types";
 import { parseISODate } from "@shared/lib/dates";
@@ -133,14 +135,12 @@ function ResolutionButton({
 }) {
   return (
     <Button
-      size="$3"
-      theme={primary ? "active" : undefined}
-      chromeless={!primary}
+      variant={primary ? "primary" : "ghost"}
+      size="sm"
+      fullWidth
       disabled={busy}
-      opacity={busy ? 0.5 : 1}
       onPress={onPress}
       testID={testID}
-      justifyContent="flex-start"
     >
       <XStack alignItems="center" gap="$2" flex={1}>
         <Feather name={icon} size={16} />

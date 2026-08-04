@@ -18,3 +18,4 @@ export {
   blockCorners,
 } from "./grouped";
 export { BlockGroup, BlockGroupTitle } from "./BlockGroup";
+export { Button, type ButtonSize, type ButtonVariant } from "./Button";

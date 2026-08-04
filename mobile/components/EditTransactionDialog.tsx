@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { AlertDialog, Button, XStack, YStack } from "tamagui";
+import { AlertDialog, XStack, YStack } from "tamagui";
 
 import type { TransactionDetail } from "@shared/api/types";
 import { centsToInput, dollarsToCents } from "@shared/lib/money";
-import { Field, TextField } from "@/components/ui";
+import { Button, Field, TextField } from "@/components/ui";
 
 export interface EditTransactionValues {
   vendor: string;
@@ -109,15 +109,12 @@ export function EditTransactionDialog({
 
           <XStack gap="$3" justifyContent="flex-end">
             <AlertDialog.Cancel asChild>
-              <Button size="$3" chromeless>
-                Cancel
-              </Button>
+              <Button variant="ghost">Cancel</Button>
             </AlertDialog.Cancel>
             <Button
-              size="$3"
-              theme="active"
+              variant="primary"
               disabled={!canSave}
-              opacity={canSave ? 1 : 0.5}
+              loading={pending}
               onPress={submit}
               testID="edit-save"
             >

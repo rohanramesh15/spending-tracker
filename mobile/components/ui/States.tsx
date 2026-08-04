@@ -1,5 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
-import { Button, H3, Paragraph, YStack } from "tamagui";
+import { H3, Paragraph, YStack } from "tamagui";
+
+import { Button } from "./Button";
 
 /**
  * Empty and error states. user-flow §10 and CLAUDE.md's definition of done both require these
@@ -36,7 +38,7 @@ export function EmptyState({
         </Paragraph>
       ) : null}
       {actionLabel && onAction ? (
-        <Button size="$3" onPress={onAction}>
+        <Button variant="secondary" onPress={onAction}>
           {actionLabel}
         </Button>
       ) : null}
@@ -70,7 +72,7 @@ export function ErrorState({
         </Paragraph>
       ) : null}
       {onRetry ? (
-        <Button size="$3" onPress={onRetry}>
+        <Button variant="secondary" onPress={onRetry}>
           Try again
         </Button>
       ) : null}

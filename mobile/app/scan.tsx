@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, H3, Paragraph, Spinner, XStack, YStack } from "tamagui";
+import { H3, Paragraph, Spinner, XStack, YStack } from "tamagui";
 
 import { useExtractReceipt, useIngest } from "@shared/api/hooks";
 import type {
@@ -15,7 +15,16 @@ import type {
 import { centsToInput, dollarsToCents, formatCents } from "@shared/lib/money";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
-import { Card, EmptyState, ErrorState, Field, Screen, TextField, useToast } from "@/components/ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Field,
+  Screen,
+  TextField,
+  useToast,
+} from "@/components/ui";
 import { itemizedTotalCents, type ItemRow } from "@/lib/manualEntry";
 import { imageUploadPart } from "@/lib/uploads";
 
@@ -244,17 +253,23 @@ export default function ScanScreen() {
           message="We'll read the items and prices, then let you check them before saving."
         />
         <YStack gap="$3">
-          <Button size="$4" theme="active" testID="take-photo" onPress={() => void capture("camera")}>
-            <XStack alignItems="center" gap="$2">
-              <Feather name="camera" size={16} />
-              <Paragraph fontWeight="600">Take a photo</Paragraph>
-            </XStack>
+          <Button
+            variant="primary"
+            fullWidth
+            icon={<Feather name="camera" size={16} color="white" />}
+            testID="take-photo"
+            onPress={() => void capture("camera")}
+          >
+            Take a photo
           </Button>
-          <Button size="$4" testID="choose-photo" onPress={() => void capture("library")}>
-            <XStack alignItems="center" gap="$2">
-              <Feather name="image" size={16} />
-              <Paragraph>Choose from library</Paragraph>
-            </XStack>
+          <Button
+            variant="secondary"
+            fullWidth
+            icon={<Feather name="image" size={16} />}
+            testID="choose-photo"
+            onPress={() => void capture("library")}
+          >
+            Choose from library
           </Button>
         </YStack>
       </Screen>
@@ -303,14 +318,13 @@ export default function ScanScreen() {
               />
             </YStack>
             <Button
-              size="$2"
+              variant="ghost"
+              size="sm"
               circular
-              chromeless
+              icon={<Feather name="trash-2" size={16} />}
               accessibilityLabel="Remove item"
               onPress={() => setRows((rs) => rs.filter((_, j) => j !== i))}
-            >
-              <Feather name="trash-2" size={16} />
-            </Button>
+            />
           </XStack>
           <CategorySelect
             value={r.categoryId}
@@ -320,14 +334,12 @@ export default function ScanScreen() {
       ))}
 
       <Button
-        size="$3"
-        chromeless
+        variant="ghost"
+        size="sm"
+        icon={<Feather name="plus" size={14} />}
         onPress={() => setRows((rs) => [...rs, { name: "", amount: "", categoryId: null }])}
       >
-        <XStack alignItems="center" gap="$2">
-          <Feather name="plus" size={14} />
-          <Paragraph size="$2">Add item</Paragraph>
-        </XStack>
+        Add item
       </Button>
 
       <XStack gap="$3">
@@ -359,10 +371,9 @@ export default function ScanScreen() {
       ) : null}
 
       <Button
-        size="$4"
-        theme="active"
-        disabled={ingest.isPending}
-        opacity={ingest.isPending ? 0.6 : 1}
+        variant="primary"
+        fullWidth
+        loading={ingest.isPending}
         onPress={() => void save()}
         testID="scan-save"
       >

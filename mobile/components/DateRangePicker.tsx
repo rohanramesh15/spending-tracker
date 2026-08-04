@@ -1,10 +1,10 @@
 import { useState } from "react";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Feather from "@expo/vector-icons/Feather";
-import { Button, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import { formatRangeLabel, parseISODate, rangePresets, toISODate } from "@shared/lib/dates";
-import { AppSheet, SheetRow } from "@/components/ui";
+import { AppSheet, Button, SheetRow } from "@/components/ui";
 
 export interface DateRangeValue {
   start: string;
@@ -56,15 +56,14 @@ export function DateRangePicker({
           control. It now carries the same filled treatment as the Add button so it is visibly
           tappable. */}
       <Button
-        size="$3"
+        variant="secondary"
+        size="sm"
+        icon={<Feather name="calendar" size={14} />}
         onPress={() => setOpen(true)}
         accessibilityLabel="Change date range"
         testID="date-range-trigger"
       >
-        <XStack alignItems="center" gap="$2">
-          <Feather name="calendar" size={14} />
-          <Paragraph size="$2">{formatRangeLabel(value.start, value.end)}</Paragraph>
-        </XStack>
+        {formatRangeLabel(value.start, value.end)}
       </Button>
 
       <AppSheet open={open} onOpenChange={setOpen} snapPoints={[60]}>
@@ -89,10 +88,10 @@ export function DateRangePicker({
           Custom
         </Paragraph>
         <XStack gap="$3">
-          <Button flex={1} size="$3" onPress={() => setCustomField("start")} testID="custom-start">
+          <Button variant="secondary" fullWidth onPress={() => setCustomField("start")} testID="custom-start">
             From {value.start}
           </Button>
-          <Button flex={1} size="$3" onPress={() => setCustomField("end")} testID="custom-end">
+          <Button variant="secondary" fullWidth onPress={() => setCustomField("end")} testID="custom-end">
             To {value.end}
           </Button>
         </XStack>

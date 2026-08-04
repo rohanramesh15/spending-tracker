@@ -1,7 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
 import { useRouter } from "expo-router";
-import { Button, H3, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { H3, Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import {
   useRecomputeSubscriptions,
@@ -12,7 +12,15 @@ import {
 import type { Subscription, SubscriptionStatus } from "@shared/api/types";
 import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
-import { Card, EmptyState, ErrorState, ListSkeleton, Screen, useToast } from "@/components/ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  ListSkeleton,
+  Screen,
+  useToast,
+} from "@/components/ui";
 
 const statusLabel: Record<SubscriptionStatus, string> = {
   detected: "Detected",
@@ -60,14 +68,18 @@ export default function SubscriptionsScreen() {
   return (
     <Screen testID="subscriptions-screen">
       <XStack alignItems="center" gap="$2">
-        <Button size="$3" circular chromeless accessibilityLabel="Back" onPress={() => router.back()}>
-          <Feather name="arrow-left" size={20} />
-        </Button>
+        <Button
+          variant="ghost"
+          circular
+          icon={<Feather name="arrow-left" size={20} />}
+          accessibilityLabel="Back"
+          onPress={() => router.back()}
+        />
         <H3 flex={1}>Subscriptions</H3>
         <Button
-          size="$2"
-          chromeless
-          disabled={recompute.isPending}
+          variant="ghost"
+          size="sm"
+          loading={recompute.isPending}
           onPress={() => void rescan()}
           testID="rescan"
         >
@@ -169,10 +181,10 @@ function SubscriptionRow({
       </XStack>
 
       <XStack gap="$2">
-        <Button size="$2" chromeless disabled={busy} onPress={onCancel} testID="mark-cancelled">
+        <Button variant="ghost" size="sm" disabled={busy} onPress={onCancel} testID="mark-cancelled">
           Mark cancelled
         </Button>
-        <Button size="$2" chromeless disabled={busy} onPress={onIgnore} testID="ignore">
+        <Button variant="ghost" size="sm" disabled={busy} onPress={onIgnore} testID="ignore">
           Ignore
         </Button>
       </XStack>

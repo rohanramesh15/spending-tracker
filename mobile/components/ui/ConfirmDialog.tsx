@@ -1,4 +1,6 @@
-import { AlertDialog, Button, XStack, YStack } from "tamagui";
+import { AlertDialog, XStack, YStack } from "tamagui";
+
+import { Button } from "./Button";
 
 /**
  * Destructive-action confirmation — the native equivalent of the web ConfirmDeleteDialog.
@@ -51,12 +53,13 @@ export function ConfirmDialog({
 
           <XStack gap="$3" justifyContent="flex-end" paddingTop="$2">
             <AlertDialog.Cancel asChild>
-              <Button size="$3" chromeless>
-                {cancelLabel}
-              </Button>
+              <Button variant="ghost">{cancelLabel}</Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action asChild>
-              <Button size="$3" theme={destructive ? "red" : "active"} onPress={onConfirm}>
+              <Button
+                variant={destructive ? "destructive" : "primary"}
+                onPress={onConfirm}
+              >
                 {confirmLabel}
               </Button>
             </AlertDialog.Action>

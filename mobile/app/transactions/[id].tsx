@@ -1,12 +1,12 @@
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, H3, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { H3, Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import { useTransaction } from "@shared/api/hooks";
 import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
-import { Card, EmptyState, ErrorState, ListSkeleton, Screen } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, ListSkeleton, Screen } from "@/components/ui";
 
 /**
  * Transaction detail (user-flow §7): read-only header + line items.
@@ -47,14 +47,12 @@ export default function TransactionDetailScreen() {
     <Screen testID="transaction-detail">
       <XStack alignItems="center" gap="$2">
         <Button
-          size="$3"
+          variant="ghost"
           circular
-          chromeless
+          icon={<Feather name="arrow-left" size={20} />}
           accessibilityLabel="Back"
           onPress={() => router.back()}
-        >
-          <Feather name="arrow-left" size={20} />
-        </Button>
+        />
         <YStack flex={1}>
           <H3 numberOfLines={1}>{txn.vendor}</H3>
           <Paragraph size="$2" theme="alt2">

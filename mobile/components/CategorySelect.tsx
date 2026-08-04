@@ -1,10 +1,10 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
-import { Button, Paragraph, XStack, YStack } from "tamagui";
+import { Paragraph, XStack, YStack } from "tamagui";
 
 import { useCategories } from "@shared/api/hooks";
 import { categoryColor, categoryLabel } from "@shared/lib/categories";
-import { AppSheet } from "@/components/ui";
+import { AppSheet, Button } from "@/components/ui";
 
 /**
  * Category picker. Native-first: web used a dropdown; a phone gets a bottom sheet list.
@@ -29,33 +29,29 @@ export function CategorySelect({
   return (
     <>
       <Button
-        size="$3"
-        onPress={() => setOpen(true)}
+        variant="secondary"
+        fullWidth
+        align="between"
         disabled={isLoading}
-        testID={testID ?? "category-select"}
-        accessibilityLabel="Choose a category"
-      >
-        <XStack alignItems="center" gap="$2" flex={1}>
-          {selected ? (
+        icon={
+          selected ? (
             <YStack
               width={12}
               height={12}
               borderRadius={3}
               backgroundColor={categoryColor(selected.name)}
             />
-          ) : null}
-          <Paragraph
-            flex={1}
-            size="$3"
-            theme={selected ? undefined : "alt2"}
-            // Addressable on its own: Tamagui's Sheet mounts the option list even while closed,
-            // so a bare text query would match both the trigger and the hidden option.
-            testID="category-select-label"
-          >
-            {selected ? categoryLabel(selected.name) : isLoading ? "Loading…" : "Pick a category"}
-          </Paragraph>
-          <Feather name="chevron-down" size={16} />
-        </XStack>
+          ) : null
+        }
+        iconAfter={<Feather name="chevron-down" size={16} />}
+        onPress={() => setOpen(true)}
+        accessibilityLabel="Choose a category"
+        testID={testID ?? "category-select"}
+        // Addressable on its own: Tamagui's Sheet mounts the option list even while closed,
+        // so a bare text query would match both the trigger and the hidden option.
+        labelTestID="category-select-label"
+      >
+        {selected ? categoryLabel(selected.name) : isLoading ? "Loading…" : "Pick a category"}
       </Button>
 
       <AppSheet open={open} onOpenChange={setOpen} snapPoints={[65]}>

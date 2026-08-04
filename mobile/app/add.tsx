@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H3, Paragraph, XStack, YStack } from "tamagui";
+import { H3, Paragraph, XStack, YStack } from "tamagui";
 
 import { useIngest } from "@shared/api/hooks";
 import type { IngestRequest, IngestResult, ReconcileMatch, Resolution } from "@shared/api/types";
@@ -9,7 +9,7 @@ import { todayISO } from "@shared/lib/dates";
 import { dollarsToCents, formatCents } from "@shared/lib/money";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
-import { Card, Field, Screen, TextField, useToast } from "@/components/ui";
+import { Button, Card, Field, Screen, TextField, useToast } from "@/components/ui";
 import {
   buildIngestPayload,
   itemizedTotalCents,
@@ -101,14 +101,12 @@ export default function ManualEntryScreen() {
     <Screen testID="manual-entry">
       <XStack alignItems="center" gap="$2">
         <Button
-          size="$3"
+          variant="ghost"
           circular
-          chromeless
+          icon={<Feather name="arrow-left" size={20} />}
           accessibilityLabel="Back"
           onPress={() => router.back()}
-        >
-          <Feather name="arrow-left" size={20} />
-        </Button>
+        />
         <H3>Add manually</H3>
       </XStack>
 
@@ -174,15 +172,14 @@ export default function ManualEntryScreen() {
                   />
                 </YStack>
                 <Button
-                  size="$2"
+                  variant="ghost"
+                  size="sm"
                   circular
-                  chromeless
+                  icon={<Feather name="trash-2" size={16} />}
                   accessibilityLabel="Remove item"
                   testID={`item-remove-${i}`}
                   onPress={() => setRows((rs) => rs.filter((_, j) => j !== i))}
-                >
-                  <Feather name="trash-2" size={16} />
-                </Button>
+                />
               </XStack>
               <CategorySelect
                 value={r.categoryId}
@@ -193,15 +190,13 @@ export default function ManualEntryScreen() {
           ))}
 
           <Button
-            size="$3"
-            chromeless
+            variant="ghost"
+            size="sm"
+            icon={<Feather name="plus" size={14} />}
             testID="add-item"
             onPress={() => setRows((rs) => [...rs, { name: "", amount: "", categoryId: null }])}
           >
-            <XStack alignItems="center" gap="$2">
-              <Feather name="plus" size={14} />
-              <Paragraph size="$2">Add item</Paragraph>
-            </XStack>
+            Add item
           </Button>
 
           <XStack gap="$3">
@@ -247,10 +242,9 @@ export default function ManualEntryScreen() {
       ) : null}
 
       <Button
-        size="$4"
-        theme="active"
-        disabled={ingest.isPending}
-        opacity={ingest.isPending ? 0.6 : 1}
+        variant="primary"
+        fullWidth
+        loading={ingest.isPending}
         onPress={() => void save()}
         testID="save"
       >
@@ -279,11 +273,10 @@ function ModeChip({
 }) {
   return (
     <Button
-      size="$2"
-      theme={active ? "active" : undefined}
-      chromeless={!active}
+      variant={active ? "primary" : "ghost"}
+      size="sm"
       onPress={onPress}
-      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
     >
       {label}
     </Button>

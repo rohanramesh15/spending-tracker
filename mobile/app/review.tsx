@@ -1,11 +1,11 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H3, Paragraph, XStack, YStack } from "tamagui";
+import { H3, Paragraph, XStack, YStack } from "tamagui";
 
 import { useResolveReview, useReviews } from "@shared/api/hooks";
 import type { Resolution } from "@shared/api/types";
 import { ReviewCard } from "@/components/ReviewCard";
-import { EmptyState, ErrorState, ListSkeleton, Screen, useToast } from "@/components/ui";
+import { Button, EmptyState, ErrorState, ListSkeleton, Screen, useToast } from "@/components/ui";
 
 const doneMessage: Record<Resolution, string> = {
   merge: "Merged",
@@ -40,14 +40,12 @@ export default function ReviewQueueScreen() {
     <Screen testID="review-screen">
       <XStack alignItems="center" gap="$2">
         <Button
-          size="$3"
+          variant="ghost"
           circular
-          chromeless
+          icon={<Feather name="arrow-left" size={20} />}
           accessibilityLabel="Back"
           onPress={() => router.back()}
-        >
-          <Feather name="arrow-left" size={20} />
-        </Button>
+        />
         <H3>Review</H3>
       </XStack>
 

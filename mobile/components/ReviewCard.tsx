@@ -1,11 +1,11 @@
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
-import { Button, Paragraph, XStack, YStack } from "tamagui";
+import { Paragraph, XStack, YStack } from "tamagui";
 
 import type { Resolution, Review, ReviewTxn } from "@shared/api/types";
 import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 
 const sourceLabel: Record<string, string> = {
   plaid: "Bank",
@@ -124,19 +124,15 @@ function ResolveButton({
 }) {
   return (
     <Button
-      flex={flex ? 1 : undefined}
-      size="$3"
-      theme={primary ? "active" : undefined}
-      chromeless={chromeless}
+      variant={primary ? "primary" : chromeless ? "ghost" : "secondary"}
+      size="sm"
+      fullWidth={flex}
       disabled={busy}
-      opacity={busy ? 0.5 : 1}
+      icon={<Feather name={icon} size={14} />}
       onPress={onPress}
       testID={testID}
     >
-      <XStack alignItems="center" gap="$1.5">
-        <Feather name={icon} size={14} />
-        <Paragraph size="$2">{label}</Paragraph>
-      </XStack>
+      {label}
     </Button>
   );
 }

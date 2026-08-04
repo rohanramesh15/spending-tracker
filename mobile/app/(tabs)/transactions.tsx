@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H2, Paragraph, XStack, YStack } from "tamagui";
+import { H2, Paragraph, XStack, YStack } from "tamagui";
 
 import {
   useDeleteTransaction,
@@ -16,6 +16,7 @@ import { EditTransactionDialog, type EditTransactionValues } from "@/components/
 import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import {
   AppSheet,
+  Button,
   Card,
   ConfirmDialog,
   EmptyState,
@@ -82,11 +83,14 @@ export default function TransactionsScreen() {
     <Screen testID="transactions-screen">
       <XStack alignItems="center" justifyContent="space-between">
         <H2>Transactions</H2>
-        <Button size="$3" onPress={() => setAddOpen(true)} testID="add-transaction">
-          <XStack alignItems="center" gap="$1.5">
-            <Feather name="plus" size={14} />
-            <Paragraph size="$2">Add</Paragraph>
-          </XStack>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Feather name="plus" size={14} />}
+          onPress={() => setAddOpen(true)}
+          testID="add-transaction"
+        >
+          Add
         </Button>
       </XStack>
 
@@ -244,11 +248,10 @@ function FilterChip({
 }) {
   return (
     <Button
-      size="$2"
-      theme={active ? "active" : undefined}
-      chromeless={!active}
+      variant={active ? "primary" : "ghost"}
+      size="sm"
       onPress={onPress}
-      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
     >
       {label}
     </Button>

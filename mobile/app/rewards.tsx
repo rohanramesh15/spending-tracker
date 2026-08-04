@@ -1,10 +1,10 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H3, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { H3, Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import { useCards, useRewardsOptimization } from "@shared/api/hooks";
 import { formatCents } from "@shared/lib/money";
-import { Card, EmptyState, ErrorState, ListSkeleton, Screen } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, ListSkeleton, Screen } from "@/components/ui";
 
 /**
  * Card Rewards Optimizer — which card to use per spending category.
@@ -23,9 +23,13 @@ export default function RewardsScreen() {
   return (
     <Screen testID="rewards-screen">
       <XStack alignItems="center" gap="$2">
-        <Button size="$3" circular chromeless accessibilityLabel="Back" onPress={() => router.back()}>
-          <Feather name="arrow-left" size={20} />
-        </Button>
+        <Button
+          variant="ghost"
+          circular
+          icon={<Feather name="arrow-left" size={20} />}
+          accessibilityLabel="Back"
+          onPress={() => router.back()}
+        />
         <H3>Card rewards</H3>
       </XStack>
 

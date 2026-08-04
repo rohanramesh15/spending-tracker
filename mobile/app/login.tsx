@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, H1, Paragraph, Spinner, XStack, YStack } from "tamagui";
+import { H1, Paragraph, Spinner, XStack, YStack } from "tamagui";
 
 import { GoogleIcon } from "@/components/GoogleIcon";
+import { Button } from "@/components/ui";
 import { IS_SUPABASE_CONFIGURED } from "@/lib/env";
 import { SignInCancelled, signInWithGoogle } from "@/lib/useAuth";
 
@@ -43,18 +44,16 @@ export default function LoginScreen() {
 
         <YStack gap="$3">
           <Button
-            size="$5"
-            disabled={busy || !IS_SUPABASE_CONFIGURED}
-            opacity={busy || !IS_SUPABASE_CONFIGURED ? 0.6 : 1}
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={busy}
+            disabled={!IS_SUPABASE_CONFIGURED}
+            icon={<GoogleIcon size={18} />}
             onPress={onPressGoogle}
             accessibilityLabel="Continue with Google"
           >
-            <XStack alignItems="center" gap="$3">
-              {busy ? <Spinner size="small" /> : <GoogleIcon size={18} />}
-              <Paragraph fontWeight="600">
-                {busy ? "Signing in…" : "Continue with Google"}
-              </Paragraph>
-            </XStack>
+            {busy ? "Signing in…" : "Continue with Google"}
           </Button>
 
           {!IS_SUPABASE_CONFIGURED && (
