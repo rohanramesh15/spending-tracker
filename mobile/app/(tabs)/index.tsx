@@ -11,7 +11,7 @@ import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePick
 import { SpendingPie } from "@/components/SpendingPie";
 import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, Screen, Skeleton } from "@/components/ui";
-import { filterByCategory, isFilterableCategory } from "@/lib/filterByCategory";
+import { filterByCategory } from "@/lib/filterByCategory";
 
 /**
  * Home — the daily loop (user-flow §2): spending total + pie for a selectable range
@@ -112,16 +112,6 @@ export default function HomeScreen() {
       {/* The full ledger, not a "Recent" preview with a See all. Home already scrolls, and the
           Transactions tab is one tap away, so truncating it only hid transactions. */}
       <YStack gap="$2">
-        {/* Tax and Tip are charged across transactions rather than being line items, so the
-            list can't narrow to them. Say so instead of showing an unchanged list and letting
-            it look like the tap did nothing. */}
-        {selectedCategory && !isFilterableCategory(selectedCategory) ? (
-          <Paragraph size="$2" theme="alt2" testID="unfilterable-note">
-            {categoryLabel(selectedCategory)} is charged across transactions, not itemised — so
-            it can&apos;t narrow this list.
-          </Paragraph>
-        ) : null}
-
         {recent.isLoading ? (
           <ListSkeleton rows={4} />
         ) : recent.isError ? (

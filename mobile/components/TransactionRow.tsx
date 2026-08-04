@@ -36,7 +36,16 @@ export function TransactionRow({
   /** Omit to render no actions button — the Home screen's recent list has no row menu. */
   onOpenMenu?: () => void;
 }) {
-  const { vendor, categories, total_cents, currency } = transaction;
+  const { vendor, categories, total_cents, currency, tax_cents, tip_cents } = transaction;
+
+  // Tax and Tip are transaction-level, so they are never in `categories` (CLAUDE.md #8) — they
+  // have to be appended from their own amounts or they'd be invisible on the row despite being
+  // their own slices on the chart.
+  const labels = [
+    ...categories.slice(0, 3).map(categoryLabel),
+    ...(tax_cents > 0 ? [categoryLabel("Tax")] : []),
+    ...(tip_cents > 0 ? [categoryLabel("Tip")] : []),
+  ];
 
   return (
     <XStack
@@ -56,10 +65,12 @@ export function TransactionRow({
         </Paragraph>
         {/* Plain text rather than coloured pills: at three-per-row the pills competed with the
             vendor and the amount. The category is supporting information here — the pie is where
-            colour carries meaning. Capped at 3 so a busy receipt can't overrun the row. */}
-        {categories.length > 0 ? (
+            colour carries meaning. Line-item categories capped at 3 so a busy receipt can't
+            overrun the row; Tax/Tip are appended after that cap because they are always
+            meaningful and there are at most two of them. */}
+        {labels.length > 0 ? (
           <Paragraph size="$2" theme="alt2" numberOfLines={1}>
-            {categories.slice(0, 3).map(categoryLabel).join(" · ")}
+            {labels.join(" · ")}
           </Paragraph>
         ) : null}
       </YStack>

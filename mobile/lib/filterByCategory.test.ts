@@ -1,5 +1,5 @@
 import type { TransactionListItem } from "@shared/api/types";
-import { filterByCategory, isFilterableCategory, UNCATEGORIZED } from "@/lib/filterByCategory";
+import { filterByCategory, UNCATEGORIZED } from "@/lib/filterByCategory";
 
 function txn(id: string, categories: string[]): TransactionListItem {
   return {
@@ -12,6 +12,8 @@ function txn(id: string, categories: string[]): TransactionListItem {
     review_status: "confirmed",
     item_count: categories.length,
     categories,
+    tax_cents: 0,
+    tip_cents: 0,
     hidden: false,
     pending: false,
   };
@@ -58,24 +60,33 @@ describe("filterByCategory", () => {
   });
 });
 
-describe("non-line-item slices", () => {
-  // Tax and Tip are transaction-level amounts, not line-item categories, so no transaction
-  // carries them. Filtering to nothing would claim there is no tax while the slice is on screen.
-  it.each(["Tax", "Tip"])("leaves the list untouched for %s", (category) => {
-    expect(filterByCategory(items, category)).toHaveLength(items.length);
+describe("transaction-level slices (Tax / Tip)", () => {
+  // Tax and Tip are never in `categories` — they are transaction-level amounts (CLAUDE.md #8),
+  // so they match on their own field. Before the list carried those fields this returned
+  // nothing, and an empty list read as "you have no tax" while the slice sat on the chart.
+  const withAmounts = [
+    { ...txn("taxed", ["Food and Drinks"]), tax_cents: 50, tip_cents: 0 },
+    { ...txn("tipped", ["Food and Drinks"]), tax_cents: 0, tip_cents: 200 },
+    { ...txn("both", ["Other"]), tax_cents: 10, tip_cents: 10 },
+    { ...txn("neither", ["Other"]), tax_cents: 0, tip_cents: 0 },
+  ];
+
+  it("matches transactions that actually carried tax", () => {
+    expect(filterByCategory(withAmounts, "Tax").map((t) => t.id)).toEqual(["taxed", "both"]);
   });
 
-  it("reports Tax and Tip as unfilterable so the caller can explain", () => {
-    expect(isFilterableCategory("Tax")).toBe(false);
-    expect(isFilterableCategory("Tip")).toBe(false);
+  it("matches transactions that actually carried a tip", () => {
+    expect(filterByCategory(withAmounts, "Tip").map((t) => t.id)).toEqual(["tipped", "both"]);
   });
 
-  it("reports real categories and the unitemized bucket as filterable", () => {
-    expect(isFilterableCategory("Food and Drinks")).toBe(true);
-    expect(isFilterableCategory(UNCATEGORIZED)).toBe(true);
+  it("excludes a zero amount rather than counting the field's presence", () => {
+    expect(filterByCategory(withAmounts, "Tax").map((t) => t.id)).not.toContain("neither");
   });
 
-  it("treats no selection as unfilterable", () => {
-    expect(isFilterableCategory(null)).toBe(false);
+  it("does not confuse tax with a line-item category of the same transaction", () => {
+    expect(filterByCategory(withAmounts, "Food and Drinks").map((t) => t.id)).toEqual([
+      "taxed",
+      "tipped",
+    ]);
   });
 });

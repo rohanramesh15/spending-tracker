@@ -12,6 +12,8 @@ function txn(id: string, purchased_on: string): TransactionListItem {
     review_status: "confirmed",
     item_count: 0,
     categories: [],
+    tax_cents: 0,
+    tip_cents: 0,
     hidden: false,
     pending: false,
   };

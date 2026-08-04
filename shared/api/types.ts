@@ -38,6 +38,11 @@ export interface TransactionListItem {
   review_status: ReviewStatus;
   item_count: number;
   categories: string[]; // distinct line-item categories, for row chips
+  // Transaction-level amounts (CLAUDE.md #8). NOT represented in `categories`, which is
+  // line-items only — so these are the only way to tell that a row carried tax or a tip, and
+  // the only way to resolve the Tax/Tip pie slices back to their transactions.
+  tax_cents: number;
+  tip_cents: number;
   hidden: boolean; // excluded from pie charts; still shown in the ledger
   pending: boolean; // reported by Plaid before it posts; also excluded from pie charts until it posts
 }

@@ -13,6 +13,8 @@ function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem 
     review_status: "confirmed",
     item_count: 3,
     categories: ["Food and Drinks"],
+    tax_cents: 0,
+    tip_cents: 0,
     hidden: false,
     pending: false,
     ...overrides,
@@ -106,5 +108,43 @@ describe("TransactionRow", () => {
 
       expect(screen.queryByTestId("transaction-actions-t1")).toBeNull();
     });
+  });
+});
+
+describe("transaction-level amounts", () => {
+  // Tax and Tip never appear in `categories` (they are stored on the transaction, CLAUDE.md #8),
+  // so without this they'd be invisible on the row while having their own pie slices.
+  it("tags a row that carried tax", async () => {
+    await renderWithProviders(<TransactionRow transaction={txn({ tax_cents: 50 })} />);
+    expect(screen.getByText(/Tax/)).toBeTruthy();
+  });
+
+  it("tags a row that carried a tip", async () => {
+    await renderWithProviders(<TransactionRow transaction={txn({ tip_cents: 200 })} />);
+    expect(screen.getByText(/Tip/)).toBeTruthy();
+  });
+
+  it("does not tag a row whose tax is zero", async () => {
+    await renderWithProviders(<TransactionRow transaction={txn({ tax_cents: 0 })} />);
+    expect(screen.queryByText(/Tax/)).toBeNull();
+  });
+
+  it("shows tax alongside the line-item categories rather than replacing them", async () => {
+    await renderWithProviders(
+      <TransactionRow transaction={txn({ categories: ["Food and Drinks"], tax_cents: 50 })} />,
+    );
+    expect(screen.getByText("Food & Drinks · Tax")).toBeTruthy();
+  });
+
+  it("keeps tax visible even when the line-item cap is already reached", async () => {
+    await renderWithProviders(
+      <TransactionRow
+        transaction={txn({
+          categories: ["Food and Drinks", "Shopping", "Health", "Services"],
+          tax_cents: 50,
+        })}
+      />,
+    );
+    expect(screen.getByText(/· Tax$/)).toBeTruthy();
   });
 });

@@ -14,6 +14,8 @@ const base: TransactionListItem = {
   item_count: 3,
   review_status: "confirmed",
   pending: false,
+  tax_cents: 0,
+  tip_cents: 0,
   hidden: false,
   categories: [],
 };

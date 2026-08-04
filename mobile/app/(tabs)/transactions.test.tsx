@@ -34,6 +34,8 @@ function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem 
     review_status: "confirmed",
     item_count: 2,
     categories: [],
+    tax_cents: 0,
+    tip_cents: 0,
     hidden: false,
     pending: false,
     ...overrides,
