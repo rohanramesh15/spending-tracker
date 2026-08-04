@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { H3, Image, Paragraph, Spinner, XStack, YStack } from "tamagui";
+import { Image, Paragraph, Spinner, XStack, YStack } from "tamagui";
 
 import * as DocumentPicker from "expo-document-picker";
 
@@ -9,18 +9,7 @@ import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@shared/api/
 import type { AccountStatus } from "@shared/api/types";
 import { accountActionLabel, usePlaidLinkFlow } from "@/components/PlaidLink";
 import { signOut, useAuth } from "@/lib/useAuth";
-import {
-  BLOCK_PADDING_X,
-  Button,
-  BlockGroup,
-  BlockGroupTitle,
-  Card,
-  ConfirmDialog,
-  ErrorState,
-  ListSkeleton,
-  Screen,
-  useToast,
-} from "@/components/ui";
+import { BLOCK_PADDING_X, BlockGroup, BlockGroupTitle, Button, Card, ConfirmDialog, ErrorState, ListSkeleton, PageTitle, Screen, useToast } from "@/components/ui";
 
 /**
  * Settings — profile, connected accounts, data management and app info (user-flow §9).
@@ -119,7 +108,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen testID="settings-screen">
-      <H3>Settings</H3>
+      <PageTitle>Settings</PageTitle>
 
       <YStack gap="$4">
         <ProfileBlock

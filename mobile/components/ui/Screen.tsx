@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView, useTheme, YStack } from "tamagui";
 
-import { SCREEN_BACKGROUND } from "./grouped";
+import { SCREEN_BACKGROUND, SCREEN_PADDING_X } from "./grouped";
 
 /**
  * Standard screen frame: safe-area insets, consistent padding, optional scrolling.
@@ -53,7 +53,7 @@ export function Screen({
       {scrollable ? (
         <ScrollView
           contentContainerStyle={{
-            padding: padded ? 16 : 0,
+            padding: padded ? SCREEN_PADDING_X : 0,
             gap: onBackgroundPress ? 0 : 16,
             paddingBottom: 32,
           }}

@@ -1,6 +1,13 @@
 import { processColor } from "react-native";
 
-import { SpendingPie, donutSegmentPath, labelInkFor, percentLabel } from "@/components/SpendingPie";
+import {
+  INNER,
+  OUTER,
+  SpendingPie,
+  donutSegmentPath,
+  labelInkFor,
+  percentLabel,
+} from "@/components/SpendingPie";
 import { categoryColor } from "@shared/lib/categories";
 import { fireEvent, renderWithProviders, screen, within } from "@/test-utils";
 
@@ -16,8 +23,8 @@ describe("donutSegmentPath", () => {
     // Outer arc sweeps clockwise (flag 1), inner arc back (flag 0) — reversing either renders
     // an inside-out wedge that still superficially looks like a chart slice.
     expect(d).toMatch(/^M /);
-    expect(d).toContain("A 100 100 0 0 1");
-    expect(d).toContain("A 58 58 0 0 0");
+    expect(d).toContain(`A ${OUTER} ${OUTER} 0 0 1`);
+    expect(d).toContain(`A ${INNER} ${INNER} 0 0 0`);
     expect(d.endsWith("Z")).toBe(true);
   });
 
@@ -209,5 +216,12 @@ describe("the percentage readout stays visible", () => {
     // was passed in — comparing against "#ffffff" silently passes and tests nothing.
     const fill = screen.getByTestId("pie-percent").props.fill;
     expect(fill.payload).not.toBe(processColor("#ffffff"));
+  });
+});
+
+describe("ring thickness", () => {
+  it("keeps the ring thick enough for a small slice to be visible and tappable", () => {
+    // A 1% wedge on a thin ring is a hairline — and it still has to be a touch target.
+    expect(OUTER - INNER).toBeGreaterThanOrEqual(50);
   });
 });

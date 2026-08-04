@@ -1,25 +1,14 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { H2, Paragraph, XStack, YStack } from "tamagui";
+import { Paragraph, XStack, YStack } from "tamagui";
 
 import { useTransactions } from "@shared/api/hooks";
 import type { TransactionListItem } from "@shared/api/types";
 import { formatCents } from "@shared/lib/money";
 import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import { useTransactionActions } from "@/components/useTransactionActions";
-import {
-  AppSheet,
-  Button,
-  Card,
-  ConfirmDialog,
-  EmptyState,
-  ErrorState,
-  ListSkeleton,
-  Screen,
-  SheetRow,
-  useToast,
-} from "@/components/ui";
+import { AppSheet, Button, Card, ConfirmDialog, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen, SheetList, SheetRow, useToast } from "@/components/ui";
 import { groupByDay } from "@/lib/groupTransactions";
 
 type Filter = "all" | "needs_review";
@@ -53,7 +42,7 @@ export default function TransactionsScreen() {
   return (
     <Screen testID="transactions-screen">
       <XStack alignItems="center" justifyContent="space-between">
-        <H2>Transactions</H2>
+        <PageTitle>Transactions</PageTitle>
         <Button
           variant="secondary"
           size="sm"
@@ -100,43 +89,38 @@ export default function TransactionsScreen() {
       {/* The three ways to add a transaction. Ordered fastest-first for the common case:
           most entries are typed, and a receipt you just bought is more likely to be
           photographed now than found in the library later. */}
+      {/* No heading: the sheet is opened by a button labelled "Add", and the three rows say
+          exactly what they do. A title and a subtitle above them only restated that. */}
       <AppSheet open={addOpen} onOpenChange={setAddOpen}>
-        <YStack gap="$1">
-          <Paragraph fontWeight="700" size="$5">
-            Add a transaction
-          </Paragraph>
-          <Paragraph theme="alt2" size="$2">
-            Type it in, or let us read a receipt for you.
-          </Paragraph>
-        </YStack>
-
-        <SheetRow
-          label="Enter manually"
-          testID="add-manual"
-          icon={<Feather name="edit-3" size={18} />}
-          onPress={() => {
-            setAddOpen(false);
-            router.push("/add");
-          }}
-        />
-        <SheetRow
-          label="Scan a receipt"
-          testID="add-scan-camera"
-          icon={<Feather name="camera" size={18} />}
-          onPress={() => {
-            setAddOpen(false);
-            router.push("/scan?source=camera");
-          }}
-        />
-        <SheetRow
-          label="Choose from library"
-          testID="add-scan-library"
-          icon={<Feather name="image" size={18} />}
-          onPress={() => {
-            setAddOpen(false);
-            router.push("/scan?source=library");
-          }}
-        />
+        <SheetList>
+          <SheetRow
+            label="Enter manually"
+            testID="add-manual"
+            icon={<Feather name="edit-3" size={18} />}
+            onPress={() => {
+              setAddOpen(false);
+              router.push("/add");
+            }}
+          />
+          <SheetRow
+            label="Scan a receipt"
+            testID="add-scan-camera"
+            icon={<Feather name="camera" size={18} />}
+            onPress={() => {
+              setAddOpen(false);
+              router.push("/scan?source=camera");
+            }}
+          />
+          <SheetRow
+            label="Choose from library"
+            testID="add-scan-library"
+            icon={<Feather name="image" size={18} />}
+            onPress={() => {
+              setAddOpen(false);
+              router.push("/scan?source=library");
+            }}
+          />
+        </SheetList>
       </AppSheet>
 
       {actions.overlays}

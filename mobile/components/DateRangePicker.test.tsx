@@ -50,10 +50,10 @@ describe("DateRangePicker", () => {
     await renderWithProviders(<Harness initial={march} onChange={onChange} />);
     await fireEvent.press(screen.getByTestId("date-range-trigger"));
 
-    const today = rangePresets().find((p) => p.label === "Today")!;
-    await fireEvent.press(screen.getByTestId("preset-Today"));
+    const lastMonth = rangePresets().find((p) => p.label === "Last month")!;
+    await fireEvent.press(screen.getByTestId("preset-Last month"));
 
-    expect(onChange).toHaveBeenCalledWith({ start: today.start, end: today.end });
+    expect(onChange).toHaveBeenCalledWith({ start: lastMonth.start, end: lastMonth.end });
   });
 });
 
@@ -169,14 +169,6 @@ describe("preset rows show the span they resolve to", () => {
     expect(screen.getByTestId("preset-This month")).toHaveTextContent(/1 – 31 \w{3} \d{4}/);
   });
 
-  it("states a single-day preset once", async () => {
-    await renderWithProviders(
-      <DateRangePicker value={{ start: "2026-03-01", end: "2026-03-31" }} onChange={jest.fn()} />,
-    );
-    await fireEvent.press(screen.getByTestId("date-range-trigger"));
-
-    expect(screen.getByTestId("preset-Today")).toHaveTextContent(/^Today\d{1,2} \w{3} \d{4}$/);
-  });
 
   it("reads day-first, agreeing with the From/To fields below it", async () => {
     await renderWithProviders(

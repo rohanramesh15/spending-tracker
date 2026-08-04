@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
 import { Separator, Sheet, XStack, YStack, Paragraph } from "tamagui";
 
-import { BLOCK_RADIUS } from "./grouped";
+import { BLOCK_RADIUS, SHEET_PADDING_X } from "./grouped";
 
 /**
  * Bottom sheet — the native replacement for the web's Radix-based ActionSheet.
@@ -18,6 +18,8 @@ import { BLOCK_RADIUS } from "./grouped";
  *    screen. A fixed snap point left a short menu stranded in the middle of a tall empty card.
  *  - Corners use BLOCK_RADIUS, the same radius as the grouped blocks, so a sheet reads as the
  *    same family of surface as everything it opens over.
+ *  - Content is inset by SHEET_PADDING_X, which is the screen's padding PLUS a row's, so a
+ *    sheet's labels line up with the labels in the list behind it.
  *
  * KNOWN GAP: no `animation` prop. The animation drivers are configured and work at runtime, but
  * spreading Tamagui's v4 preset into createTamagui loses the animation-key types, so
@@ -47,7 +49,7 @@ export function AppSheet({
         backgroundColor="$shadow6"
       />
       <Sheet.Frame
-        paddingHorizontal="$4"
+        paddingHorizontal={SHEET_PADDING_X}
         paddingTop="$4"
         paddingBottom="$6"
         gap="$3"
@@ -82,27 +84,49 @@ export function SheetRow({
   testID?: string;
 }) {
   return (
-    <YStack>
-      <XStack
-        alignItems="center"
-        gap="$3"
-        paddingVertical="$3"
-        onPress={onPress}
-        pressStyle={{ opacity: 0.6 }}
-        accessibilityRole="button"
-        testID={testID}
-      >
-        {icon}
-        <Paragraph color={destructive ? "$red10" : "$color"} fontWeight="500" flex={1}>
-          {label}
+    <XStack
+      alignItems="center"
+      gap="$3"
+      paddingVertical="$3"
+      onPress={onPress}
+      pressStyle={{ opacity: 0.6 }}
+      accessibilityRole="button"
+      testID={testID}
+    >
+      {icon}
+      <Paragraph color={destructive ? "$red10" : "$color"} fontWeight="500" flex={1}>
+        {label}
+      </Paragraph>
+      {value ? (
+        <Paragraph size="$2" theme="alt2" numberOfLines={1}>
+          {value}
         </Paragraph>
-        {value ? (
-          <Paragraph size="$2" theme="alt2" numberOfLines={1}>
-            {value}
-          </Paragraph>
-        ) : null}
-      </XStack>
-      <Separator />
+      ) : null}
+    </XStack>
+  );
+}
+
+/**
+ * A list of SheetRows, with dividers BETWEEN them and none after the last.
+ *
+ * SheetRow used to draw its own trailing divider, which left a line dangling under the final row
+ * and — where a caller added its own divider below the list — two lines stacked. Owning the
+ * separators in the container is the same fix as BlockGroup: the row renders content, the list
+ * decides what goes between.
+ */
+export function SheetList({ children, testID }: { children: ReactNode; testID?: string }) {
+  // Nulls are ignored, so `{cond ? <SheetRow/> : null}` can't leave a divider with nothing
+  // under it.
+  const rows = Children.toArray(children).filter(Boolean);
+
+  return (
+    <YStack testID={testID}>
+      {rows.map((row, i) => (
+        <YStack key={i}>
+          {i > 0 ? <Separator /> : null}
+          {row}
+        </YStack>
+      ))}
     </YStack>
   );
 }

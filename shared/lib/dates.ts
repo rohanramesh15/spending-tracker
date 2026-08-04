@@ -1,4 +1,4 @@
-import { format, startOfMonth, endOfMonth, subMonths, subDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 /** Local calendar dates as YYYY-MM-DD (matches the backend's local `purchased_on`). */
 export function toISODate(d: Date): string {
@@ -44,7 +44,16 @@ export interface DateRange {
   label: string;
 }
 
-/** Presets for the spending chart (user-flow §8a: single day is first-class). */
+/**
+ * Presets for the spending chart.
+ *
+ * Deliberately just two. "Last 90 days" and "Today" were removed on request; a single day and any
+ * other span are still reachable through the custom range, which is why dropping them costs
+ * nothing but a tap. NOTE: user-flow §8a calls a single day "first-class", so this narrows that —
+ * flagged rather than silently reinterpreted.
+ *
+ * Shared so both clients offer the same ranges; editing this list changes the web picker too.
+ */
 export function rangePresets(now = new Date()): DateRange[] {
   return [
     {
@@ -56,16 +65,6 @@ export function rangePresets(now = new Date()): DateRange[] {
       label: "Last month",
       start: toISODate(startOfMonth(subMonths(now, 1))),
       end: toISODate(endOfMonth(subMonths(now, 1))),
-    },
-    {
-      label: "Last 90 days",
-      start: toISODate(subDays(now, 89)),
-      end: toISODate(now),
-    },
-    {
-      label: "Today",
-      start: toISODate(now),
-      end: toISODate(now),
     },
   ];
 }

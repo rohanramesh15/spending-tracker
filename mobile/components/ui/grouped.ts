@@ -49,6 +49,20 @@ export const BLOCK_TITLE_INSET = 10;
  *  identically — a row that sets its own drifts the moment another list is added. */
 export const BLOCK_PADDING_X = 18;
 
+/** The screen's own edge padding, owned by ui/Screen. */
+export const SCREEN_PADDING_X = 16;
+
+/**
+ * Horizontal padding for sheet content, derived rather than chosen.
+ *
+ * A sheet is full-bleed, but the blocks behind it are inset by the screen's padding AND then by
+ * the row's own. Text in a sheet therefore has to clear both to line up with the text in a
+ * transaction row underneath it — otherwise the sheet's labels sit ~16px to the left of every
+ * label on the page behind them, which reads as a mistake. Derived from the two constants so it
+ * stays aligned if either changes.
+ */
+export const SHEET_PADDING_X = SCREEN_PADDING_X + BLOCK_PADDING_X;
+
 export function blockCorners(first: boolean, last: boolean) {
   return {
     borderTopLeftRadius: first ? BLOCK_RADIUS : 0,

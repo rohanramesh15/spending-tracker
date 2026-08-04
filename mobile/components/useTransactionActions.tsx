@@ -14,7 +14,7 @@ import {
   EditTransactionDialog,
   type EditTransactionValues,
 } from "@/components/EditTransactionDialog";
-import { AppSheet, ConfirmDialog, SheetRow, useToast } from "@/components/ui";
+import { AppSheet, ConfirmDialog, SheetList, SheetRow, useToast } from "@/components/ui";
 
 /**
  * Edit / Hide / Delete for a transaction: the action sheet, the edit dialog and the delete
@@ -74,37 +74,39 @@ export function useTransactionActions() {
               </Paragraph>
             </YStack>
 
-            <SheetRow
-              label="Edit"
-              testID="action-edit"
-              icon={<Feather name="edit-2" size={18} />}
-              onPress={() => {
-                const id = menuTxn.id;
-                setMenuTxn(null);
-                setEditingId(id);
-              }}
-            />
-            <SheetRow
-              label={menuTxn.hidden ? "Unhide from spending" : "Hide from spending"}
-              testID="action-hide"
-              icon={<Feather name={menuTxn.hidden ? "eye" : "eye-off"} size={18} />}
-              onPress={() => {
-                const t = menuTxn;
-                setMenuTxn(null);
-                void toggleHidden(t);
-              }}
-            />
-            <SheetRow
-              label="Delete"
-              testID="action-delete"
-              destructive
-              icon={<Feather name="trash-2" size={18} color="#e34948" />}
-              onPress={() => {
-                const t = menuTxn;
-                setMenuTxn(null);
-                setDeleting(t);
-              }}
-            />
+            <SheetList>
+              <SheetRow
+                label="Edit"
+                testID="action-edit"
+                icon={<Feather name="edit-2" size={18} />}
+                onPress={() => {
+                  const id = menuTxn.id;
+                  setMenuTxn(null);
+                  setEditingId(id);
+                }}
+              />
+              <SheetRow
+                label={menuTxn.hidden ? "Unhide from spending" : "Hide from spending"}
+                testID="action-hide"
+                icon={<Feather name={menuTxn.hidden ? "eye" : "eye-off"} size={18} />}
+                onPress={() => {
+                  const t = menuTxn;
+                  setMenuTxn(null);
+                  void toggleHidden(t);
+                }}
+              />
+              <SheetRow
+                label="Delete"
+                testID="action-delete"
+                destructive
+                icon={<Feather name="trash-2" size={18} color="#e34948" />}
+                onPress={() => {
+                  const t = menuTxn;
+                  setMenuTxn(null);
+                  setDeleting(t);
+                }}
+              />
+            </SheetList>
           </>
         ) : null}
       </AppSheet>

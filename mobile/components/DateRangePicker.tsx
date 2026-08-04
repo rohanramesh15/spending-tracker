@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { Paragraph, XStack, YStack } from "tamagui";
 
 import { formatRangeLabel, parseISODate, rangePresets, toISODate } from "@shared/lib/dates";
-import { AppSheet, Button, SheetRow } from "@/components/ui";
+import { AppSheet, Button, SHEET_PADDING_X, SheetList, SheetRow } from "@/components/ui";
 
 /**
  * "1 Aug 2026" rather than the raw "2026-08-01". The ISO string is the storage format, not a
@@ -78,6 +78,9 @@ export function DateRangePicker({
 
   const presets = rangePresets();
   const { width } = useWindowDimensions();
+  // The panels live inside the sheet's padding, so they are the CONTENT width — using the full
+  // window width would push panel 2 past its own left inset and misalign every label on it.
+  const panelWidth = width - SHEET_PADDING_X * 2;
   const slide = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -128,7 +131,7 @@ export function DateRangePicker({
     setPanel("presets");
   }
 
-  const panelShift = slide.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
+  const panelShift = slide.interpolate({ inputRange: [0, 1], outputRange: [0, -panelWidth] });
 
   return (
     <>
@@ -154,29 +157,31 @@ export function DateRangePicker({
             style={{ flexDirection: "row", transform: [{ translateX: panelShift }] }}
           >
             {/* Panel 1 — presets, with Custom as a row like any other. */}
-            <YStack width={width} paddingRight="$4">
-              {presets.map((p) => (
+            <YStack width={panelWidth}>
+              <SheetList>
+                {presets.map((p) => (
+                  <SheetRow
+                    key={p.label}
+                    label={p.label}
+                    value={formatDayRange(p.start, p.end)}
+                    testID={`preset-${p.label}`}
+                    onPress={() => choosePreset(p.start, p.end)}
+                  />
+                ))}
                 <SheetRow
-                  key={p.label}
-                  label={p.label}
-                  value={formatDayRange(p.start, p.end)}
-                  testID={`preset-${p.label}`}
-                  onPress={() => choosePreset(p.start, p.end)}
-                />
-              ))}
-              <SheetRow
-                label="Custom"
+                  label="Custom"
                 // States what Custom currently resolves to, so the row gives the answer rather
                 // than only offering to ask the question.
-                value={formatDayRange(value.start, value.end)}
-                icon={<Feather name="sliders" size={18} />}
-                testID="preset-Custom"
-                onPress={openCustom}
-              />
+                  value={formatDayRange(value.start, value.end)}
+                  icon={<Feather name="sliders" size={18} />}
+                  testID="preset-Custom"
+                  onPress={openCustom}
+                />
+              </SheetList>
             </YStack>
 
             {/* Panel 2 — From, then To. */}
-            <YStack width={width} paddingRight="$4" gap="$2" testID="custom-panel">
+            <YStack width={panelWidth} gap="$2" testID="custom-panel">
               <XStack alignItems="center" gap="$2">
                 <Button
                   variant="ghost"

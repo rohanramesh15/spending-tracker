@@ -7,8 +7,12 @@ import { categoryColor, categoryLabel, HATCHED, isHatched } from "@shared/lib/ca
 import { formatCents } from "@shared/lib/money";
 
 const SIZE = 220;
-const OUTER = 100;
-const INNER = 58;
+/** Exported so tests assert against the geometry rather than restating its numbers — a radius
+ *  change is a design decision, not a reason for an arc test to fail. */
+export const OUTER = 100;
+// Ring thickness = OUTER - INNER. Thicker than the original 42 so small slices stay legible:
+// a 1% wedge on a thin ring is a hairline, and it also has to be tappable.
+export const INNER = 44;
 const CENTER = SIZE / 2;
 
 /** Pattern ids must be valid XML names, so strip everything but letters. */

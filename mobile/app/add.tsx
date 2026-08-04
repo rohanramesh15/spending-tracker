@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { H3, Paragraph, XStack, YStack } from "tamagui";
+import { Paragraph, XStack, YStack } from "tamagui";
 
 import { useIngest } from "@shared/api/hooks";
 import type { IngestRequest, IngestResult, ReconcileMatch, Resolution } from "@shared/api/types";
@@ -9,7 +9,7 @@ import { todayISO } from "@shared/lib/dates";
 import { dollarsToCents, formatCents } from "@shared/lib/money";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
-import { Button, Card, Field, Screen, TextField, useToast } from "@/components/ui";
+import { Button, Card, Field, PageTitle, Screen, TextField, useToast } from "@/components/ui";
 import {
   buildIngestPayload,
   itemizedTotalCents,
@@ -107,7 +107,7 @@ export default function ManualEntryScreen() {
           accessibilityLabel="Back"
           onPress={() => router.back()}
         />
-        <H3>Add manually</H3>
+        <PageTitle>Add manually</PageTitle>
       </XStack>
 
       <XStack gap="$2">

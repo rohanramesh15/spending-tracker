@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { H2, Paragraph, XStack, YStack } from "tamagui";
+import { Paragraph, XStack, YStack } from "tamagui";
 
 import { useNotifications, useReviews, useSpending, useTransactions } from "@shared/api/hooks";
 import { formatRangeLabel, rangePresets } from "@shared/lib/dates";
@@ -11,7 +11,7 @@ import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePick
 import { SpendingPie } from "@/components/SpendingPie";
 import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import { useTransactionActions } from "@/components/useTransactionActions";
-import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, Screen, Skeleton } from "@/components/ui";
+import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen, Skeleton } from "@/components/ui";
 import { filterByCategory } from "@/lib/filterByCategory";
 
 /**
@@ -53,7 +53,7 @@ export default function HomeScreen() {
     <Screen testID="home-screen" onBackgroundPress={() => setPieIndex(-1)}>
       {/* Settings used to be a gear in this header; it is a bottom tab now, so the header is
           just the title. */}
-      <H2>Home</H2>
+      <PageTitle>Welcome</PageTitle>
 
       {reviewCount > 0 ? (
         <Banner
