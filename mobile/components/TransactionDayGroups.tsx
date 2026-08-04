@@ -23,15 +23,18 @@ export function TransactionDayGroups({
   items,
   onPressItem,
   onOpenMenu,
+  preserveOrder = false,
   testID,
 }: {
   items: TransactionListItem[];
+  /** Keep the caller's order — used for search results, which arrive ranked by relevance. */
+  preserveOrder?: boolean;
   onPressItem?: (txn: TransactionListItem) => void;
   /** Omit for a read-only list — Home's recent list has no row actions. */
   onOpenMenu?: (txn: TransactionListItem) => void;
   testID?: string;
 }) {
-  const groups = groupByDay(items);
+  const groups = groupByDay(items, { preserveOrder });
   if (groups.length === 0) return null;
 
   return (

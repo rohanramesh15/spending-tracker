@@ -1,5 +1,5 @@
 import type { TransactionListItem } from "@shared/api/types";
-import { searchTransactions } from "@/lib/searchTransactions";
+import { scoreTransaction, searchTransactions } from "@/lib/searchTransactions";
 
 function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem {
   return {
@@ -113,5 +113,69 @@ describe("searchTransactions", () => {
     const before = items.map((t) => t.id);
     searchTransactions(items, "a");
     expect(items.map((t) => t.id)).toEqual(before);
+  });
+});
+
+describe("ranking", () => {
+  // The point of scoring: with a vague query, the best match must lead rather than landing
+  // wherever date order happens to put it.
+  const ranked = [
+    txn({ id: "exact", vendor: "Kroger", total_cents: 4212, purchased_on: "2026-08-02" }),
+    txn({ id: "other-amount", vendor: "Kroger", total_cents: 999, purchased_on: "2026-08-20" }),
+    txn({ id: "mentions-42", vendor: "Corner Store", total_cents: 4200, purchased_on: "2026-08-25" }),
+  ];
+
+  it("puts the transaction matching every term most strongly first", () => {
+    const [first] = searchTransactions(ranked, "kroger 42.12");
+    expect(first.id).toBe("exact");
+  });
+
+  it("ranks an exact amount above a partial one", () => {
+    const order = searchTransactions(ranked, "42").map((t) => t.id);
+    // "42.12" is an exact hit; 4200 -> "42.00" matches on the whole-dollar part.
+    expect(order.indexOf("mentions-42")).toBeLessThan(order.indexOf("exact"));
+  });
+
+  it("ranks a whole-word vendor hit above a substring one", () => {
+    const items = [
+      txn({ id: "substring", vendor: "Krogerville Deli" }),
+      txn({ id: "word", vendor: "Kroger" }),
+    ];
+    expect(searchTransactions(items, "kroger")[0].id).toBe("word");
+  });
+
+  it("breaks ties by recency, which is what relevance means in a ledger", () => {
+    const items = [
+      txn({ id: "older", vendor: "Kroger", purchased_on: "2026-01-05" }),
+      txn({ id: "newer", vendor: "Kroger", purchased_on: "2026-08-05" }),
+    ];
+    expect(searchTransactions(items, "kroger").map((t) => t.id)).toEqual(["newer", "older"]);
+  });
+
+  it("scores more matching terms above fewer", () => {
+    const items = [
+      txn({ id: "two", vendor: "Kroger", purchased_on: "2026-08-02", categories: ["Health"] }),
+      txn({ id: "one", vendor: "Kroger Express", purchased_on: "2026-08-02", categories: ["Other"] }),
+    ];
+    expect(searchTransactions(items, "kroger health")).toHaveLength(1);
+    expect(searchTransactions(items, "kroger")[0].id).toBe("two");
+  });
+
+  it("counts an ambiguous number once, not once per field it could be", () => {
+    // "2" is a plausible day-of-month AND an amount prefix. Double-counting it would let a
+    // coincidence outrank a real match.
+    const items = [txn({ id: "a", vendor: "Kroger", purchased_on: "2026-08-02", total_cents: 200 })];
+    const withBoth = scoreTransaction(items[0], ["2"]);
+    const vendorOnly = scoreTransaction(items[0], ["kroger"]);
+    expect(withBoth).toBeLessThan(vendorOnly! * 2);
+  });
+
+  it("still excludes a transaction when any single term misses", () => {
+    expect(searchTransactions(ranked, "kroger nonsense")).toEqual([]);
+  });
+
+  it("does not treat a word as an amount", () => {
+    // "aug" must not score as an amount prefix of nothing and muddy the ranking.
+    expect(searchTransactions(ranked, "aug")).toHaveLength(3);
   });
 });

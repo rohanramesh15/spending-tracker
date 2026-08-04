@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
   type LayoutChangeEvent,
@@ -72,14 +72,25 @@ export function Screen({
     if (next > 0 && next !== headerHeight) setHeaderHeight(next);
   }
 
-  // Clamped to [0, headerHeight] so the header can never travel further than its own height,
-  // and `1` while unmeasured because diffClamp requires a non-zero range.
-  const headerTravel = Animated.diffClamp(scrollY, 0, headerHeight || 1);
-  const headerY = headerTravel.interpolate({
-    inputRange: [0, headerHeight || 1],
-    outputRange: [0, -(headerHeight || 1)],
-    extrapolate: "clamp",
-  });
+  /*
+   * Memoised on the measured height, and that is load-bearing.
+   *
+   * `Animated.diffClamp` accumulates — it tracks how far the value has moved since it was
+   * created. Building it during render made a fresh node every frame, so the accumulated
+   * distance reset constantly and the header never moved; it looked permanently pinned. It has
+   * to be created once per height, not once per render.
+   *
+   * Clamped to [0, headerHeight] so the header can never travel further than its own height,
+   * and `1` while unmeasured because diffClamp needs a non-zero range.
+   */
+  const headerY = useMemo(() => {
+    const span = headerHeight || 1;
+    return Animated.diffClamp(scrollY, 0, span).interpolate({
+      inputRange: [0, span],
+      outputRange: [0, -span],
+      extrapolate: "clamp",
+    });
+  }, [headerHeight, scrollY]);
 
   // One wrapper carrying the gap, so the pressable and non-pressable paths lay out identically.
   const body = onBackgroundPress ? (

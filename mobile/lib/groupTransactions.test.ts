@@ -45,3 +45,39 @@ describe("groupByDay", () => {
     expect(groupByDay([])).toEqual([]);
   });
 });
+
+describe("preserveOrder", () => {
+  it("keeps ranked results in the order they arrived", () => {
+    // Search returns best-match-first; re-sorting by date would discard that.
+    const ranked = [
+      txn("best", "2026-01-05"),
+      txn("next", "2026-08-20"),
+    ];
+
+    const days = groupByDay(ranked, { preserveOrder: true }).map((g) => g.day);
+
+    expect(days).toEqual(["2026-01-05", "2026-08-20"]);
+  });
+
+  it("still sorts newest-first by default", () => {
+    const items = [
+      txn("old", "2026-01-05"),
+      txn("new", "2026-08-20"),
+    ];
+
+    expect(groupByDay(items).map((g) => g.day)).toEqual(["2026-08-20", "2026-01-05"]);
+  });
+
+  it("still groups same-day transactions together when preserving order", () => {
+    const items = [
+      txn("a", "2026-08-02"),
+      txn("b", "2026-01-05"),
+      txn("c", "2026-08-02"),
+    ];
+
+    const groups = groupByDay(items, { preserveOrder: true });
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0].items.map((t) => t.id)).toEqual(["a", "c"]);
+  });
+});

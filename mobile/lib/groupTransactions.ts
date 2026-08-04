@@ -11,6 +11,14 @@ import type { TransactionListItem } from "@shared/api/types";
  */
 export function groupByDay(
   transactions: TransactionListItem[],
+  /**
+   * Keep the input's order instead of sorting days newest-first.
+   *
+   * Search results arrive ranked by relevance; re-sorting them by date would throw that ranking
+   * away and put the best match wherever its date happens to fall — which is the whole thing
+   * the scoring exists to avoid. Days then appear in the order their best match did.
+   */
+  { preserveOrder = false }: { preserveOrder?: boolean } = {},
 ): { day: string; items: TransactionListItem[] }[] {
   const groups = new Map<string, TransactionListItem[]>();
 
@@ -20,7 +28,8 @@ export function groupByDay(
     groups.set(t.purchased_on, arr);
   }
 
-  return [...groups.entries()]
-    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-    .map(([day, items]) => ({ day, items }));
+  const entries = [...groups.entries()];
+  // Map preserves insertion order, so the unsorted path already reflects the input's ranking.
+  if (!preserveOrder) entries.sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  return entries.map(([day, items]) => ({ day, items }));
 }

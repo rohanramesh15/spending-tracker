@@ -87,6 +87,8 @@ export default function TransactionsScreen() {
       ) : (
         <TransactionDayGroups
           items={visible}
+          // Search results arrive ranked; re-sorting them by date would discard the ranking.
+          preserveOrder={queryText.trim().length > 0}
           onPressItem={(t) => router.push(`/transactions/${t.id}`)}
           onOpenMenu={actions.openMenu}
         />

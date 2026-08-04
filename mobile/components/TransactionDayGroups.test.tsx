@@ -84,3 +84,27 @@ describe("TransactionDayGroups", () => {
     }
   });
 });
+
+describe("preserveOrder", () => {
+  it("keeps ranked results in the caller's order", async () => {
+    // Search hands these over best-match-first; grouping must not re-sort them by date.
+    await renderWithProviders(
+      <TransactionDayGroups
+        items={[txn("best", "2026-01-05"), txn("next", "2026-08-20")]}
+        preserveOrder
+      />,
+    );
+
+    const headings = screen.getAllByText(/2026|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/);
+    expect(headings[0]).toHaveTextContent(/Jan 5/);
+  });
+
+  it("sorts newest-first when not preserving order", async () => {
+    await renderWithProviders(
+      <TransactionDayGroups items={[txn("old", "2026-01-05"), txn("new", "2026-08-20")]} />,
+    );
+
+    const headings = screen.getAllByText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/);
+    expect(headings[0]).toHaveTextContent(/Aug 20/);
+  });
+});
