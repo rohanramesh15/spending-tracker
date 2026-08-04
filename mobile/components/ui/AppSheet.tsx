@@ -1,11 +1,21 @@
 import type { ReactNode } from "react";
 import { Separator, Sheet, XStack, YStack, Paragraph } from "tamagui";
 
+import { BLOCK_RADIUS } from "./grouped";
+
 /**
  * Bottom sheet — the native replacement for the web's Radix-based ActionSheet.
  *
  * On web this was a dialog pinned to the bottom edge; here it's a real draggable sheet with a
- * grab handle and snap point, which is what the gesture affordance on a phone should be.
+ * grab handle, which is what the gesture affordance on a phone should be.
+ *
+ * Three deliberate choices, all of which apply to every sheet in the app:
+ *  - The grab handle is drawn INSIDE the frame. Tamagui's `Sheet.Handle` floats above the card,
+ *    which reads as a stray bar sitting on the backdrop rather than part of the sheet.
+ *  - The sheet is sized by its contents (`snapPointsMode="fit"`), not by a percentage of the
+ *    screen. A fixed snap point left a short menu stranded in the middle of a tall empty card.
+ *  - Corners use BLOCK_RADIUS, the same radius as the grouped blocks, so a sheet reads as the
+ *    same family of surface as everything it opens over.
  *
  * KNOWN GAP: no `animation` prop. The animation drivers are configured and work at runtime, but
  * spreading Tamagui's v4 preset into createTamagui loses the animation-key types, so
@@ -16,19 +26,17 @@ export function AppSheet({
   open,
   onOpenChange,
   children,
-  snapPoints = [50],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
-  snapPoints?: number[];
 }) {
   return (
     <Sheet
       modal
       open={open}
       onOpenChange={onOpenChange}
-      snapPoints={snapPoints}
+      snapPointsMode="fit"
       dismissOnSnapToBottom
     >
       <Sheet.Overlay
@@ -36,8 +44,20 @@ export function AppSheet({
         exitStyle={{ opacity: 0 }}
         backgroundColor="$shadow6"
       />
-      <Sheet.Handle />
-      <Sheet.Frame padding="$4" gap="$3" backgroundColor="$background">
+      <Sheet.Frame
+        paddingHorizontal="$4"
+        paddingTop="$2"
+        paddingBottom="$6"
+        gap="$3"
+        backgroundColor="$background"
+        borderTopLeftRadius={BLOCK_RADIUS}
+        borderTopRightRadius={BLOCK_RADIUS}
+      >
+        {/* The handle, drawn in-frame. Narrow and low-contrast: it is a grab affordance, not a
+            piece of furniture, and the sheet's edge already announces itself. */}
+        <YStack alignItems="center" paddingBottom="$1" testID="sheet-handle">
+          <YStack width={36} height={4} borderRadius={999} backgroundColor="$color6" />
+        </YStack>
         {children}
       </Sheet.Frame>
     </Sheet>

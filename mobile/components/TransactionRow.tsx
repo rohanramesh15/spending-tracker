@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { Paragraph, XStack, YStack } from "tamagui";
 
 import type { TransactionListItem } from "@shared/api/types";
-import { categoryLabel } from "@shared/lib/categories";
+import { categoryLabel, orderCategories } from "@shared/lib/categories";
 import { formatCents } from "@shared/lib/money";
 import { BLOCK_PADDING_X } from "@/components/ui";
 
@@ -42,7 +42,9 @@ export function TransactionRow({
   // have to be appended from their own amounts or they'd be invisible on the row despite being
   // their own slices on the chart.
   const labels = [
-    ...categories.slice(0, 3).map(categoryLabel),
+    // Ordered before the cap, so a transaction with four categories doesn't drop an informative
+    // one to make room for "Other".
+    ...orderCategories(categories).slice(0, 3).map(categoryLabel),
     ...(tax_cents > 0 ? [categoryLabel("Tax")] : []),
     ...(tip_cents > 0 ? [categoryLabel("Tip")] : []),
   ];

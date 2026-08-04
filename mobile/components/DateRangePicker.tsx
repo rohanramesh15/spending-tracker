@@ -100,7 +100,7 @@ export function DateRangePicker({
 
       {/* No "Date range" heading: the sheet is opened from a button that already says what it
           is, so the title only repeated it and pushed the presets down. */}
-      <AppSheet open={open} onOpenChange={setOpen} snapPoints={[60]}>
+      <AppSheet open={open} onOpenChange={setOpen}>
         <YStack>
           {presets.map((p) => (
             <SheetRow

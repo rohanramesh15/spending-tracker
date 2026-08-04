@@ -54,7 +54,7 @@ export function CategorySelect({
         {selected ? categoryLabel(selected.name) : isLoading ? "Loading…" : "Pick a category"}
       </Button>
 
-      <AppSheet open={open} onOpenChange={setOpen} snapPoints={[65]}>
+      <AppSheet open={open} onOpenChange={setOpen}>
         <Paragraph fontWeight="700" size="$5">
           Category
         </Paragraph>

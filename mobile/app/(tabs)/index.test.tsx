@@ -1,5 +1,5 @@
 import HomeScreen from "@/app/(tabs)/index";
-import { fireEvent, query, renderScreen, screen } from "@/test-screen";
+import { fireEvent, mutation, query, renderScreen, screen } from "@/test-screen";
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -10,12 +10,21 @@ const mockHooks = {
   useTransactions: jest.fn(),
   useReviews: jest.fn(),
   useNotifications: jest.fn(),
+  useTransaction: jest.fn(),
+  useDeleteTransaction: jest.fn(),
+  useUpdateTransaction: jest.fn(),
+  useSetTransactionHidden: jest.fn(),
 };
 jest.mock("@shared/api/hooks", () => ({
   useSpending: () => mockHooks.useSpending(),
   useTransactions: () => mockHooks.useTransactions(),
   useReviews: () => mockHooks.useReviews(),
   useNotifications: () => mockHooks.useNotifications(),
+  // Home offers the same row actions as the Transactions tab, via useTransactionActions.
+  useTransaction: () => mockHooks.useTransaction(),
+  useDeleteTransaction: () => mockHooks.useDeleteTransaction(),
+  useUpdateTransaction: () => mockHooks.useUpdateTransaction(),
+  useSetTransactionHidden: () => mockHooks.useSetTransactionHidden(),
 }));
 
 beforeEach(() => {
@@ -24,6 +33,10 @@ beforeEach(() => {
   mockHooks.useTransactions.mockReturnValue(query({ data: [] }));
   mockHooks.useReviews.mockReturnValue(query({ data: [] }));
   mockHooks.useNotifications.mockReturnValue(query({ data: [] }));
+  mockHooks.useTransaction.mockReturnValue(query({ data: undefined }));
+  mockHooks.useDeleteTransaction.mockReturnValue(mutation());
+  mockHooks.useUpdateTransaction.mockReturnValue(mutation());
+  mockHooks.useSetTransactionHidden.mockReturnValue(mutation());
 });
 
 describe("HomeScreen", () => {

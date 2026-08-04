@@ -141,6 +141,18 @@ export function isHatched(name: string): boolean {
   return name in HATCHED;
 }
 
+/**
+ * Order categories for display: "Other" always last.
+ *
+ * "Other" is the classifier's fallback, not a finding — it says nothing about what was bought.
+ * Letting it lead a transaction's category line buries the informative labels behind the one
+ * that carries no information. Everything else keeps the order it arrived in (the API returns
+ * distinct line-item categories in item order, which is meaningful).
+ */
+export function orderCategories(names: string[]): string[] {
+  return [...names].sort((a, b) => Number(a === "Other") - Number(b === "Other"));
+}
+
 export function categoryLabel(name: string): string {
   return CATEGORY_LABELS[name] ?? name;
 }

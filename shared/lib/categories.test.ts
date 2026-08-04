@@ -6,6 +6,7 @@ import {
   categoryColor,
   categoryInk,
   categoryTint,
+  orderCategories,
   hexToRgb,
   categoryLabel,
   isHatched,
@@ -209,5 +210,40 @@ describe("categoryTint", () => {
 
   it("returns a valid 6-digit hex", () => {
     for (const name of names) expect(categoryTint(name)).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
+describe("orderCategories", () => {
+  it("moves Other to the end", () => {
+    expect(orderCategories(["Other", "Health", "Shopping"])).toEqual([
+      "Health",
+      "Shopping",
+      "Other",
+    ]);
+  });
+
+  it("keeps the arrival order of everything else", () => {
+    // The API returns distinct line-item categories in item order, which is meaningful.
+    expect(orderCategories(["Shopping", "Health", "Services"])).toEqual([
+      "Shopping",
+      "Health",
+      "Services",
+    ]);
+  });
+
+  it("leaves a list without Other untouched", () => {
+    const input = ["Health", "Shopping"];
+    expect(orderCategories(input)).toEqual(input);
+  });
+
+  it("does not mutate its input", () => {
+    const input = ["Other", "Health"];
+    orderCategories(input);
+    expect(input).toEqual(["Other", "Health"]);
+  });
+
+  it("handles Other alone, and an empty list", () => {
+    expect(orderCategories(["Other"])).toEqual(["Other"]);
+    expect(orderCategories([])).toEqual([]);
   });
 });

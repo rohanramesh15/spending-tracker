@@ -10,6 +10,7 @@ import { formatCents } from "@shared/lib/money";
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
 import { SpendingPie } from "@/components/SpendingPie";
 import { TransactionDayGroups } from "@/components/TransactionDayGroups";
+import { useTransactionActions } from "@/components/useTransactionActions";
 import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, Screen, Skeleton } from "@/components/ui";
 import { filterByCategory } from "@/lib/filterByCategory";
 
@@ -22,6 +23,9 @@ export default function HomeScreen() {
   // Owned here, not inside the chart: dismissing the selection is a tap that lands OUTSIDE the
   // chart, so only the screen can see it.
   const [pieIndex, setPieIndex] = useState(-1);
+  // Home shows the full ledger, so it offers the same row actions as the Transactions tab —
+  // from the same hook, so the two can't drift apart.
+  const actions = useTransactionActions();
   const [range, setRange] = useState<DateRangeValue>(() => {
     const p = rangePresets()[0]; // This month
     return { start: p.start, end: p.end };
@@ -120,6 +124,7 @@ export default function HomeScreen() {
           <TransactionDayGroups
             items={visibleTransactions}
             onPressItem={(t) => router.push(`/transactions/${t.id}`)}
+            onOpenMenu={actions.openMenu}
           />
         ) : (
           <Paragraph size="$2" theme="alt2">
@@ -129,6 +134,8 @@ export default function HomeScreen() {
           </Paragraph>
         )}
       </YStack>
+
+      {actions.overlays}
     </Screen>
   );
 }

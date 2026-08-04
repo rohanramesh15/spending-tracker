@@ -148,3 +148,29 @@ describe("transaction-level amounts", () => {
     expect(screen.getByText(/· Tax$/)).toBeTruthy();
   });
 });
+
+describe("category order", () => {
+  it("puts Other last, whatever order the API returned", async () => {
+    // "Other" is the classifier's fallback and says nothing about what was bought; leading with
+    // it buries the labels that do.
+    await renderWithProviders(
+      <TransactionRow transaction={txn({ categories: ["Other", "Health"] })} />,
+    );
+    expect(screen.getByText("Health · Other")).toBeTruthy();
+  });
+
+  it("does not spend the three-category cap on Other", async () => {
+    await renderWithProviders(
+      <TransactionRow
+        transaction={txn({ categories: ["Other", "Health", "Shopping", "Services"] })}
+      />,
+    );
+    // Other sorts to the end, so it falls outside the cap rather than displacing a real one.
+    expect(screen.getByText("Health · Shopping · Services")).toBeTruthy();
+  });
+
+  it("keeps Other when it is the only category", async () => {
+    await renderWithProviders(<TransactionRow transaction={txn({ categories: ["Other"] })} />);
+    expect(screen.getByText("Other")).toBeTruthy();
+  });
+});
