@@ -56,3 +56,27 @@ describe("DateRangePicker", () => {
     expect(onChange).toHaveBeenCalledWith({ start: today.start, end: today.end });
   });
 });
+
+describe("custom range labels", () => {
+  it("writes the dates in words rather than as raw ISO strings", async () => {
+    // "2026-03-01" is the storage format, not something to read — and a bare numeric date is
+    // ambiguous across locales besides.
+    await renderWithProviders(
+      <DateRangePicker value={{ start: "2026-03-01", end: "2026-03-31" }} onChange={jest.fn()} />,
+    );
+    await fireEvent.press(screen.getByTestId("date-range-trigger"));
+
+    expect(screen.getByTestId("custom-start")).toHaveTextContent("From 1 Mar 2026");
+    expect(screen.getByTestId("custom-end")).toHaveTextContent("To 31 Mar 2026");
+  });
+
+  it("renders the first of a month as that day, not the last of the previous one", async () => {
+    // UTC parsing turns "2026-03-01" into 28 Feb anywhere behind UTC (CLAUDE.md #2).
+    await renderWithProviders(
+      <DateRangePicker value={{ start: "2026-03-01", end: "2026-03-31" }} onChange={jest.fn()} />,
+    );
+    await fireEvent.press(screen.getByTestId("date-range-trigger"));
+
+    expect(screen.queryByText(/28 Feb/)).toBeNull();
+  });
+});

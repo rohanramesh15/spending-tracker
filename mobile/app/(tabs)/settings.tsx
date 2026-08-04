@@ -187,6 +187,7 @@ export default function SettingsScreen() {
             <SettingRow
               label={importCsv.isPending ? "Importing…" : "Import a statement CSV"}
               icon={<Feather name="upload" size={18} />}
+              loading={importCsv.isPending}
               onPress={() => void handleImport()}
               testID="import-csv"
             />
@@ -333,12 +334,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/**
+ * A row in a settings block.
+ *
+ * Interactive rows ARE buttons and go through the design system — same press feedback, same
+ * disabled rule, same destructive treatment as everywhere else. `ghost` because the enclosing
+ * BlockGroup already supplies the surface; the row would otherwise paint a second one on top.
+ *
+ * A row with no `onPress` is information, not a control (the version number). It renders as
+ * plain text rather than a button that does nothing when tapped.
+ */
 function SettingRow({
   label,
   icon,
   value,
   destructive = false,
   onPress,
+  loading = false,
   testID,
 }: {
   label: string;
@@ -346,32 +358,47 @@ function SettingRow({
   value?: string;
   destructive?: boolean;
   onPress?: () => void;
+  loading?: boolean;
   testID?: string;
 }) {
+  if (!onPress) {
+    return (
+      <XStack
+        paddingVertical="$3.5"
+        paddingHorizontal={BLOCK_PADDING_X}
+        justifyContent="space-between"
+        alignItems="center"
+        testID={testID}
+      >
+        <XStack alignItems="center" gap="$3">
+          {icon}
+          <Paragraph>{label}</Paragraph>
+        </XStack>
+        {value ? (
+          <Paragraph size="$2" theme="alt2">
+            {value}
+          </Paragraph>
+        ) : null}
+      </XStack>
+    );
+  }
+
   return (
-    <XStack
-      paddingVertical="$3"
-      paddingHorizontal={BLOCK_PADDING_X}
-      justifyContent="space-between"
-      alignItems="center"
+    <Button
+      variant={destructive ? "destructive" : "ghost"}
+      size="lg"
+      fullWidth
+      align="between"
+      loading={loading}
+      icon={icon}
+      // Destructive actions are endpoints, not navigation — no chevron promising another screen.
+      iconAfter={
+        destructive ? undefined : <Feather name="chevron-right" size={18} color="#8a8a8e" />
+      }
       onPress={onPress}
-      pressStyle={{ opacity: 0.7 }}
-      accessibilityRole={onPress ? "button" : undefined}
       testID={testID}
     >
-      <XStack alignItems="center" gap="$3">
-        {icon}
-        <Paragraph fontWeight="500" color={destructive ? "$red10" : undefined}>
-          {label}
-        </Paragraph>
-      </XStack>
-      {value ? (
-        <Paragraph size="$2" theme="alt2">
-          {value}
-        </Paragraph>
-      ) : onPress ? (
-        <Feather name="chevron-right" size={18} color="$gray10" />
-      ) : null}
-    </XStack>
+      {label}
+    </Button>
   );
 }

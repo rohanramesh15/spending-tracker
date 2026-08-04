@@ -1,10 +1,22 @@
 import { useState } from "react";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Feather from "@expo/vector-icons/Feather";
+import { format } from "date-fns";
 import { Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import { formatRangeLabel, parseISODate, rangePresets, toISODate } from "@shared/lib/dates";
 import { AppSheet, Button, SheetRow } from "@/components/ui";
+
+/**
+ * "1 Aug 2026" rather than the raw "2026-08-01". The ISO string is the storage format, not a
+ * thing to read — and a bare numeric date is ambiguous across locales besides.
+ *
+ * parseISODate, not `new Date(iso)`: purchased_on is a LOCAL calendar date, and UTC parsing
+ * renders the previous day in behind-UTC timezones (CLAUDE.md #2).
+ */
+function formatDayLabel(iso: string): string {
+  return format(parseISODate(iso), "d MMM yyyy");
+}
 
 export interface DateRangeValue {
   start: string;
@@ -66,11 +78,9 @@ export function DateRangePicker({
         {formatRangeLabel(value.start, value.end)}
       </Button>
 
+      {/* No "Date range" heading: the sheet is opened from a button that already says what it
+          is, so the title only repeated it and pushed the presets down. */}
       <AppSheet open={open} onOpenChange={setOpen} snapPoints={[60]}>
-        <Paragraph fontWeight="700" size="$5">
-          Date range
-        </Paragraph>
-
         <YStack>
           {presets.map((p) => (
             <SheetRow
@@ -89,10 +99,10 @@ export function DateRangePicker({
         </Paragraph>
         <XStack gap="$3">
           <Button variant="secondary" fullWidth onPress={() => setCustomField("start")} testID="custom-start">
-            From {value.start}
+            From {formatDayLabel(value.start)}
           </Button>
           <Button variant="secondary" fullWidth onPress={() => setCustomField("end")} testID="custom-end">
-            To {value.end}
+            To {formatDayLabel(value.end)}
           </Button>
         </XStack>
 
