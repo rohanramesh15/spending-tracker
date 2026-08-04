@@ -21,4 +21,6 @@ export {
 } from "./grouped";
 export { BlockGroup, BlockGroupTitle } from "./BlockGroup";
 export { Button, type ButtonSize, type ButtonVariant } from "./Button";
+export { PageHeader } from "./PageHeader";
 export { PageTitle } from "./PageTitle";
+export { SearchField } from "./SearchField";

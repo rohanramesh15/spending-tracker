@@ -9,7 +9,7 @@ import { todayISO } from "@shared/lib/dates";
 import { dollarsToCents, formatCents } from "@shared/lib/money";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
-import { Button, Card, Field, PageTitle, Screen, TextField, useToast } from "@/components/ui";
+import { Button, Card, Field, PageHeader, Screen, TextField, useToast } from "@/components/ui";
 import {
   buildIngestPayload,
   itemizedTotalCents,
@@ -99,16 +99,18 @@ export default function ManualEntryScreen() {
 
   return (
     <Screen testID="manual-entry">
-      <XStack alignItems="center" gap="$2">
-        <Button
-          variant="ghost"
-          circular
-          icon={<Feather name="arrow-left" size={20} />}
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-        />
-        <PageTitle>Add manually</PageTitle>
-      </XStack>
+      <PageHeader
+        title="Add manually"
+        left={
+          <Button
+              variant="ghost"
+              circular
+              icon={<Feather name="arrow-left" size={20} />}
+              accessibilityLabel="Back"
+              onPress={() => router.back()}
+            />
+        }
+      />
 
       <XStack gap="$2">
         <ModeChip label="Quick" active={mode === "quick"} onPress={() => setMode("quick")} />

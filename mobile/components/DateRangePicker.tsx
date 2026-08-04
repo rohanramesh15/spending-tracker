@@ -77,6 +77,9 @@ export function DateRangePicker({
   const [draft, setDraft] = useState<DateRangeValue>(value);
 
   const presets = rangePresets();
+  // Only label Custom when the current range actually IS custom. Echoing a preset's dates beside
+  // Custom implied a custom range had been chosen when the user had just tapped "This month".
+  const matchesPreset = presets.some((p) => p.start === value.start && p.end === value.end);
   const { width } = useWindowDimensions();
   // The panels live inside the sheet's padding, so they are the CONTENT width — using the full
   // window width would push panel 2 past its own left inset and misalign every label on it.
@@ -149,9 +152,27 @@ export function DateRangePicker({
         {formatRangeLabel(value.start, value.end)}
       </Button>
 
-      {/* No "Date range" heading: the sheet is opened from a button that already says what it
-          is, so the title only repeated it and pushed the presets down. */}
-      <AppSheet open={open} onOpenChange={setOpen}>
+      <AppSheet
+        open={open}
+        onOpenChange={setOpen}
+        // The title tracks the visible panel, and the back button lives in the sheet header
+        // rather than inside the sliding panel — an accessory that slides away with its content
+        // is unreachable for the duration of the animation.
+        title={panel === "presets" ? "Select date range" : "Custom range"}
+        left={
+          panel === "custom" ? (
+            <Button
+              variant="ghost"
+              circular
+              size="sm"
+              icon={<Feather name="chevron-left" size={18} />}
+              accessibilityLabel="Back to presets"
+              testID="custom-back"
+              onPress={() => setPanel("presets")}
+            />
+          ) : undefined
+        }
+      >
         <YStack overflow="hidden">
           <Animated.View
             style={{ flexDirection: "row", transform: [{ translateX: panelShift }] }}
@@ -170,9 +191,9 @@ export function DateRangePicker({
                 ))}
                 <SheetRow
                   label="Custom"
-                // States what Custom currently resolves to, so the row gives the answer rather
-                // than only offering to ask the question.
-                  value={formatDayRange(value.start, value.end)}
+                  // States the range only when one has been set here, so the row gives the
+                  // answer rather than only offering to ask the question.
+                  value={matchesPreset ? undefined : formatDayRange(value.start, value.end)}
                   icon={<Feather name="sliders" size={18} />}
                   testID="preset-Custom"
                   onPress={openCustom}
@@ -182,21 +203,6 @@ export function DateRangePicker({
 
             {/* Panel 2 — From, then To. */}
             <YStack width={panelWidth} gap="$2" testID="custom-panel">
-              <XStack alignItems="center" gap="$2">
-                <Button
-                  variant="ghost"
-                  circular
-                  size="sm"
-                  icon={<Feather name="chevron-left" size={18} />}
-                  accessibilityLabel="Back to presets"
-                  testID="custom-back"
-                  onPress={() => setPanel("presets")}
-                />
-                <Paragraph fontWeight="700" size="$5">
-                  Custom range
-                </Paragraph>
-              </XStack>
-
               <FieldHeading
                 label="From"
                 date={draft.start}

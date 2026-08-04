@@ -14,11 +14,11 @@ describe("PageTitle", () => {
     expect(screen.getByText("Transactions")).toBeTruthy();
   });
 
-  it("is smaller than Tamagui's default H2, which was too loud for these screens", async () => {
+  it("stays well under Tamagui's default H2, which was too loud for these screens", async () => {
     await renderWithProviders(<PageTitle>Transactions</PageTitle>);
     // RN hands back an array of style objects; flatten before reading a single property.
     const { fontSize } = StyleSheet.flatten(screen.getByText("Transactions").props.style);
-    expect(fontSize).toBeLessThan(32);
+    expect(fontSize).toBeLessThanOrEqual(22);
   });
 
   it("is not bold", async () => {

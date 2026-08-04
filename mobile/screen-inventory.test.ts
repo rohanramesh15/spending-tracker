@@ -53,7 +53,6 @@ const EXEMPT = [
   "components/useColorScheme.ts",
   "components/useColorScheme.web.ts",
   "components/ui/Card.tsx",
-  "components/ui/Screen.tsx",
 ];
 
 /**

@@ -36,7 +36,11 @@ export function TransactionRow({
   /** Omit to render no actions button — the Home screen's recent list has no row menu. */
   onOpenMenu?: () => void;
 }) {
-  const { vendor, categories, total_cents, currency, tax_cents, tip_cents } = transaction;
+  const { vendor, categories, total_cents, currency, tax_cents, tip_cents, hidden } = transaction;
+
+  // A hidden transaction is excluded from spending but still listed. Lightening its text says
+  // "this one doesn't count" at a glance, rather than making the reader remember which is which.
+  const ink = hidden ? "$color10" : undefined;
 
   // Tax and Tip are transaction-level, so they are never in `categories` (CLAUDE.md #8) — they
   // have to be appended from their own amounts or they'd be invisible on the row despite being
@@ -68,7 +72,7 @@ export function TransactionRow({
       testID={`transaction-row-${transaction.id}`}
     >
       <YStack flex={1} gap="$1">
-        <Paragraph fontWeight="600" numberOfLines={1}>
+        <Paragraph fontWeight="600" numberOfLines={1} color={ink}>
           {vendor}
         </Paragraph>
         {/* Plain text rather than coloured pills: at three-per-row the pills competed with the
@@ -86,7 +90,9 @@ export function TransactionRow({
       {/* Amount and menu are one unit, tightly spaced, so the price reads as belonging to the
           row's right edge rather than floating between the categories and the ⋮. */}
       <XStack alignItems="center" gap="$1">
-        <Paragraph fontWeight="600">{formatCents(total_cents, currency)}</Paragraph>
+        <Paragraph fontWeight="600" color={ink}>
+          {formatCents(total_cents, currency)}
+        </Paragraph>
 
         {onOpenMenu ? (
           <XStack

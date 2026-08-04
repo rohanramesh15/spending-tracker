@@ -5,6 +5,8 @@
  * still morning?) and the night bucket, which wraps past midnight and is the one an `hour >= 21
  * && hour < 5` style check silently gets wrong — that condition can never be true.
  *
+ * One line per slot, by request.
+ *
  * Local hours throughout. `getHours()` is the device's wall clock, which is what "morning" means
  * to the person holding it; a UTC hour would greet a New Yorker with "Late one" over breakfast.
  */
@@ -26,29 +28,35 @@ export function timeSlot(date: Date = new Date()): TimeSlot {
 }
 
 /**
- * A few per slot so the app doesn't say the identical thing every morning. Kept short: this sits
- * directly above a large currency total and shouldn't compete with it.
+ * One greeting per slot. Kept short: this sits directly above a large currency total and
+ * shouldn't compete with it.
  */
-export const GREETINGS: Record<TimeSlot, readonly string[]> = {
-  earlyMorning: ["Up early", "Morning, early bird", "Beat the sunrise"],
-  morning: ["Good morning", "Morning", "Rise and shine"],
-  afternoon: ["Good afternoon", "Afternoon", "Hope it's going well"],
-  evening: ["Good evening", "Evening", "Winding down"],
-  night: ["Still up?", "Late one", "Burning the midnight oil"],
+export const GREETINGS: Record<TimeSlot, string> = {
+  earlyMorning: "Up early",
+  morning: "Good morning",
+  afternoon: "Good afternoon",
+  evening: "Good evening",
+  night: "Still up",
 };
 
 /**
- * One greeting for the given moment.
- *
- * `random` is injected so tests can pin the choice — asserting on a value chosen by Math.random
- * either flakes or forces the test to accept anything, and "anything" would pass a greeting
- * picked from the wrong slot.
- *
- * Callers should choose ONCE per screen mount (see app/(tabs)/index.tsx). Calling this during
- * render would re-roll on every state change and make the greeting flicker as the user taps.
+ * Slots whose greeting is a question. Stored WITHOUT the "?" so the punctuation can follow the
+ * name rather than sit in the middle of the sentence — "Still up, Rohan?", not "Still up?, Rohan".
  */
-export function greetingFor(date: Date = new Date(), random: () => number = Math.random): string {
-  const options = GREETINGS[timeSlot(date)];
-  const index = Math.min(options.length - 1, Math.max(0, Math.floor(random() * options.length)));
-  return options[index];
+const QUESTIONS = new Set<TimeSlot>(["night"]);
+
+/**
+ * The greeting for a given moment, optionally naming the person.
+ *
+ * The name is optional rather than required because it is genuinely absent sometimes — signed
+ * out, or a Google account with no name on it. Appending an empty one would leave a trailing
+ * comma, so the unnamed form is a real case, not a fallback.
+ *
+ * Deterministic — the same hour always yields the same line, so it can safely be computed
+ * during render.
+ */
+export function greetingFor(date: Date = new Date(), name?: string): string {
+  const slot = timeSlot(date);
+  const body = name ? `${GREETINGS[slot]}, ${name}` : GREETINGS[slot];
+  return QUESTIONS.has(slot) ? `${body}?` : body;
 }

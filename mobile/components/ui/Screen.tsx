@@ -1,5 +1,11 @@
-import type { ReactNode } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useRef, useState, type ReactNode } from "react";
+import {
+  Animated,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScrollView, useTheme, YStack } from "tamagui";
 
 import { SCREEN_BACKGROUND, SCREEN_PADDING_X } from "./grouped";
@@ -17,6 +23,8 @@ export function Screen({
   padded = true,
   testID,
   onBackgroundPress,
+  collapsingHeader,
+  scrollViewTestID,
 }: {
   children: ReactNode;
   scrollable?: boolean;
@@ -29,11 +37,49 @@ export function Screen({
    * for taps that would otherwise do nothing.
    */
   onBackgroundPress?: () => void;
+  /**
+   * Content pinned above the scroll area that slides away as the user scrolls DOWN into the
+   * list, and returns as soon as they scroll back UP.
+   *
+   * Driven by `Animated.diffClamp` on the scroll offset rather than by a hide/show flag. A flag
+   * has to decide, from deltas, which state it is in — and when it guesses wrong (a momentum
+   * frame, a bounce, a layout that changes height after the first measurement) it latches and
+   * the header stays stuck part-way, which is exactly what happened here. diffClamp derives the
+   * offset from the scroll position every frame, so there is no state to get stuck: it is
+   * self-correcting by construction, and it tracks the finger instead of snapping.
+   */
+  collapsingHeader?: ReactNode;
+  /** Addresses the scroll view itself, for tests that drive scrolling. */
+  scrollViewTestID?: string;
 }) {
   const padding = padded ? "$4" : 0;
   // Resolved rather than passed as a token: SafeAreaView is a plain RN view and takes a style.
   const theme = useTheme();
   const pageBackground = theme[SCREEN_BACKGROUND.replace("$", "")]?.val as string | undefined;
+
+  // An absolutely-positioned child is laid out against the parent's PADDING box, so it ignores
+  // SafeAreaView's inset — `top: 0` put the title and the + button up behind the status bar.
+  // The inset has to be applied to the header itself.
+  const insets = useSafeAreaInsets();
+
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  function onHeaderLayout(e: LayoutChangeEvent) {
+    const next = Math.round(e.nativeEvent.layout.height);
+    // Re-measured whenever it changes: the search field and title settle to their real height
+    // after the first frame, and translating by a stale height leaves the header half-hidden.
+    if (next > 0 && next !== headerHeight) setHeaderHeight(next);
+  }
+
+  // Clamped to [0, headerHeight] so the header can never travel further than its own height,
+  // and `1` while unmeasured because diffClamp requires a non-zero range.
+  const headerTravel = Animated.diffClamp(scrollY, 0, headerHeight || 1);
+  const headerY = headerTravel.interpolate({
+    inputRange: [0, headerHeight || 1],
+    outputRange: [0, -(headerHeight || 1)],
+    extrapolate: "clamp",
+  });
 
   // One wrapper carrying the gap, so the pressable and non-pressable paths lay out identically.
   const body = onBackgroundPress ? (
@@ -50,14 +96,48 @@ export function Screen({
       edges={["top"]}
       testID={testID}
     >
+      {collapsingHeader ? (
+        <Animated.View
+          onLayout={onHeaderLayout}
+          style={{
+            position: "absolute",
+            top: insets.top,
+            left: 0,
+            right: 0,
+            zIndex: 2,
+            elevation: 2,
+            backgroundColor: pageBackground,
+            paddingHorizontal: padded ? SCREEN_PADDING_X : 0,
+            paddingTop: padded ? SCREEN_PADDING_X : 0,
+            // Breathing room between the header and the first row beneath it.
+            paddingBottom: 12,
+            transform: [{ translateY: headerY }],
+          }}
+          testID="collapsing-header"
+        >
+          {collapsingHeader}
+        </Animated.View>
+      ) : null}
+
       {scrollable ? (
         <ScrollView
           contentContainerStyle={{
             padding: padded ? SCREEN_PADDING_X : 0,
+            // The pinned header floats over the list, so the content starts below it.
+            paddingTop: collapsingHeader ? headerHeight : padded ? SCREEN_PADDING_X : 0,
             gap: onBackgroundPress ? 0 : 16,
             paddingBottom: 32,
           }}
           keyboardShouldPersistTaps="handled"
+          onScroll={
+            collapsingHeader
+              ? Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+                  useNativeDriver: true,
+                })
+              : undefined
+          }
+          scrollEventThrottle={16}
+          testID={scrollViewTestID}
         >
           {body}
         </ScrollView>

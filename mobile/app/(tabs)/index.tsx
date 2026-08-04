@@ -11,9 +11,11 @@ import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePick
 import { SpendingPie } from "@/components/SpendingPie";
 import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import { useTransactionActions } from "@/components/useTransactionActions";
-import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen, Skeleton } from "@/components/ui";
+import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, PageHeader, Screen, Skeleton } from "@/components/ui";
 import { filterByCategory } from "@/lib/filterByCategory";
 import { greetingFor } from "@/lib/greeting";
+import { firstNameFrom } from "@/lib/profile";
+import { useAuth } from "@/lib/useAuth";
 
 /**
  * Home — the daily loop (user-flow §2): spending total + pie for a selectable range
@@ -23,9 +25,10 @@ export default function HomeScreen() {
   const router = useRouter();
   // Owned here, not inside the chart: dismissing the selection is a tap that lands OUTSIDE the
   // chart, so only the screen can see it.
-  // Chosen once per mount, not per render: computing it inline would re-roll the greeting on
-  // every state change and make it flicker as the user taps the chart.
-  const [greeting] = useState(() => greetingFor());
+  // Computed during render rather than held in state: one line per slot makes it deterministic,
+  // so it can't flicker, and it stays correct if the app sits open across a time boundary.
+  const { session } = useAuth();
+  const greeting = greetingFor(new Date(), firstNameFrom(session));
   const [pieIndex, setPieIndex] = useState(-1);
   // Home shows the full ledger, so it offers the same row actions as the Transactions tab —
   // from the same hook, so the two can't drift apart.
@@ -57,7 +60,7 @@ export default function HomeScreen() {
     <Screen testID="home-screen" onBackgroundPress={() => setPieIndex(-1)}>
       {/* Settings used to be a gear in this header; it is a bottom tab now, so the header is
           just the title. */}
-      <PageTitle>{greeting}</PageTitle>
+      <PageHeader title={greeting} />
 
       {reviewCount > 0 ? (
         <Banner

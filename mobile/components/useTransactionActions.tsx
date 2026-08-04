@@ -62,18 +62,16 @@ export function useTransactionActions() {
 
   const overlays = (
     <>
-      <AppSheet open={menuTxn != null} onOpenChange={(o) => !o && setMenuTxn(null)}>
+      <AppSheet
+        open={menuTxn != null}
+        onOpenChange={(o) => !o && setMenuTxn(null)}
+        title={menuTxn?.vendor}
+        subtitle={
+          menuTxn ? formatCents(menuTxn.total_cents, menuTxn.currency) : undefined
+        }
+      >
         {menuTxn ? (
           <>
-            <YStack gap="$1">
-              <Paragraph fontWeight="700" size="$5">
-                {menuTxn.vendor}
-              </Paragraph>
-              <Paragraph theme="alt2">
-                {formatCents(menuTxn.total_cents, menuTxn.currency)}
-              </Paragraph>
-            </YStack>
-
             <SheetList>
               <SheetRow
                 label="Edit"

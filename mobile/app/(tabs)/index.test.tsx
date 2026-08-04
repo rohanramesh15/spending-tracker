@@ -98,26 +98,18 @@ describe("greeting", () => {
     jest.useFakeTimers().setSystemTime(new Date(2026, 7, 4, 9, 0));
     try {
       await renderScreen(<HomeScreen />);
-      const { GREETINGS } = require("@/lib/greeting") as typeof import("@/lib/greeting");
-      const shown = GREETINGS.morning.filter((g) => screen.queryByText(g) != null);
-      expect(shown).toHaveLength(1);
+      expect(screen.getByText("Good morning")).toBeTruthy();
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it("keeps the same greeting across re-renders", async () => {
-    // Computed during render it would re-roll on every state change, so the heading would
-    // visibly flicker as the user tapped the chart.
-    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 4, 9, 0));
+  it("greets differently at night", async () => {
+    // The night slot wraps midnight, which is the one an hour-range check silently misses.
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 4, 23, 30));
     try {
-      const { GREETINGS } = require("@/lib/greeting") as typeof import("@/lib/greeting");
-      const view = await renderScreen(<HomeScreen />);
-      const before = GREETINGS.morning.find((g) => screen.queryByText(g) != null);
-
-      await view.rerender(<HomeScreen />);
-
-      expect(screen.getByText(before!)).toBeTruthy();
+      await renderScreen(<HomeScreen />);
+      expect(screen.getByText("Still up?")).toBeTruthy();
     } finally {
       jest.useRealTimers();
     }

@@ -1,10 +1,22 @@
 import type { ReactElement, ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderOptions } from "@testing-library/react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider } from "tamagui";
 
 import { ToastProvider } from "@/components/ui";
 import config from "./tamagui.config";
+
+/**
+ * Screens read safe-area insets (Screen pins its collapsing header below the notch), and
+ * useSafeAreaInsets throws without a provider. initialMetrics gives deterministic insets
+ * instead of waiting for a native measurement that never arrives in Jest.
+ */
+const SAFE_AREA_METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+
 
 /**
  * Screen-level render harness.
@@ -30,11 +42,13 @@ export async function renderScreen(ui: ReactElement, options?: Omit<RenderOption
 
   function Providers({ children }: { children: ReactNode }) {
     return (
-      <TamaguiProvider config={config} defaultTheme="light">
-        <QueryClientProvider client={client}>
-          <ToastProvider>{children}</ToastProvider>
-        </QueryClientProvider>
-      </TamaguiProvider>
+      <SafeAreaProvider initialMetrics={SAFE_AREA_METRICS}>
+        <TamaguiProvider config={config} defaultTheme="light">
+          <QueryClientProvider client={client}>
+            <ToastProvider>{children}</ToastProvider>
+          </QueryClientProvider>
+        </TamaguiProvider>
+      </SafeAreaProvider>
     );
   }
 

@@ -11,9 +11,17 @@ import { Paragraph } from "tamagui";
  * Smaller and lighter than Tamagui's H2 by request: at the default size and weight the word
  * "Transactions" was the loudest thing on a screen whose subject is the numbers beneath it.
  */
-export function PageTitle({ children }: { children: ReactNode }) {
+export function PageTitle({
+  children,
+  size = "page",
+}: {
+  children: ReactNode;
+  /** "sheet" is a step down — a sheet's title sits in a smaller surface than a screen's. */
+  size?: "page" | "sheet";
+}) {
+  const scale = size === "sheet" ? { fontSize: 17, lineHeight: 22 } : { fontSize: 21, lineHeight: 26 };
   return (
-    <Paragraph fontSize={26} lineHeight={32} fontWeight="500" letterSpacing={-0.3}>
+    <Paragraph {...scale} fontWeight="500" letterSpacing={-0.2} textAlign="center">
       {children}
     </Paragraph>
   );

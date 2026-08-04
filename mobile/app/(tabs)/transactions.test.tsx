@@ -76,26 +76,57 @@ describe("TransactionsScreen", () => {
     expect(screen.getByText("Kroger")).toBeTruthy();
   });
 
-  it("hides the review filter when nothing needs review", async () => {
-    // The control must not advertise a state that can't currently exist.
-    await renderScreen(<TransactionsScreen />);
-    expect(screen.queryByText(/Needs review/)).toBeNull();
-  });
 
-  it("offers the review filter when a queue exists, and filters to it", async () => {
+  /** Two transactions, so a filter can be seen to exclude one. */
+  function seedTwo() {
     mockHooks.useTransactions.mockReturnValue(
       query({
-        data: [txn(), txn({ id: "t2", vendor: "Target", review_status: "needs_review" })],
+        data: [
+          txn({ id: "a", vendor: "Kroger" }),
+          txn({ id: "b", vendor: "Zelle", review_status: "needs_review" }),
+        ],
       }),
     );
+  }
 
+  it("finds a needs-review transaction by searching for it", async () => {
+    // The All / Needs review chips are gone; search answers the same question and more.
+    seedTwo();
     await renderScreen(<TransactionsScreen />);
-    expect(screen.getByText("Needs review (1)")).toBeTruthy();
-    expect(screen.getByText("Kroger")).toBeTruthy();
 
-    await fireEvent.press(screen.getByText("Needs review (1)"));
-    expect(screen.getByText("Target")).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "needs review");
+
+    expect(screen.getByText("Zelle")).toBeTruthy();
     expect(screen.queryByText("Kroger")).toBeNull();
+  });
+
+  it("searches by vendor", async () => {
+    seedTwo();
+    await renderScreen(<TransactionsScreen />);
+
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "kroger");
+
+    expect(screen.getByText("Kroger")).toBeTruthy();
+    expect(screen.queryByText("Zelle")).toBeNull();
+  });
+
+  it("says so when nothing matches, naming what was searched for", async () => {
+    await renderScreen(<TransactionsScreen />);
+
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "nonsense");
+
+    expect(screen.getByText("No matches")).toBeTruthy();
+    expect(screen.getByText(/nonsense/)).toBeTruthy();
+  });
+
+  it("restores the full list when the search is cleared", async () => {
+    seedTwo();
+    await renderScreen(<TransactionsScreen />);
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "kroger");
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "");
+
+    expect(screen.getByText("Kroger")).toBeTruthy();
+    expect(screen.getByText("Zelle")).toBeTruthy();
   });
 
   it("opens the detail screen on tap", async () => {

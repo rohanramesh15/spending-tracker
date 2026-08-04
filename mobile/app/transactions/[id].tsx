@@ -1,12 +1,12 @@
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { H3, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import { useTransaction } from "@shared/api/hooks";
 import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
-import { Button, Card, EmptyState, ErrorState, ListSkeleton, Screen } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen } from "@/components/ui";
 
 /**
  * Transaction detail (user-flow §7): read-only header + line items.
@@ -54,7 +54,7 @@ export default function TransactionDetailScreen() {
           onPress={() => router.back()}
         />
         <YStack flex={1}>
-          <H3 numberOfLines={1}>{txn.vendor}</H3>
+          <PageTitle>{txn.vendor}</PageTitle>
           <Paragraph size="$2" theme="alt2">
             {format(parseISODate(txn.purchased_on), "EEEE, MMM d, yyyy")} · {txn.source}
             {txn.pending ? " · pending" : ""}

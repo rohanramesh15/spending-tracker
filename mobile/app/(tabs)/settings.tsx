@@ -8,8 +8,9 @@ import * as DocumentPicker from "expo-document-picker";
 import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@shared/api/hooks";
 import type { AccountStatus } from "@shared/api/types";
 import { accountActionLabel, usePlaidLinkFlow } from "@/components/PlaidLink";
+import { avatarUrlFrom, displayNameFrom } from "@/lib/profile";
 import { signOut, useAuth } from "@/lib/useAuth";
-import { BLOCK_PADDING_X, BlockGroup, BlockGroupTitle, Button, Card, ConfirmDialog, ErrorState, ListSkeleton, PageTitle, Screen, useToast } from "@/components/ui";
+import { BLOCK_PADDING_X, BlockGroup, BlockGroupTitle, Button, Card, ConfirmDialog, ErrorState, ListSkeleton, PageHeader, Screen, useToast } from "@/components/ui";
 
 /**
  * Settings — profile, connected accounts, data management and app info (user-flow §9).
@@ -92,23 +93,15 @@ export default function SettingsScreen() {
 
   const hasAccounts = (accounts.data?.length ?? 0) > 0;
 
-  // Google puts the display name and picture in user_metadata; the keys it populates vary
-  // ("full_name" vs "name"), so try both before falling back to the email's local part.
-  const metadata = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
-  const metaName = typeof metadata.full_name === "string" ? metadata.full_name : undefined;
-  const altName = typeof metadata.name === "string" ? metadata.name : undefined;
+  // Shared with Home's greeting — deriving the name twice is how two screens end up calling
+  // the same person different things.
   const email = session?.user.email ?? undefined;
-  const displayName = metaName ?? altName ?? email?.split("@")[0];
-  const avatarUrl =
-    typeof metadata.avatar_url === "string"
-      ? metadata.avatar_url
-      : typeof metadata.picture === "string"
-        ? metadata.picture
-        : undefined;
+  const displayName = displayNameFrom(session);
+  const avatarUrl = avatarUrlFrom(session);
 
   return (
     <Screen testID="settings-screen">
-      <PageTitle>Settings</PageTitle>
+      <PageHeader title="Settings" />
 
       <YStack gap="$4">
         <ProfileBlock

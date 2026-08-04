@@ -8,10 +8,9 @@ import type { TransactionListItem } from "@shared/api/types";
 import { formatCents } from "@shared/lib/money";
 import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import { useTransactionActions } from "@/components/useTransactionActions";
-import { AppSheet, Button, Card, ConfirmDialog, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen, SheetList, SheetRow, useToast } from "@/components/ui";
+import { searchTransactions } from "@/lib/searchTransactions";
+import { AppSheet, Button, Card, ConfirmDialog, EmptyState, ErrorState, ListSkeleton, PageHeader, Screen, SearchField, SheetList, SheetRow, useToast } from "@/components/ui";
 import { groupByDay } from "@/lib/groupTransactions";
-
-type Filter = "all" | "needs_review";
 
 /**
  * Transactions — the browsable ledger (user-flow §5), grouped by day.
@@ -26,46 +25,49 @@ export default function TransactionsScreen() {
   const router = useRouter();
   const toast = useToast();
   const { data, isLoading, isError, refetch } = useTransactions();
-  const [filter, setFilter] = useState<Filter>("all");
+  const [queryText, setQueryText] = useState("");
 
   const [addOpen, setAddOpen] = useState(false);
   const actions = useTransactionActions();
 
   const all = data ?? [];
-  const reviewCount = all.filter((t) => t.review_status === "needs_review").length;
-  const visible = filter === "needs_review" ? all.filter((t) => t.review_status === "needs_review") : all;
+  const visible = searchTransactions(all, queryText);
   const groups = groupByDay(visible);
 
 
 
 
   return (
-    <Screen testID="transactions-screen">
-      <XStack alignItems="center" justifyContent="space-between">
-        <PageTitle>Transactions</PageTitle>
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Feather name="plus" size={14} />}
-          onPress={() => setAddOpen(true)}
-          testID="add-transaction"
-        >
-          Add
-        </Button>
-      </XStack>
-
-      {/* The filter only appears when there IS a queue — matching web, so the control doesn't
-          advertise a state that can't currently exist. */}
-      {reviewCount > 0 ? (
-        <XStack gap="$2">
-          <FilterChip label="All" active={filter === "all"} onPress={() => setFilter("all")} />
-          <FilterChip
-            label={`Needs review (${reviewCount})`}
-            active={filter === "needs_review"}
-            onPress={() => setFilter("needs_review")}
+    <Screen
+      testID="transactions-screen"
+      collapsingHeader={
+        <YStack gap="$3">
+          <PageHeader
+            title="Transactions"
+            right={
+              <Button
+                variant="secondary"
+                circular
+                icon={<Feather name="plus" size={20} />}
+                accessibilityLabel="Add a transaction"
+                onPress={() => setAddOpen(true)}
+                testID="add-transaction"
+              />
+            }
           />
-        </XStack>
-      ) : null}
+
+          {/* Search replaces the All / Needs review chips. Those answered exactly one question;
+              this answers that one too ("needs review" is a searchable term) plus vendor, amount,
+              date and category — which is what people actually remember about a purchase. */}
+          <SearchField
+            value={queryText}
+            onChangeText={setQueryText}
+            placeholder="Search vendor, amount, date…"
+            testID="transaction-search"
+          />
+        </YStack>
+      }
+    >
 
       {isLoading ? (
         <ListSkeleton rows={6} />
@@ -73,10 +75,14 @@ export default function TransactionsScreen() {
         <ErrorState message="Couldn't load transactions." onRetry={() => void refetch()} />
       ) : groups.length === 0 ? (
         <EmptyState
-          title={filter === "needs_review" ? "Nothing needs review" : "No transactions yet"}
-          message={filter === "needs_review" ? undefined : "Add a purchase or scan a receipt."}
-          actionLabel={filter === "needs_review" ? undefined : "Add a purchase"}
-          onAction={filter === "needs_review" ? undefined : () => router.push("/add")}
+          title={queryText ? "No matches" : "No transactions yet"}
+          message={
+            queryText
+              ? `Nothing matches "${queryText}".`
+              : "Add a purchase or scan a receipt."
+          }
+          actionLabel={queryText ? undefined : "Add a purchase"}
+          onAction={queryText ? undefined : () => router.push("/add")}
         />
       ) : (
         <TransactionDayGroups
@@ -89,9 +95,7 @@ export default function TransactionsScreen() {
       {/* The three ways to add a transaction. Ordered fastest-first for the common case:
           most entries are typed, and a receipt you just bought is more likely to be
           photographed now than found in the library later. */}
-      {/* No heading: the sheet is opened by a button labelled "Add", and the three rows say
-          exactly what they do. A title and a subtitle above them only restated that. */}
-      <AppSheet open={addOpen} onOpenChange={setAddOpen}>
+      <AppSheet open={addOpen} onOpenChange={setAddOpen} title="Add a transaction">
         <SheetList>
           <SheetRow
             label="Enter manually"
@@ -128,23 +132,3 @@ export default function TransactionsScreen() {
   );
 }
 
-function FilterChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Button
-      variant={active ? "primary" : "ghost"}
-      size="sm"
-      onPress={onPress}
-      accessibilityLabel={label}
-    >
-      {label}
-    </Button>
-  );
-}

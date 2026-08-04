@@ -15,7 +15,7 @@ import type {
 import { centsToInput, dollarsToCents, formatCents } from "@shared/lib/money";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
-import { Button, Card, EmptyState, ErrorState, Field, PageTitle, Screen, TextField, useToast } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, Field, PageHeader, PageTitle, Screen, TextField, useToast } from "@/components/ui";
 import { itemizedTotalCents, type ItemRow } from "@/lib/manualEntry";
 import { imageUploadPart } from "@/lib/uploads";
 
@@ -237,7 +237,7 @@ export default function ScanScreen() {
   if (stage === "idle") {
     return (
       <Screen testID="scan-screen">
-        <PageTitle>Scan a receipt</PageTitle>
+        <PageHeader title="Scan a receipt" />
         <EmptyState
           icon="camera"
           title="Capture a receipt"
@@ -271,7 +271,7 @@ export default function ScanScreen() {
   return (
     <Screen testID="scan-screen">
       <YStack gap="$1">
-        <PageTitle>Check the details</PageTitle>
+        <PageHeader title="Check the details" />
         <Paragraph size="$2" theme="alt2">
           Edit anything that looks wrong, then save.
         </Paragraph>

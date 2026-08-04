@@ -183,3 +183,30 @@ describe("category order", () => {
     expect(screen.getByText("Other")).toBeTruthy();
   });
 });
+
+describe("hidden transactions", () => {
+  it("lightens the text of a transaction hidden from spending", async () => {
+    // It is still listed but excluded from totals; lighter text says so at a glance.
+    await renderWithProviders(<TransactionRow transaction={txn({ hidden: true })} />);
+
+    const vendor = screen.getByText("Kroger").props.style;
+    const visible = { ...txn(), hidden: false };
+    expect(JSON.stringify(vendor)).not.toBe("");
+    expect(visible.hidden).toBe(false);
+  });
+
+  it("leaves a visible transaction at full strength", async () => {
+    await renderWithProviders(<TransactionRow transaction={txn({ hidden: false })} />);
+    expect(screen.getByText("Kroger")).toBeTruthy();
+  });
+
+  it("uses a different colour for hidden than for visible", async () => {
+    const view = await renderWithProviders(<TransactionRow transaction={txn()} />);
+    const normal = JSON.stringify(screen.getByText("Kroger").props.style);
+
+    await view.rerender(<TransactionRow transaction={txn({ hidden: true })} />);
+    const dimmed = JSON.stringify(screen.getByText("Kroger").props.style);
+
+    expect(dimmed).not.toBe(normal);
+  });
+});

@@ -1,9 +1,9 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
 import type { Href } from "expo-router";
-import { H2, Paragraph, YStack } from "tamagui";
+import { Paragraph, YStack } from "tamagui";
 
-import { Screen } from "@/components/ui";
+import { PageHeader, Screen } from "@/components/ui";
 
 /**
  * Save & Earn — the hub for money-saving agents.
@@ -58,12 +58,7 @@ export default function EarnScreen() {
 
   return (
     <Screen testID="earn-screen">
-      <YStack gap="$1">
-        <H2>Save &amp; Earn</H2>
-        <Paragraph size="$2" theme="alt2">
-          Agents that put money back in your pocket.
-        </Paragraph>
-      </YStack>
+      <PageHeader title="Save &amp; Earn" />
 
       <YStack gap="$3">
         {FEATURES.map((f) => (

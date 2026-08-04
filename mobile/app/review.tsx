@@ -5,7 +5,7 @@ import { Paragraph, XStack, YStack } from "tamagui";
 import { useResolveReview, useReviews } from "@shared/api/hooks";
 import type { Resolution } from "@shared/api/types";
 import { ReviewCard } from "@/components/ReviewCard";
-import { Button, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen, useToast } from "@/components/ui";
+import { Button, EmptyState, ErrorState, ListSkeleton, PageHeader, Screen, useToast } from "@/components/ui";
 
 const doneMessage: Record<Resolution, string> = {
   merge: "Merged",
@@ -38,16 +38,18 @@ export default function ReviewQueueScreen() {
 
   return (
     <Screen testID="review-screen">
-      <XStack alignItems="center" gap="$2">
-        <Button
-          variant="ghost"
-          circular
-          icon={<Feather name="arrow-left" size={20} />}
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-        />
-        <PageTitle>Review</PageTitle>
-      </XStack>
+      <PageHeader
+        title="Review"
+        left={
+          <Button
+              variant="ghost"
+              circular
+              icon={<Feather name="arrow-left" size={20} />}
+              accessibilityLabel="Back"
+              onPress={() => router.back()}
+            />
+        }
+      />
 
       {reviews.isLoading ? (
         <ListSkeleton rows={4} />

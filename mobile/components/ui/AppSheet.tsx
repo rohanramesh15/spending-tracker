@@ -2,6 +2,7 @@ import { Children, type ReactNode } from "react";
 import { Separator, Sheet, XStack, YStack, Paragraph } from "tamagui";
 
 import { BLOCK_RADIUS, SHEET_PADDING_X } from "./grouped";
+import { PageTitle } from "./PageTitle";
 
 /**
  * Bottom sheet — the native replacement for the web's Radix-based ActionSheet.
@@ -20,6 +21,8 @@ import { BLOCK_RADIUS, SHEET_PADDING_X } from "./grouped";
  *    same family of surface as everything it opens over.
  *  - Content is inset by SHEET_PADDING_X, which is the screen's padding PLUS a row's, so a
  *    sheet's labels line up with the labels in the list behind it.
+ *  - An optional centred `title` in the same type as a screen heading, with accessories pinned
+ *    absolutely so the title centres on the sheet rather than in the leftover space.
  *
  * KNOWN GAP: no `animation` prop. The animation drivers are configured and work at runtime, but
  * spreading Tamagui's v4 preset into createTamagui loses the animation-key types, so
@@ -30,10 +33,19 @@ export function AppSheet({
   open,
   onOpenChange,
   children,
+  title,
+  subtitle,
+  left,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
+  /** Centred at the top of the sheet, in the same type as a screen heading. */
+  title?: string;
+  /** Secondary line under the title — what the sheet is acting ON, e.g. an amount. */
+  subtitle?: string;
+  /** Accessory pinned to the header's left, e.g. a back button in a multi-panel sheet. */
+  left?: ReactNode;
 }) {
   return (
     <Sheet
@@ -57,6 +69,26 @@ export function AppSheet({
         borderTopLeftRadius={BLOCK_RADIUS}
         borderTopRightRadius={BLOCK_RADIUS}
       >
+        {title ? (
+          // Absolutely-positioned accessory, like PageHeader: laid out as a flex sibling the
+          // title would centre in the space the button leaves over, which is visibly off-centre.
+          <YStack paddingBottom="$2">
+            <XStack alignItems="center" justifyContent="center" minHeight={32}>
+              {left ? (
+                <YStack position="absolute" left={0} top={0} bottom={0} justifyContent="center">
+                  {left}
+                </YStack>
+              ) : null}
+              <PageTitle size="sheet">{title}</PageTitle>
+            </XStack>
+            {subtitle ? (
+              <Paragraph theme="alt2" size="$2" textAlign="center">
+                {subtitle}
+              </Paragraph>
+            ) : null}
+          </YStack>
+        ) : null}
+
         {children}
       </Sheet.Frame>
     </Sheet>

@@ -65,12 +65,25 @@ describe("the custom panel", () => {
     await fireEvent.press(screen.getByTestId("preset-Custom"));
   }
 
-  it("offers Custom as a row that states the range it currently resolves to", async () => {
-    // The row gives the answer, rather than only offering to ask the question.
+  it("states the range beside Custom once one has been set here", async () => {
+    // March 2026 is not one of the presets, so this range can only have come from Custom.
     await renderWithProviders(<DateRangePicker value={value} onChange={jest.fn()} />);
     await fireEvent.press(screen.getByTestId("date-range-trigger"));
 
     expect(screen.getByTestId("preset-Custom")).toHaveTextContent(/1 – 31 Mar 2026/);
+  });
+
+  it("shows no date beside Custom when the range came from a preset", async () => {
+    // Echoing the preset's dates there implied a custom range had been chosen when the user had
+    // just tapped "This month".
+    const thisMonth = rangePresets()[0];
+    await renderWithProviders(
+      <DateRangePicker value={{ start: thisMonth.start, end: thisMonth.end }} onChange={jest.fn()} />,
+    );
+    await fireEvent.press(screen.getByTestId("date-range-trigger"));
+
+    // No digits at all means no date is being shown beside the label.
+    expect(screen.getByTestId("preset-Custom")).not.toHaveTextContent(/\d/);
   });
 
   it("shows From and To with their dates in words, not raw ISO", async () => {

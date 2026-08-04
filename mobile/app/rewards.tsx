@@ -4,7 +4,7 @@ import { Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import { useCards, useRewardsOptimization } from "@shared/api/hooks";
 import { formatCents } from "@shared/lib/money";
-import { Button, Card, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, ListSkeleton, PageHeader, Screen } from "@/components/ui";
 
 /**
  * Card Rewards Optimizer — which card to use per spending category.
@@ -22,16 +22,18 @@ export default function RewardsScreen() {
 
   return (
     <Screen testID="rewards-screen">
-      <XStack alignItems="center" gap="$2">
-        <Button
-          variant="ghost"
-          circular
-          icon={<Feather name="arrow-left" size={20} />}
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-        />
-        <PageTitle>Card rewards</PageTitle>
-      </XStack>
+      <PageHeader
+        title="Card rewards"
+        left={
+          <Button
+              variant="ghost"
+              circular
+              icon={<Feather name="arrow-left" size={20} />}
+              accessibilityLabel="Back"
+              onPress={() => router.back()}
+            />
+        }
+      />
 
       {optimization.isLoading ? (
         <ListSkeleton rows={5} />

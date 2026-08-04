@@ -1,7 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
 import { useRouter } from "expo-router";
-import { H3, Paragraph, Separator, XStack, YStack } from "tamagui";
+import { Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import {
   useRecomputeSubscriptions,
@@ -12,15 +12,7 @@ import {
 import type { Subscription, SubscriptionStatus } from "@shared/api/types";
 import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
-import {
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  ListSkeleton,
-  Screen,
-  useToast,
-} from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, ListSkeleton, PageHeader, Screen, useToast } from "@/components/ui";
 
 const statusLabel: Record<SubscriptionStatus, string> = {
   detected: "Detected",
@@ -67,25 +59,29 @@ export default function SubscriptionsScreen() {
 
   return (
     <Screen testID="subscriptions-screen">
-      <XStack alignItems="center" gap="$2">
-        <Button
-          variant="ghost"
-          circular
-          icon={<Feather name="arrow-left" size={20} />}
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-        />
-        <H3 flex={1}>Subscriptions</H3>
-        <Button
-          variant="ghost"
-          size="sm"
-          loading={recompute.isPending}
-          onPress={() => void rescan()}
-          testID="rescan"
-        >
-          {recompute.isPending ? "Scanning…" : "Rescan"}
-        </Button>
-      </XStack>
+      <PageHeader
+        title="Subscriptions"
+        left={
+          <Button
+              variant="ghost"
+              circular
+              icon={<Feather name="arrow-left" size={20} />}
+              accessibilityLabel="Back"
+              onPress={() => router.back()}
+            />
+        }
+        right={
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={recompute.isPending}
+            onPress={() => void rescan()}
+            testID="rescan"
+          >
+            {recompute.isPending ? "Scanning…" : "Rescan"}
+          </Button>
+        }
+      />
 
       {summary.data ? (
         <Card testID="subscription-summary">
