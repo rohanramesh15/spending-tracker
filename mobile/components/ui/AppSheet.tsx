@@ -10,8 +10,10 @@ import { BLOCK_RADIUS } from "./grouped";
  * grab handle, which is what the gesture affordance on a phone should be.
  *
  * Three deliberate choices, all of which apply to every sheet in the app:
- *  - The grab handle is drawn INSIDE the frame. Tamagui's `Sheet.Handle` floats above the card,
- *    which reads as a stray bar sitting on the backdrop rather than part of the sheet.
+ *  - No grab handle. The sheet is still draggable and still dismisses on a downward swipe or a
+ *    backdrop tap; the bar was visual furniture on top of a card whose edge already announces
+ *    itself. (Tamagui's own `Sheet.Handle` is worse — it floats ABOVE the frame, reading as a
+ *    stray bar on the backdrop rather than part of the sheet.)
  *  - The sheet is sized by its contents (`snapPointsMode="fit"`), not by a percentage of the
  *    screen. A fixed snap point left a short menu stranded in the middle of a tall empty card.
  *  - Corners use BLOCK_RADIUS, the same radius as the grouped blocks, so a sheet reads as the
@@ -46,18 +48,13 @@ export function AppSheet({
       />
       <Sheet.Frame
         paddingHorizontal="$4"
-        paddingTop="$2"
+        paddingTop="$4"
         paddingBottom="$6"
         gap="$3"
         backgroundColor="$background"
         borderTopLeftRadius={BLOCK_RADIUS}
         borderTopRightRadius={BLOCK_RADIUS}
       >
-        {/* The handle, drawn in-frame. Narrow and low-contrast: it is a grab affordance, not a
-            piece of furniture, and the sheet's edge already announces itself. */}
-        <YStack alignItems="center" paddingBottom="$1" testID="sheet-handle">
-          <YStack width={36} height={4} borderRadius={999} backgroundColor="$color6" />
-        </YStack>
         {children}
       </Sheet.Frame>
     </Sheet>
