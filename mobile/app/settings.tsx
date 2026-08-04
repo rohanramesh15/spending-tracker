@@ -1,10 +1,13 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H3, Paragraph, XStack, YStack } from "tamagui";
+import { Button, H3, Paragraph, Separator, Spinner, XStack, YStack } from "tamagui";
 
-import { signOut } from "@/lib/useAuth";
-import { Card, ConfirmDialog, Screen, useToast } from "@/components/ui";
+import { useLinkedAccounts, useSyncBank } from "@shared/api/hooks";
+import type { AccountStatus } from "@shared/api/types";
+import { accountActionLabel, usePlaidLinkFlow } from "@/components/PlaidLink";
+import { signOut, useAuth } from "@/lib/useAuth";
+import { Card, ConfirmDialog, ErrorState, ListSkeleton, Screen, useToast } from "@/components/ui";
 
 /**
  * Settings — user account, data management, and app info (user-flow §9).
@@ -15,6 +18,10 @@ import { Card, ConfirmDialog, Screen, useToast } from "@/components/ui";
 export default function SettingsScreen() {
   const router = useRouter();
   const toast = useToast();
+  const { session } = useAuth();
+  const accounts = useLinkedAccounts();
+  const sync = useSyncBank();
+  const plaid = usePlaidLinkFlow({ onSuccess: toast.success, onError: toast.error });
 
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
 
@@ -28,6 +35,26 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleSync() {
+    try {
+      const result = await sync.mutateAsync();
+      const needsAttention = result.accounts.filter((account) => account.needs_attention);
+      if (needsAttention.length) {
+        toast.error(`${needsAttention.map((account) => account.institution).join(", ")} need reconnecting`);
+        return;
+      }
+      const changes = [
+        result.added ? `${result.added} added` : null,
+        result.needs_review ? `${result.needs_review} to review` : null,
+      ].filter(Boolean);
+      toast.success(changes.length ? `Synced — ${changes.join(", ")}` : "You're up to date");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Sync failed");
+    }
+  }
+
+  const hasAccounts = (accounts.data?.length ?? 0) > 0;
+
   return (
     <Screen testID="settings-screen">
       <XStack alignItems="center" gap="$2">
@@ -39,6 +66,56 @@ export default function SettingsScreen() {
 
       <YStack gap="$4">
         <Section title="Account">
+          <Card flat padding="$3">
+            <Paragraph size="$2" theme="alt2">
+              Signed in as {session?.user.email ?? "—"}
+            </Paragraph>
+          </Card>
+        </Section>
+
+        <Section title="Connected accounts">
+          {accounts.isLoading ? (
+            <ListSkeleton rows={2} />
+          ) : accounts.isError ? (
+            <ErrorState message="Couldn't load connected accounts." onRetry={() => void accounts.refetch()} />
+          ) : hasAccounts ? (
+            <Card flat padding="$0">
+              {accounts.data!.map((account, index) => (
+                <YStack key={account.id}>
+                  {index > 0 ? <Separator /> : null}
+                  <AccountRow
+                    institution={account.institution}
+                    status={account.status}
+                    busy={plaid.busy}
+                    pending={plaid.openingAccountId === account.id}
+                    onPress={() => void plaid.startUpdate(account.id)}
+                  />
+                </YStack>
+              ))}
+              <Separator />
+              <XStack padding="$3" gap="$2">
+                <Button flex={1} onPress={() => void plaid.startConnect()} disabled={plaid.busy}>
+                  {plaid.openingAccountId === "connect" ? <Spinner color="#ffffff" /> : "Connect another"}
+                </Button>
+                <Button chromeless onPress={() => void handleSync()} disabled={sync.isPending || plaid.busy}>
+                  {sync.isPending ? "Syncing…" : "Sync now"}
+                </Button>
+              </XStack>
+            </Card>
+          ) : (
+            <Card padding="$4" gap="$2" alignItems="center">
+              <Paragraph fontWeight="600">No accounts connected</Paragraph>
+              <Paragraph size="$2" theme="alt2" textAlign="center">
+                Connect a bank to pull in transactions automatically. Receipts and manual entry work without it.
+              </Paragraph>
+              <Button onPress={() => void plaid.startConnect()} disabled={plaid.busy} marginTop="$1">
+                {plaid.busy ? <Spinner color="#ffffff" /> : "Connect a bank"}
+              </Button>
+            </Card>
+          )}
+        </Section>
+
+        <Section title="Sign out">
           <Card flat padding="$0">
             <SettingRow
               label="Sign out"
@@ -89,6 +166,38 @@ export default function SettingsScreen() {
         onConfirm={() => void handleSignOut()}
       />
     </Screen>
+  );
+}
+
+const statusLabel: Record<AccountStatus, string> = {
+  active: "Syncing",
+  needs_reauth: "Reconnect needed",
+  disconnected: "Disconnected",
+};
+
+function AccountRow({
+  institution,
+  status,
+  busy,
+  pending,
+  onPress,
+}: {
+  institution: string;
+  status: AccountStatus;
+  busy: boolean;
+  pending: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <XStack padding="$3" alignItems="center" justifyContent="space-between" gap="$3">
+      <YStack flex={1} gap="$1">
+        <Paragraph fontWeight="600">{institution}</Paragraph>
+        <Paragraph size="$2" theme="alt2">{statusLabel[status]}</Paragraph>
+      </YStack>
+      <Button size="$2" chromeless onPress={onPress} disabled={busy}>
+        {pending ? "Opening…" : accountActionLabel(status)}
+      </Button>
+    </XStack>
   );
 }
 

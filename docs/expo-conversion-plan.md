@@ -238,7 +238,8 @@ then start at the first unchecked step. Update it in the same commit as the work
 
 Each step must be independently green before the next starts.
 
-**🎯 CURRENT FOCUS: Step 11 (EAS dev build for Plaid/maps) - all core functionality complete!**
+**🎯 CURRENT FOCUS: Step 11 (native dev build verification) — Plaid code and EAS configuration
+are complete; a signed-in Expo account plus mobile runtime env are now the remaining blockers.**
 
 | # | Step | Status | Blocked by | Provable in Expo Go? |
 |---|---|---|---|---|
@@ -252,14 +253,47 @@ Each step must be independently green before the next starts.
 | 8 | Manual entry + receipt scan (camera) | **[x] DONE** | 4, 5 | yes |
 | 9 | Review queue + reconcile dialog | **[x] DONE** | 7 | yes |
 | 10 | Earn / Subscriptions / Rewards / Settings | **[x] DONE** | 7 | yes |
-| 11 | EAS dev build → Plaid + maps | [ ] TODO | 10 | **no** |
+| 11 | EAS dev build → Plaid + maps | **[~] CODE COMPLETE — blocked on EAS/mobile credentials** | 10 | **no** |
 | 12 | Mobile test suite + docs | [ ] TODO | all | — |
 
 ### 7.1 Current state of the world (as of 2026-08-03)
 
 **Branch:** `expo/shared-extraction`, off `convert-codebase-expo`. Not yet PR'd.
 **Steps 1-10 are done and verified.** `mobile/` exists, builds, and runs on the iOS
-simulator with all core functionality implemented. Step 11 (EAS dev build for Plaid/maps) is next.
+simulator with all core functionality implemented. Step 11's native wiring is in place; its
+development-build and live-Sandbox proof remain human-gated.
+
+#### Step 11 — native Plaid implementation + development-build setup
+
+`mobile/components/PlaidLink.tsx` now owns the two supported native flows using the current
+`react-native-plaid-link-sdk` v13 session API: a freshly minted backend Link token opens the
+connect flow and exchanges the returned short-lived public token; an update token opens the
+existing account's reconnect/manage flow and then runs the server-side re-sync. The mobile app
+never sees a Plaid secret or access token. `app/settings.tsx` displays connected accounts,
+connect/reconnect/manage actions, and manual sync instead of the former placeholders.
+
+`expo-dev-client`, `react-native-plaid-link-sdk`, and `react-native-maps` are installed, and
+`mobile/eas.json` defines the internal `development` profile. `expo config --type prebuild`
+confirms Plaid autolinking and the development client are included. `react-native-maps` currently
+uses Expo's legacy unversioned config plugin; that is acceptable while no Finder map is rendered,
+but re-check it when the Finder returns rather than treating the dependency alone as map support.
+
+**Human steps to finish Step 11:**
+
+1. Fill `mobile/.env.local` with the three `EXPO_PUBLIC_*` values from §Step 3. The backend
+   `.env` has server credentials only; it cannot substitute for the Supabase URL, publishable key,
+   or API base URL the native bundle needs.
+2. Sign in to the intended Expo account (`npx eas-cli@latest login`) and run
+   `npx eas-cli@latest build --profile development --platform ios` from `mobile/`; install the
+   generated internal build on the simulator/device, then launch Metro with
+   `npx expo start --dev-client`.
+3. In the Plaid Dashboard, register `com.rohanramesh.trackit` and any OAuth redirect URI used by
+   the deployed backend before testing a real institution. Use **Sandbox only** for this step;
+   do not consume a real-bank Item.
+4. The backend's `GOOGLE_PLACES_API_KEY` stays server-only. When the Finder/map feature is restored,
+   create a separately restricted Maps SDK key for the iOS bundle (and Android package/SHA-1 if
+   Android is added), expose it only to app config at build time, and rebuild. Do not reuse the
+   Places server key in `EXPO_PUBLIC_*`.
 
 #### Step 2 — what `mobile/` is right now
 
@@ -557,3 +591,11 @@ Specific things to pin with tests, because they are easy to silently break in a 
   and version info. TypeScript fixes applied: `total_missed_cents` → `total_missed_annual_cents`
   in rewards, `SubscriptionStatus` updated to match backend enum. Mobile test suite: 12 suites,
   82 tests passing. TypeScript compilation clean across both apps.
+- **2026-08-03** — **Step 11 code complete; build verification pending.** Added the Expo SDK 57
+  development client, Plaid Link v13 native SDK, and `react-native-maps`; created the internal
+  EAS development profile. Settings now presents native Plaid connect/update Link sessions,
+  server-side exchange/re-sync, connected-account status, and manual sync. `pnpm typecheck`,
+  all 82 mobile tests, `expo config --type prebuild`, and the iOS Metro export are green. EAS is
+  not authenticated in this environment and the mobile public runtime config has not been supplied,
+  so no development build or live Sandbox Link session has been attempted. The backend `.env` was
+  detected and deliberately not copied into mobile because it contains server-only secrets.
