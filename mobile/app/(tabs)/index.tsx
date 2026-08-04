@@ -13,6 +13,7 @@ import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import { useTransactionActions } from "@/components/useTransactionActions";
 import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, PageTitle, Screen, Skeleton } from "@/components/ui";
 import { filterByCategory } from "@/lib/filterByCategory";
+import { greetingFor } from "@/lib/greeting";
 
 /**
  * Home — the daily loop (user-flow §2): spending total + pie for a selectable range
@@ -22,6 +23,9 @@ export default function HomeScreen() {
   const router = useRouter();
   // Owned here, not inside the chart: dismissing the selection is a tap that lands OUTSIDE the
   // chart, so only the screen can see it.
+  // Chosen once per mount, not per render: computing it inline would re-roll the greeting on
+  // every state change and make it flicker as the user taps the chart.
+  const [greeting] = useState(() => greetingFor());
   const [pieIndex, setPieIndex] = useState(-1);
   // Home shows the full ledger, so it offers the same row actions as the Transactions tab —
   // from the same hook, so the two can't drift apart.
@@ -53,7 +57,7 @@ export default function HomeScreen() {
     <Screen testID="home-screen" onBackgroundPress={() => setPieIndex(-1)}>
       {/* Settings used to be a gear in this header; it is a bottom tab now, so the header is
           just the title. */}
-      <PageTitle>Welcome</PageTitle>
+      <PageTitle>{greeting}</PageTitle>
 
       {reviewCount > 0 ? (
         <Banner
