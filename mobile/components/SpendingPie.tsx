@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Svg, { Defs, G, Line, Path, Pattern, Rect, Text as SvgText } from "react-native-svg";
-import { Paragraph, XStack, YStack } from "tamagui";
+import { Paragraph, useTheme, XStack, YStack } from "tamagui";
 
 import type { SpendingSlice } from "@shared/api/types";
 import { categoryColor, categoryLabel, HATCHED, isHatched } from "@shared/lib/categories";
@@ -37,7 +37,10 @@ export function labelInkFor(hex: string): string {
  */
 export function percentLabel(cents: number, total: number): string {
   if (total <= 0) return "0%";
-  return `${Math.round((cents / total) * 100)}%`;
+  const pct = (cents / total) * 100;
+  // A slice that exists but rounds to 0% must not claim to be 0% — you can see it on screen.
+  if (pct > 0 && pct < 0.5) return "<1%";
+  return `${Math.round(pct)}%`;
 }
 
 function polar(angleDeg: number, radius: number) {
@@ -113,6 +116,7 @@ export function SpendingPie({
   activeIndex?: number;
   onActiveIndexChange?: (index: number) => void;
 }) {
+  const theme = useTheme();
   const [uncontrolledIndex, setUncontrolledIndex] = useState(-1);
   const isControlled = controlledIndex !== undefined;
   const activeIndex = isControlled ? controlledIndex : uncontrolledIndex;
@@ -131,9 +135,11 @@ export function SpendingPie({
   });
 
   const active = activeIndex >= 0 ? segments[activeIndex] : undefined;
+  // Resolved from the theme so the readout stays legible in dark mode too.
+  const holeInk = (theme.color?.val as string | undefined) ?? "#0f172a";
 
   return (
-    <YStack alignItems="center" gap="$3" testID="spending-pie">
+    <YStack alignItems="center" gap="$3" paddingBottom="$4" testID="spending-pie">
       <Svg width={SIZE} height={SIZE}>
         <Defs>
           {Object.entries(HATCHED).map(([category, angle]) => (
@@ -174,7 +180,13 @@ export function SpendingPie({
             fontSize={18}
             fontWeight="700"
             textAnchor="middle"
-            fill={labelInkFor(categoryColor(active.slice.category))}
+            /*
+             * Coloured for the PAGE, not the slice. This label sits in the donut hole — over the
+             * page background — but used to take its ink from the slice's own colour, so any
+             * dark slice (Other, Entertainment) rendered white text on a white hole and the
+             * percentage was simply invisible.
+             */
+            fill={holeInk}
           >
             {percentLabel(active.slice.cents, total)}
           </SvgText>
@@ -186,11 +198,7 @@ export function SpendingPie({
           <Paragraph fontWeight="600">{categoryLabel(active.slice.category)}</Paragraph>
           <Paragraph theme="alt2">{formatCents(active.slice.cents)}</Paragraph>
         </YStack>
-      ) : (
-        <Paragraph theme="alt2" size="$2">
-          Tap a slice for details
-        </Paragraph>
-      )}
+      ) : null}
 
       <XStack flexWrap="wrap" justifyContent="center" gap="$3" paddingHorizontal="$2">
         {slices.map((s) => (

@@ -1,10 +1,10 @@
 import { format } from "date-fns";
-import { Paragraph, YStack } from "tamagui";
+import { YStack } from "tamagui";
 
 import type { TransactionListItem } from "@shared/api/types";
 import { parseISODate } from "@shared/lib/dates";
 import { TransactionList } from "@/components/TransactionList";
-import { BLOCK_TITLE_INSET } from "@/components/ui";
+import { BlockGroupTitle } from "@/components/ui";
 import { groupByDay } from "@/lib/groupTransactions";
 
 /**
@@ -38,17 +38,7 @@ export function TransactionDayGroups({
     <YStack gap="$4" testID={testID}>
       {groups.map(({ day, items: dayItems }) => (
         <YStack key={day} gap="$1.5">
-          <Paragraph
-            size="$1"
-            // A step lighter than alt2's body text: the heading is orientation, not content,
-            // and at full strength it competed with the vendor names below it.
-            color="$color10"
-            textTransform="uppercase"
-            fontWeight="600"
-            paddingLeft={BLOCK_TITLE_INSET}
-          >
-            {format(parseISODate(day), "EEEE, MMM d")}
-          </Paragraph>
+          <BlockGroupTitle>{format(parseISODate(day), "EEEE, MMM d")}</BlockGroupTitle>
           <TransactionList items={dayItems} onPressItem={onPressItem} onOpenMenu={onOpenMenu} />
         </YStack>
       ))}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H3, Image, Paragraph, Separator, Spinner, XStack, YStack } from "tamagui";
+import { Button, H3, Image, Paragraph, Spinner, XStack, YStack } from "tamagui";
 
 import * as DocumentPicker from "expo-document-picker";
 
@@ -10,8 +10,9 @@ import type { AccountStatus } from "@shared/api/types";
 import { accountActionLabel, usePlaidLinkFlow } from "@/components/PlaidLink";
 import { signOut, useAuth } from "@/lib/useAuth";
 import {
-  BLOCK_BACKGROUND,
-  blockCorners,
+  BLOCK_PADDING_X,
+  BlockGroup,
+  BlockGroupTitle,
   Card,
   ConfirmDialog,
   ErrorState,
@@ -132,27 +133,18 @@ export default function SettingsScreen() {
           ) : accounts.isError ? (
             <ErrorState message="Couldn't load connected accounts." onRetry={() => void accounts.refetch()} />
           ) : hasAccounts ? (
-            <YStack>
-              {accounts.data!.map((account, index) => (
-                <YStack key={account.id}>
-                  {index > 0 ? <Separator /> : null}
-                  <AccountRow
-                    institution={account.institution}
-                    status={account.status}
-                    busy={plaid.busy}
-                    pending={plaid.openingAccountId === account.id}
-                    onPress={() => void plaid.startUpdate(account.id)}
-                    first={index === 0}
-                  />
-                </YStack>
+            <BlockGroup>
+              {accounts.data!.map((account) => (
+                <AccountRow
+                  key={account.id}
+                  institution={account.institution}
+                  status={account.status}
+                  busy={plaid.busy}
+                  pending={plaid.openingAccountId === account.id}
+                  onPress={() => void plaid.startUpdate(account.id)}
+                />
               ))}
-              <Separator />
-              <XStack
-                padding="$3"
-                gap="$2"
-                backgroundColor={BLOCK_BACKGROUND}
-                {...blockCorners(false, true)}
-              >
+              <XStack paddingVertical="$3" paddingHorizontal={BLOCK_PADDING_X} gap="$2">
                 <Button flex={1} onPress={() => void plaid.startConnect()} disabled={plaid.busy}>
                   {plaid.openingAccountId === "connect" ? <Spinner color="#ffffff" /> : "Connect another"}
                 </Button>
@@ -160,7 +152,7 @@ export default function SettingsScreen() {
                   {sync.isPending ? "Syncing…" : "Sync now"}
                 </Button>
               </XStack>
-            </YStack>
+            </BlockGroup>
           ) : (
             <Card padding="$4" gap="$2" alignItems="center">
               <Paragraph fontWeight="600">No accounts connected</Paragraph>
@@ -175,12 +167,14 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Apple Card">
-          <SettingRow
-            label={importCsv.isPending ? "Importing…" : "Import a statement CSV"}
-            icon={<Feather name="upload" size={18} />}
-            onPress={() => void handleImport()}
-            testID="import-csv"
-          />
+          <BlockGroup>
+            <SettingRow
+              label={importCsv.isPending ? "Importing…" : "Import a statement CSV"}
+              icon={<Feather name="upload" size={18} />}
+              onPress={() => void handleImport()}
+              testID="import-csv"
+            />
+          </BlockGroup>
           <Paragraph size="$2" theme="alt2" paddingHorizontal="$1" paddingTop="$2">
             Goes through the same ingest door as everything else, so re-importing an overlapping
             statement is matched rather than duplicated.
@@ -188,23 +182,27 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="About">
-          <SettingRow
-            label="Version"
-            icon={<Feather name="info" size={18} />}
-            value="1.0.0"
-            testID="version"
-          />
+          <BlockGroup>
+            <SettingRow
+              label="Version"
+              icon={<Feather name="info" size={18} />}
+              value="1.0.0"
+              testID="version"
+            />
+          </BlockGroup>
         </Section>
 
         {/* Last, and visually separated: signing out is the one destructive action here, so it
             sits below everything rather than among the things you came to read. */}
-        <SettingRow
-          label="Sign out"
-          icon={<Feather name="log-out" size={18} color="#e34948" />}
-          destructive
-          onPress={() => setConfirmingSignOut(true)}
-          testID="sign-out"
-        />
+        <BlockGroup>
+          <SettingRow
+            label="Sign out"
+            icon={<Feather name="log-out" size={18} color="#e34948" />}
+            destructive
+            onPress={() => setConfirmingSignOut(true)}
+            testID="sign-out"
+          />
+        </BlockGroup>
       </YStack>
 
       <ConfirmDialog
@@ -232,24 +230,21 @@ function AccountRow({
   busy,
   pending,
   onPress,
-  first = false,
 }: {
   institution: string;
   status: AccountStatus;
   busy: boolean;
   pending: boolean;
   onPress: () => void;
-  /** The connect/sync bar below always closes the block, so a row is never `last`. */
-  first?: boolean;
 }) {
+  // Surface and corners belong to the enclosing BlockGroup; this renders content only.
   return (
     <XStack
-      padding="$3"
+      paddingVertical="$3"
+      paddingHorizontal={BLOCK_PADDING_X}
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
-      backgroundColor={BLOCK_BACKGROUND}
-      {...blockCorners(first, false)}
     >
       <YStack flex={1} gap="$1">
         <Paragraph fontWeight="600">{institution}</Paragraph>
@@ -316,7 +311,7 @@ function ProfileBlock({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <YStack gap="$2">
-      <Paragraph fontWeight="600">{title}</Paragraph>
+      <BlockGroupTitle>{title}</BlockGroupTitle>
       {children}
     </YStack>
   );
@@ -339,11 +334,10 @@ function SettingRow({
 }) {
   return (
     <XStack
-      padding="$3"
+      paddingVertical="$3"
+      paddingHorizontal={BLOCK_PADDING_X}
       justifyContent="space-between"
       alignItems="center"
-      backgroundColor={BLOCK_BACKGROUND}
-      {...blockCorners(true, true)}
       onPress={onPress}
       pressStyle={{ opacity: 0.7 }}
       accessibilityRole={onPress ? "button" : undefined}

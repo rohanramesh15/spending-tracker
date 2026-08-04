@@ -45,6 +45,10 @@ export const BLOCK_SEPARATOR_WIDTH = 1;
  */
 export const BLOCK_TITLE_INSET = 10;
 
+/** Horizontal padding inside a block row. Shared so every grouped list indents its content
+ *  identically — a row that sets its own drifts the moment another list is added. */
+export const BLOCK_PADDING_X = 18;
+
 export function blockCorners(first: boolean, last: boolean) {
   return {
     borderTopLeftRadius: first ? BLOCK_RADIUS : 0,

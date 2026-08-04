@@ -76,11 +76,9 @@ describe("TransactionDayGroups", () => {
       <TransactionDayGroups items={[txn("a", "2026-03-02"), txn("c", "2026-03-01")]} />,
     );
 
-    for (const id of ["a", "c"]) {
-      expect(screen.getByTestId(`transaction-row-${id}`)).toHaveStyle({
-        borderTopLeftRadius: 18,
-        borderBottomLeftRadius: 18,
-      });
+    // One BlockGroup per day, each with a single row -> both rounded top and bottom.
+    for (const block of screen.getAllByTestId("block-row-0")) {
+      expect(block).toHaveStyle({ borderTopLeftRadius: 18, borderBottomLeftRadius: 18 });
     }
   });
 });

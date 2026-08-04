@@ -11,8 +11,10 @@ export {
   BLOCK_BACKGROUND,
   BLOCK_RADIUS,
   BLOCK_SEPARATOR_COLOR,
+  BLOCK_PADDING_X,
   BLOCK_SEPARATOR_WIDTH,
   BLOCK_TITLE_INSET,
   SCREEN_BACKGROUND,
   blockCorners,
 } from "./grouped";
+export { BlockGroup, BlockGroupTitle } from "./BlockGroup";

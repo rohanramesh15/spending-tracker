@@ -4,7 +4,7 @@ import { Paragraph, XStack, YStack } from "tamagui";
 import type { TransactionListItem } from "@shared/api/types";
 import { categoryLabel } from "@shared/lib/categories";
 import { formatCents } from "@shared/lib/money";
-import { BLOCK_BACKGROUND, blockCorners } from "@/components/ui";
+import { BLOCK_PADDING_X } from "@/components/ui";
 
 /**
  * One transaction in a list. Ported from the web TransactionRow.
@@ -16,6 +16,9 @@ import { BLOCK_BACKGROUND, blockCorners } from "@/components/ui";
  * NOTE for whoever adds the next list: this row no longer carries a date at all, so any list
  * that is not grouped by day must supply that context itself. See app/(tabs)/index.tsx.
  *
+ * It does NOT style its own surface — background, corners and separators belong to
+ * ui/BlockGroup, which is what keeps every grouped list in the app identical.
+ *
  * The row actions are reachable two ways on purpose. Long-press is the iOS idiom, but it is
  * invisible — nothing on screen tells you it exists, so Edit/Hide/Delete were effectively
  * unreachable for anyone who didn't guess the gesture. The `⋮` button restores the web row's
@@ -26,21 +29,12 @@ export function TransactionRow({
   onPress,
   onLongPress,
   onOpenMenu,
-  first = true,
-  last = true,
 }: {
   transaction: TransactionListItem;
   onPress?: () => void;
   onLongPress?: () => void;
   /** Omit to render no actions button — the Home screen's recent list has no row menu. */
   onOpenMenu?: () => void;
-  /**
-   * Position within its day group, which decides which corners are rounded. Rows in the middle
-   * of a group are square on both ends so the group reads as one continuous surface; a lone row
-   * is both first and last, hence the defaults.
-   */
-  first?: boolean;
-  last?: boolean;
 }) {
   const { vendor, categories, total_cents, currency } = transaction;
 
@@ -49,9 +43,7 @@ export function TransactionRow({
       alignItems="center"
       gap="$3"
       paddingVertical="$3"
-      paddingHorizontal="$3"
-      backgroundColor={BLOCK_BACKGROUND}
-      {...blockCorners(first, last)}
+      paddingHorizontal={BLOCK_PADDING_X}
       pressStyle={{ opacity: 0.6 }}
       onPress={onPress}
       onLongPress={onLongPress}

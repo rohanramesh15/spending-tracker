@@ -28,16 +28,17 @@ describe("grouped-block corners", () => {
   it("rounds only the outer corners of a multi-row group", async () => {
     await renderWithProviders(<TransactionList items={[txn("a"), txn("b"), txn("c")]} />);
 
-    expect(screen.getByTestId("transaction-row-a")).toHaveStyle({
+    // The surface belongs to the BlockGroup wrapper, not the row.
+    expect(screen.getByTestId("block-row-0")).toHaveStyle({
       borderTopLeftRadius: BLOCK_RADIUS,
       borderBottomLeftRadius: 0,
     });
     // The middle row must be square at BOTH ends or the group reads as separate pills.
-    expect(screen.getByTestId("transaction-row-b")).toHaveStyle({
+    expect(screen.getByTestId("block-row-1")).toHaveStyle({
       borderTopLeftRadius: 0,
       borderBottomLeftRadius: 0,
     });
-    expect(screen.getByTestId("transaction-row-c")).toHaveStyle({
+    expect(screen.getByTestId("block-row-2")).toHaveStyle({
       borderTopLeftRadius: 0,
       borderBottomLeftRadius: BLOCK_RADIUS,
     });
@@ -46,7 +47,7 @@ describe("grouped-block corners", () => {
   it("rounds every corner of a lone row", async () => {
     await renderWithProviders(<TransactionList items={[txn("only")]} />);
 
-    expect(screen.getByTestId("transaction-row-only")).toHaveStyle({
+    expect(screen.getByTestId("block-row-0")).toHaveStyle({
       borderTopLeftRadius: BLOCK_RADIUS,
       borderTopRightRadius: BLOCK_RADIUS,
       borderBottomLeftRadius: BLOCK_RADIUS,
@@ -102,7 +103,7 @@ describe("block surface", () => {
     // background at all — invisible on a white page, and invisible in a diff.
     await renderWithProviders(<TransactionList items={[txn("a")]} />);
 
-    const style = screen.getByTestId("transaction-row-a").props.style;
+    const style = screen.getByTestId("block-row-0").props.style;
     expect(style.backgroundColor).toMatch(/^hsla?\(/);
     expect(style.backgroundColor).not.toBe("transparent");
   });

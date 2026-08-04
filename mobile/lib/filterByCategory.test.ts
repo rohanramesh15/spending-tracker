@@ -1,5 +1,5 @@
 import type { TransactionListItem } from "@shared/api/types";
-import { filterByCategory, UNCATEGORIZED } from "@/lib/filterByCategory";
+import { filterByCategory, isFilterableCategory, UNCATEGORIZED } from "@/lib/filterByCategory";
 
 function txn(id: string, categories: string[]): TransactionListItem {
   return {
@@ -55,5 +55,27 @@ describe("filterByCategory", () => {
     // Chips render "Food & Drinks"; the stored key stays "Food and Drinks".
     expect(filterByCategory(items, "Food & Drinks")).toEqual([]);
     expect(filterByCategory(items, "Food and Drinks")).not.toEqual([]);
+  });
+});
+
+describe("non-line-item slices", () => {
+  // Tax and Tip are transaction-level amounts, not line-item categories, so no transaction
+  // carries them. Filtering to nothing would claim there is no tax while the slice is on screen.
+  it.each(["Tax", "Tip"])("leaves the list untouched for %s", (category) => {
+    expect(filterByCategory(items, category)).toHaveLength(items.length);
+  });
+
+  it("reports Tax and Tip as unfilterable so the caller can explain", () => {
+    expect(isFilterableCategory("Tax")).toBe(false);
+    expect(isFilterableCategory("Tip")).toBe(false);
+  });
+
+  it("reports real categories and the unitemized bucket as filterable", () => {
+    expect(isFilterableCategory("Food and Drinks")).toBe(true);
+    expect(isFilterableCategory(UNCATEGORIZED)).toBe(true);
+  });
+
+  it("treats no selection as unfilterable", () => {
+    expect(isFilterableCategory(null)).toBe(false);
   });
 });

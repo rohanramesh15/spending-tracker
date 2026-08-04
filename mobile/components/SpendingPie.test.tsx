@@ -131,8 +131,8 @@ describe("controlled selection", () => {
     await fireEvent.press(screen.getByTestId("pie-slice-Shopping"));
 
     expect(onActiveIndexChange).toHaveBeenCalledWith(1);
-    // Still showing the default prompt: the owner decides, so nothing changed on its own.
-    expect(screen.getByText("Tap a slice for details")).toBeTruthy();
+    // No readout appeared on its own: the owner decides what is selected.
+    expect(screen.queryByTestId("pie-selection")).toBeNull();
   });
 
   it("shows the readout for whichever slice the owner selected", async () => {
@@ -157,7 +157,6 @@ describe("controlled selection", () => {
     );
 
     expect(screen.queryByTestId("pie-selection")).toBeNull();
-    expect(screen.getByText("Tap a slice for details")).toBeTruthy();
   });
 
   it("asks the owner to deselect when the selected slice is tapped again", async () => {
@@ -177,5 +176,38 @@ describe("controlled selection", () => {
     await fireEvent.press(screen.getByTestId("pie-slice-Health"));
 
     expect(screen.getByTestId("pie-selection")).toBeTruthy();
+  });
+});
+
+describe("the percentage readout stays visible", () => {
+  it("does not report a visible slice as 0%", () => {
+    // A 0.3% slice is drawn on screen. Rounding it to "0%" contradicts what the user can see.
+    expect(percentLabel(3, 1000)).toBe("<1%");
+  });
+
+  it("still rounds normally above the half-percent mark", () => {
+    expect(percentLabel(6, 1000)).toBe("1%");
+    expect(percentLabel(500, 1000)).toBe("50%");
+  });
+
+  it("reports an empty chart as 0%", () => {
+    expect(percentLabel(0, 0)).toBe("0%");
+  });
+
+  it("inks the centre label for the page, not the slice", async () => {
+    // The label sits in the donut hole, over the page. Taking its colour from the slice made
+    // dark slices render white-on-white, so the percentage vanished exactly when tapped.
+    const slices = [
+      { category: "Other", cents: 900 },
+      { category: "Health", cents: 100 },
+    ];
+    await renderWithProviders(
+      <SpendingPie slices={slices} activeIndex={0} onActiveIndexChange={jest.fn()} />,
+    );
+
+    // react-native-svg hands back a PROCESSED colour ({ type, payload }), not the string that
+    // was passed in — comparing against "#ffffff" silently passes and tests nothing.
+    const fill = screen.getByTestId("pie-percent").props.fill;
+    expect(fill.payload).not.toBe(processColor("#ffffff"));
   });
 });
