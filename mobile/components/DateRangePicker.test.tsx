@@ -80,3 +80,34 @@ describe("custom range labels", () => {
     expect(screen.queryByText(/28 Feb/)).toBeNull();
   });
 });
+
+describe("preset rows show the span they resolve to", () => {
+  it("collapses a same-month preset rather than repeating the month", async () => {
+    await renderWithProviders(
+      <DateRangePicker value={{ start: "2026-03-01", end: "2026-03-31" }} onChange={jest.fn()} />,
+    );
+    await fireEvent.press(screen.getByTestId("date-range-trigger"));
+
+    // "1 – 31 Mar 2026", not "1 Mar 2026 – 31 Mar 2026".
+    expect(screen.getByTestId("preset-This month")).toHaveTextContent(/1 – 31 \w{3} \d{4}/);
+  });
+
+  it("states a single-day preset once", async () => {
+    await renderWithProviders(
+      <DateRangePicker value={{ start: "2026-03-01", end: "2026-03-31" }} onChange={jest.fn()} />,
+    );
+    await fireEvent.press(screen.getByTestId("date-range-trigger"));
+
+    expect(screen.getByTestId("preset-Today")).toHaveTextContent(/^Today\d{1,2} \w{3} \d{4}$/);
+  });
+
+  it("reads day-first, agreeing with the From/To fields below it", async () => {
+    await renderWithProviders(
+      <DateRangePicker value={{ start: "2026-03-01", end: "2026-03-31" }} onChange={jest.fn()} />,
+    );
+    await fireEvent.press(screen.getByTestId("date-range-trigger"));
+
+    // Month-first ("Mar 1") would clash with "From 1 Mar 2026" directly underneath.
+    expect(screen.getByTestId("preset-This month")).not.toHaveTextContent(/\w{3} \d{1,2} –/);
+  });
+});

@@ -50,12 +50,15 @@ export function AppSheet({
  */
 export function SheetRow({
   label,
+  value,
   onPress,
   destructive,
   icon,
   testID,
 }: {
   label: string;
+  /** Secondary text on the right — what the row currently resolves to (a date range, a count). */
+  value?: string;
   onPress: () => void;
   destructive?: boolean;
   icon?: ReactNode;
@@ -73,9 +76,14 @@ export function SheetRow({
         testID={testID}
       >
         {icon}
-        <Paragraph color={destructive ? "$red10" : "$color"} fontWeight="500">
+        <Paragraph color={destructive ? "$red10" : "$color"} fontWeight="500" flex={1}>
           {label}
         </Paragraph>
+        {value ? (
+          <Paragraph size="$2" theme="alt2" numberOfLines={1}>
+            {value}
+          </Paragraph>
+        ) : null}
       </XStack>
       <Separator />
     </YStack>

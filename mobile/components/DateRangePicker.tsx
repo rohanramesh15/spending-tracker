@@ -2,7 +2,7 @@ import { useState } from "react";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
-import { Paragraph, Separator, XStack, YStack } from "tamagui";
+import { Paragraph, XStack, YStack } from "tamagui";
 
 import { formatRangeLabel, parseISODate, rangePresets, toISODate } from "@shared/lib/dates";
 import { AppSheet, Button, SheetRow } from "@/components/ui";
@@ -16,6 +16,26 @@ import { AppSheet, Button, SheetRow } from "@/components/ui";
  */
 function formatDayLabel(iso: string): string {
   return format(parseISODate(iso), "d MMM yyyy");
+}
+
+/**
+ * A preset's actual span, in the same day-first form as the From/To fields beneath it, with the
+ * repeated parts collapsed: "1 – 31 Aug 2026" rather than "1 Aug 2026 – 31 Aug 2026".
+ *
+ * Deliberately NOT the shared `formatRangeLabel` used on the trigger — that one is month-first
+ * ("Aug 1–31, 2026"). Inside this sheet every date reads day-first, so the rows agree with the
+ * fields directly below them.
+ */
+function formatDayRange(start: string, end: string): string {
+  if (start === end) return formatDayLabel(start);
+  const s = parseISODate(start);
+  const e = parseISODate(end);
+  const sameYear = s.getFullYear() === e.getFullYear();
+  if (sameYear && s.getMonth() === e.getMonth()) {
+    return `${format(s, "d")} – ${format(e, "d MMM yyyy")}`;
+  }
+  if (sameYear) return `${format(s, "d MMM")} – ${format(e, "d MMM yyyy")}`;
+  return `${formatDayLabel(start)} – ${formatDayLabel(end)}`;
 }
 
 export interface DateRangeValue {
@@ -86,14 +106,15 @@ export function DateRangePicker({
             <SheetRow
               key={p.label}
               label={p.label}
+              value={formatDayRange(p.start, p.end)}
               testID={`preset-${p.label}`}
               onPress={() => choosePreset(p.start, p.end)}
             />
           ))}
         </YStack>
 
-        <Separator />
-
+        {/* No divider here: SheetRow already draws one below every row, so the last preset
+            supplies the line between the list and Custom. */}
         <Paragraph theme="alt2" size="$2">
           Custom
         </Paragraph>
