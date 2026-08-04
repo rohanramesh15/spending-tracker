@@ -117,3 +117,16 @@ describe("the collapsing header", () => {
     expect(screen.getByText("HEADER")).toBeTruthy();
   });
 });
+
+describe("the scroll view the header listens to", () => {
+  it("is an Animated scroll view", async () => {
+    // A native-driven Animated.event only attaches to an Animated component. On a plain
+    // ScrollView the handler is accepted and silently ignored, so the header never moves —
+    // it looked wired up and did nothing.
+    await renderWithProviders(harness());
+
+    const scroller = screen.getByTestId("scroller");
+    expect(typeof scroller.props.onScroll).toBe("function");
+    expect(scroller.props.scrollEventThrottle).toBe(16);
+  });
+});

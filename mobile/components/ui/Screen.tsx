@@ -6,7 +6,7 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { ScrollView, useTheme, YStack } from "tamagui";
+import { useTheme, YStack } from "tamagui";
 
 import { SCREEN_BACKGROUND, SCREEN_PADDING_X } from "./grouped";
 
@@ -120,7 +120,10 @@ export function Screen({
       ) : null}
 
       {scrollable ? (
-        <ScrollView
+        // Animated.ScrollView, not Tamagui's: a native-driven Animated.event only attaches to an
+        // Animated component. On a plain ScrollView the handler is silently ignored and the
+        // header never moves — which is exactly what happened.
+        <Animated.ScrollView
           contentContainerStyle={{
             padding: padded ? SCREEN_PADDING_X : 0,
             // The pinned header floats over the list, so the content starts below it.
@@ -140,7 +143,7 @@ export function Screen({
           testID={scrollViewTestID}
         >
           {body}
-        </ScrollView>
+        </Animated.ScrollView>
       ) : (
         <YStack flex={1} padding={padding} gap="$4">
           {body}

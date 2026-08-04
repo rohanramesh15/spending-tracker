@@ -46,9 +46,9 @@ export default function TransactionsScreen() {
             title="Transactions"
             right={
               <Button
-                variant="secondary"
+                variant="ghost"
                 circular
-                icon={<Feather name="plus" size={20} />}
+                icon={<Feather name="plus" size={22} />}
                 accessibilityLabel="Add a transaction"
                 onPress={() => setAddOpen(true)}
                 testID="add-transaction"
