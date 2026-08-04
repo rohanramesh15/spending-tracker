@@ -120,8 +120,8 @@ export function Screen({
             backgroundColor: pageBackground,
             paddingHorizontal: padded ? SCREEN_PADDING_X : 0,
             paddingTop: padded ? SCREEN_PADDING_X : 0,
-            // Breathing room between the header and the first row beneath it.
-            paddingBottom: 12,
+            // No bottom padding: the list starts immediately under the header.
+            paddingBottom: 0,
             transform: [{ translateY: headerY }],
           }}
           testID="collapsing-header"
