@@ -10,9 +10,26 @@ import { SignInCancelled, signInWithGoogle, signOut, useAuth } from "@/lib/useAu
  * in CI, so the seams — supabase, the browser sheet, and URL parsing — are faked and the
  * *sequencing and error handling* are what get pinned here.
  */
+/*
+ * `parse` is deliberately the REAL implementation, not a mock.
+ *
+ * An earlier version of this test stubbed it to return `{ params, errorCode }` — the shape of
+ * expo-auth-session's getQueryParams, which expo-linking never returns. That made the test agree
+ * with a bug instead of with the library: the code read `params.code`, always got undefined, and
+ * every real sign-in died on "No authorization code was returned" while this suite stayed green.
+ *
+ * Mocking the thing under contract is how that happens. Only `createURL` is stubbed here, because
+ * it reads native app config; URL parsing is pure and should be exercised for real.
+ */
+// The real `parse` reads Constants.linkingUri when no hostUri is configured, which is undefined
+// under Jest and crashes inside expo-linking. Supplying a hostUri lets the real parser run.
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: { expoConfig: { hostUri: "127.0.0.1:8081" } },
+}));
 jest.mock("expo-linking", () => ({
+  ...jest.requireActual("expo-linking"),
   createURL: jest.fn((path: string) => `trackit://${path}`),
-  parse: jest.fn(),
 }));
 jest.mock("expo-web-browser", () => ({ openAuthSessionAsync: jest.fn() }));
 
@@ -26,13 +43,11 @@ const mockAuth = {
 jest.mock("@/lib/supabase", () => ({ supabase: { get auth() { return mockAuth; } } }));
 
 const openAuthSession = WebBrowser.openAuthSessionAsync as jest.Mock;
-const parse = Linking.parse as jest.Mock;
 
 /** The happy path, which individual tests override one leg at a time. */
 function primeSuccess() {
   mockAuth.signInWithOAuth.mockResolvedValue({ data: { url: "https://google/auth" }, error: null });
   openAuthSession.mockResolvedValue({ type: "success", url: "trackit://auth/callback?code=abc" });
-  parse.mockReturnValue({ params: { code: "abc" }, errorCode: null });
   mockAuth.exchangeCodeForSession.mockResolvedValue({ error: null });
 }
 
@@ -68,7 +83,10 @@ describe("signInWithGoogle", () => {
 
   it("surfaces a provider error returned as a query param rather than a throw", async () => {
     primeSuccess();
-    parse.mockReturnValue({ params: { error_description: "access_denied" }, errorCode: null });
+    openAuthSession.mockResolvedValue({
+      type: "success",
+      url: "trackit://auth/callback?error=access_denied&error_description=access_denied",
+    });
 
     await expect(signInWithGoogle()).rejects.toThrow("access_denied");
     expect(mockAuth.exchangeCodeForSession).not.toHaveBeenCalled();
@@ -76,7 +94,7 @@ describe("signInWithGoogle", () => {
 
   it("fails loudly when the redirect carries no authorization code", async () => {
     primeSuccess();
-    parse.mockReturnValue({ params: {}, errorCode: null });
+    openAuthSession.mockResolvedValue({ type: "success", url: "trackit://auth/callback" });
 
     await expect(signInWithGoogle()).rejects.toThrow("No authorization code was returned.");
   });

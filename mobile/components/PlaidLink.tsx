@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { createPlaidLinkSession } from "react-native-plaid-link-sdk";
 
 import {
   useAccountReconnected,
@@ -10,11 +9,39 @@ import {
 import type { AccountStatus, SyncSummary } from "@shared/api/types";
 
 /**
+ * The Plaid SDK is loaded lazily, and that is not an optimisation — it is load-bearing.
+ *
+ * Importing it at module scope throws "Cannot find native module 'ReactNativePlaidLinkSdk'"
+ * anywhere the native module is absent, i.e. all of Expo Go. Because expo-router builds its
+ * route table by eagerly evaluating every file under app/, and app/settings.tsx imports this
+ * module, that throw happened during startup and took the ENTIRE APP down with an uncaught
+ * error — the login screen never rendered, so nothing at all could be verified in Expo Go.
+ *
+ * Deferring the require confines the native dependency to the moment Link is actually opened.
+ * Everything else in the app then runs in Expo Go as the plan intends (§6), and pressing
+ * "Connect" without a dev build reports honestly that it needs one, rather than crashing or
+ * silently doing nothing.
+ */
+type PlaidSdk = typeof import("react-native-plaid-link-sdk");
+
+function loadPlaidSdk(): PlaidSdk | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("react-native-plaid-link-sdk") as PlaidSdk;
+  } catch {
+    return null;
+  }
+}
+
+/** Shown when the native module is missing — the Expo Go case. */
+const NEEDS_DEV_BUILD =
+  "Bank connect needs a development build of the app; it can't run in Expo Go.";
+
+/**
  * Native owner for both Plaid Link flows. Link tokens still come exclusively from the
  * authenticated backend; the device only presents Link and returns its short-lived public token.
  *
- * This uses Plaid Link v13's session API, which requires a development build. Do not import this
- * component from an Expo Go-only surface.
+ * This uses Plaid Link v13's session API, which requires a development build.
  */
 export function usePlaidLinkFlow({
   onSuccess,
@@ -39,8 +66,17 @@ export function usePlaidLinkFlow({
 
   const openLink = useCallback(
     async ({ token, accountId }: { token: string; accountId?: string }) => {
+      // Two shapes of "not available": the require throws (Expo Go), or it resolves without the
+      // native binding attached. Treat both the same rather than letting the second reach Plaid.
+      const sdk = loadPlaidSdk();
+      if (!sdk?.createPlaidLinkSession) {
+        setOpeningAccountId(null);
+        onError(NEEDS_DEV_BUILD);
+        return;
+      }
+
       try {
-        const session = await createPlaidLinkSession({
+        const session = await sdk.createPlaidLinkSession({
           token,
           onSuccess: (success) => {
             void (async () => {

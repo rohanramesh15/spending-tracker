@@ -177,6 +177,27 @@ describe("failure handling", () => {
     await waitFor(() => expect(result.current.openingAccountId).toBeNull());
   });
 
+  it("says a dev build is needed when the native module is absent", async () => {
+    // The Expo Go case. This must stay a lazy require inside the flow: importing the SDK at
+    // module scope threw during expo-router's eager route evaluation and took the whole app
+    // down before the login screen could render.
+    const sdkModule = jest.requireMock("react-native-plaid-link-sdk") as {
+      createPlaidLinkSession?: unknown;
+    };
+    const real = sdkModule.createPlaidLinkSession;
+    sdkModule.createPlaidLinkSession = undefined;
+
+    const { result } = await renderFlow();
+    await act(async () => result.current.startConnect());
+
+    expect(callbacks.onError).toHaveBeenCalledWith(
+      "Bank connect needs a development build of the app; it can't run in Expo Go.",
+    );
+    await waitFor(() => expect(result.current.openingAccountId).toBeNull());
+
+    sdkModule.createPlaidLinkSession = real;
+  });
+
   it("clears busy when the user exits Link without connecting", async () => {
     const session = captureSession();
 

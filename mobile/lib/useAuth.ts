@@ -70,20 +70,24 @@ export async function signInWithGoogle(): Promise<void> {
   // "cancel"/"dismiss" mean the user backed out — not an error worth shouting about.
   if (result.type !== "success") throw new SignInCancelled();
 
-  const { params, errorCode } = Linking.parse(result.url) as unknown as {
-    params: Record<string, string> | null;
-    errorCode: string | null;
-  };
-  if (errorCode) throw new Error(errorCode);
+  /*
+   * `Linking.parse` returns { scheme, hostname, path, queryParams }. It does NOT return
+   * `params`/`errorCode` — those belong to expo-auth-session's `QueryParams.getQueryParams`,
+   * a different module. This originally destructured `params` behind an `as unknown as` cast,
+   * which silenced tsc and made the value permanently undefined: every sign-in reached the
+   * provider, came back correctly, and then failed with "No authorization code was returned."
+   * Read `queryParams`, and don't reintroduce a cast here — the cast is what hid the bug.
+   */
+  const { queryParams } = Linking.parse(result.url);
 
   // Supabase reports provider-side failures as query params rather than a thrown error.
-  const providerError = params?.error_description ?? params?.error;
-  if (providerError) throw new Error(providerError);
+  const providerError = queryParams?.error_description ?? queryParams?.error;
+  if (providerError) throw new Error(String(providerError));
 
-  const code = params?.code;
+  const code = queryParams?.code;
   if (!code) throw new Error("No authorization code was returned.");
 
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(String(code));
   if (exchangeError) throw exchangeError;
 }
 

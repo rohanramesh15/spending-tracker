@@ -685,3 +685,38 @@ Specific things to pin with tests, because they are easy to silently break in a 
 
   Still remaining, unchanged: on-device verification of steps 3 and 11 (your credentials + an EAS
   build), and the two tracked follow-ups.
+
+- **2026-08-03** — **Two bugs found the moment the app was actually run with real credentials.**
+  Both were invisible to typecheck and the whole test suite; both were found in the first two
+  minutes on a simulator. That is the argument for §6a item 6, and for running the thing.
+
+  1. **The app could not start in Expo Go at all.** `components/PlaidLink.tsx` imported
+     `react-native-plaid-link-sdk` at module scope, `app/settings.tsx` imports PlaidLink, and
+     expo-router evaluates every file under `app/` eagerly to build its route table. So a missing
+     native module threw during startup and took the whole app down with an uncaught error — the
+     login screen never rendered. The plan's own §11 note said "do not import this component from
+     an Expo Go-only surface"; Settings did exactly that. Fixed by deferring the SDK to a lazy
+     `require()` inside the flow, guarded for both failure shapes (require throws, or resolves
+     without the native binding). Pressing Connect without a dev build now reports honestly that
+     it needs one instead of crashing. Everything except Link itself is provable in Expo Go again,
+     as §6 always intended.
+
+  2. **Google sign-in could never have worked.** `signInWithGoogle` read `params` and `errorCode`
+     off `Linking.parse(...)`, behind an `as unknown as` cast. `expo-linking`'s `parse` returns
+     `{ scheme, hostname, path, queryParams }` — `params`/`errorCode` belong to
+     **expo-auth-session**'s `QueryParams.getQueryParams`, a different module. So `params` was
+     permanently `undefined` and every sign-in failed at the last leg with
+     "No authorization code was returned." The cast is what hid it from tsc.
+
+     **The test suite had made this worse, not better.** The test added earlier the same day
+     mocked `Linking.parse` to return `{ params, errorCode }` — a shape the real library never
+     produces — so it asserted the bug was correct and stayed green. The lesson is narrow and
+     worth keeping: *do not mock the module whose contract is the thing in question.* The test now
+     uses the real `parse` (with `expo-constants` stubbed, since `parse` reads `Constants.linkingUri`
+     and crashes under Jest without it), and reverting the fix now fails it.
+
+  208 tests, typecheck clean. **Open follow-up, security-relevant:** Expo Go logs "WebCrypto API is
+  not supported. Code challenge method will default to use plain instead of sha256" — PKCE is
+  falling back from S256 to `plain`, which removes the protection PKCE exists to provide. Acceptable
+  for local dev; **must not ship**. Needs a crypto polyfill (or the dev-build path) before any real
+  use, and re-checking on the dev build in step 11.
