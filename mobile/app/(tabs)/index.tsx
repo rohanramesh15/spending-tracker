@@ -1,15 +1,17 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
-import { Button, H2, Paragraph, XStack, YStack } from "tamagui";
+import { H2, Paragraph, XStack, YStack } from "tamagui";
 
 import { useNotifications, useReviews, useSpending, useTransactions } from "@shared/api/hooks";
 import { formatRangeLabel, rangePresets } from "@shared/lib/dates";
+import { categoryLabel } from "@shared/lib/categories";
 import { formatCents } from "@shared/lib/money";
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
 import { SpendingPie } from "@/components/SpendingPie";
-import { TransactionList } from "@/components/TransactionList";
-import { Card, ChartSkeleton, EmptyState, ErrorState, ListSkeleton, Screen, Skeleton } from "@/components/ui";
+import { TransactionDayGroups } from "@/components/TransactionDayGroups";
+import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, Screen, Skeleton } from "@/components/ui";
+import { filterByCategory } from "@/lib/filterByCategory";
 
 /**
  * Home — the daily loop (user-flow §2): spending total + pie for a selectable range
@@ -26,12 +28,20 @@ export default function HomeScreen() {
   });
 
   const spending = useSpending(range.start, range.end);
-  const recent = useTransactions();
+  // Scoped to the selected range, so the list below the chart is the SAME set of transactions
+  // the total and the pie describe. An unscoped list contradicted them.
+  const recent = useTransactions({ start: range.start, end: range.end });
   const reviews = useReviews();
   const alerts = useNotifications(true);
 
   const hasSpending = (spending.data?.slices.length ?? 0) > 0;
-  const recentItems = recent.data?.slice(0, 6) ?? [];
+  const allTransactions = recent.data ?? [];
+
+  // Selecting a pie slice filters the list beneath it, so the chart acts as the list's control
+  // rather than a separate readout. Tapping the page clears both at once (see onBackgroundPress).
+  const selectedCategory =
+    pieIndex >= 0 ? (spending.data?.slices[pieIndex]?.category ?? null) : null;
+  const visibleTransactions = filterByCategory(allTransactions, selectedCategory);
   const reviewCount = reviews.data?.length ?? 0;
   const alertCount = alerts.data?.length ?? 0;
 
@@ -99,26 +109,23 @@ export default function HomeScreen() {
         />
       )}
 
+      {/* The full ledger, not a "Recent" preview with a See all. Home already scrolls, and the
+          Transactions tab is one tap away, so truncating it only hid transactions. */}
       <YStack gap="$2">
-        <XStack alignItems="center" justifyContent="space-between">
-          <Paragraph fontWeight="600">Recent</Paragraph>
-          <Button size="$2" chromeless onPress={() => router.push("/transactions")}>
-            See all →
-          </Button>
-        </XStack>
-
         {recent.isLoading ? (
           <ListSkeleton rows={4} />
         ) : recent.isError ? (
           <ErrorState message="Couldn't load transactions." onRetry={() => void recent.refetch()} />
         ) : recent.data && recent.data.length > 0 ? (
-          <TransactionList
-            items={recentItems}
+          <TransactionDayGroups
+            items={visibleTransactions}
             onPressItem={(t) => router.push(`/transactions/${t.id}`)}
           />
         ) : (
           <Paragraph size="$2" theme="alt2">
-            No transactions yet.
+            {selectedCategory
+              ? `Nothing in ${categoryLabel(selectedCategory)} for this range.`
+              : "No transactions in this range."}
           </Paragraph>
         )}
       </YStack>

@@ -37,11 +37,40 @@ export const config = createTamagui({
    * Defined per theme rather than as a raw hex because dark mode is live — the root provider
    * follows the system scheme — and a hard-coded light grey would be near-white on a dark page.
    */
-  themes: {
-    ...defaultConfig.themes,
-    light: { ...defaultConfig.themes.light, blockBackground: "hsla(0, 0%, 96%, 1)" },
-    dark: { ...defaultConfig.themes.dark, blockBackground: "hsla(0, 0%, 11%, 1)" },
-  },
+  themes: (() => {
+    const BLOCK = { light: "hsla(0, 0%, 96%, 1)", dark: "hsla(0, 0%, 11%, 1)" };
+    // Pressed state: one step further from the page so the press still registers visually.
+    const BLOCK_PRESS = { light: "hsla(0, 0%, 92%, 1)", dark: "hsla(0, 0%, 16%, 1)" };
+
+    const light = { ...defaultConfig.themes.light, blockBackground: BLOCK.light };
+    const dark = { ...defaultConfig.themes.dark, blockBackground: BLOCK.dark };
+
+    return {
+      ...defaultConfig.themes,
+      light,
+      dark,
+      /**
+       * Component themes. Tamagui resolves `<theme>_<Component>`, so this restyles EVERY
+       * <Button> in the app without each screen opting in — which is the point: buttons and
+       * grouped blocks are meant to be the same surface, and a per-screen override would drift
+       * the moment someone adds a screen.
+       */
+      light_Button: {
+        ...light,
+        background: BLOCK.light,
+        backgroundHover: BLOCK_PRESS.light,
+        backgroundPress: BLOCK_PRESS.light,
+        backgroundFocus: BLOCK_PRESS.light,
+      },
+      dark_Button: {
+        ...dark,
+        background: BLOCK.dark,
+        backgroundHover: BLOCK_PRESS.dark,
+        backgroundPress: BLOCK_PRESS.dark,
+        backgroundFocus: BLOCK_PRESS.dark,
+      },
+    };
+  })(),
   settings: {
     ...defaultConfig.settings,
     // The v4 preset defaults this to true, which rejects `alignItems`/`padding`/`borderRadius`

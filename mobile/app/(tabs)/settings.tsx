@@ -281,14 +281,10 @@ function ProfileBlock({
   const initial = (name ?? email ?? "?").trim().charAt(0).toUpperCase();
 
   return (
-    <XStack
-      alignItems="center"
-      gap="$3"
-      padding="$3"
-      backgroundColor={BLOCK_BACKGROUND}
-      {...blockCorners(true, true)}
-      testID="profile-block"
-    >
+    // No block surface here, and no horizontal padding: the profile is the page's own header,
+    // not an item in a list, so the avatar aligns with the page's left edge rather than being
+    // inset inside a card like the rows below it.
+    <XStack alignItems="center" gap="$3" paddingVertical="$2" testID="profile-block">
       {avatarUrl ? (
         <Image source={{ uri: avatarUrl }} width={48} height={48} borderRadius={24} />
       ) : (

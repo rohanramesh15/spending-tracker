@@ -7,4 +7,12 @@ export { EmptyState, ErrorState } from "./States";
 export { AppSheet, SheetRow } from "./AppSheet";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { ToastProvider, useToast } from "./Toast";
-export { BLOCK_BACKGROUND, BLOCK_RADIUS, SCREEN_BACKGROUND, blockCorners } from "./grouped";
+export {
+  BLOCK_BACKGROUND,
+  BLOCK_RADIUS,
+  BLOCK_SEPARATOR_COLOR,
+  BLOCK_SEPARATOR_WIDTH,
+  BLOCK_TITLE_INSET,
+  SCREEN_BACKGROUND,
+  blockCorners,
+} from "./grouped";

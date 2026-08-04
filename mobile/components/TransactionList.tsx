@@ -1,7 +1,8 @@
-import { Separator, YStack } from "tamagui";
+import { YStack } from "tamagui";
 
 import type { TransactionListItem } from "@shared/api/types";
 import { TransactionRow } from "@/components/TransactionRow";
+import { BLOCK_SEPARATOR_COLOR, BLOCK_SEPARATOR_WIDTH } from "@/components/ui";
 
 /**
  * A group of transactions rendered as one grouped block.
@@ -33,7 +34,14 @@ export function TransactionList({
     <YStack testID={testID}>
       {items.map((t, i) => (
         <YStack key={t.id} opacity={t.hidden ? 0.5 : 1}>
-          {i > 0 ? <Separator /> : null}
+          {/* Page-coloured, so it cuts the block rather than drawing a line on it. */}
+          {i > 0 ? (
+            <YStack
+              height={BLOCK_SEPARATOR_WIDTH}
+              backgroundColor={BLOCK_SEPARATOR_COLOR}
+              testID="block-separator"
+            />
+          ) : null}
           <TransactionRow
             transaction={t}
             first={i === 0}

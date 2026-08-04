@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
-import { format } from "date-fns";
 import { useRouter } from "expo-router";
 import { Button, H2, Paragraph, XStack, YStack } from "tamagui";
 
@@ -12,10 +11,9 @@ import {
   useUpdateTransaction,
 } from "@shared/api/hooks";
 import type { TransactionListItem } from "@shared/api/types";
-import { parseISODate } from "@shared/lib/dates";
 import { formatCents } from "@shared/lib/money";
 import { EditTransactionDialog, type EditTransactionValues } from "@/components/EditTransactionDialog";
-import { TransactionList } from "@/components/TransactionList";
+import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import {
   AppSheet,
   Card,
@@ -117,20 +115,11 @@ export default function TransactionsScreen() {
           onAction={filter === "needs_review" ? undefined : () => router.push("/add")}
         />
       ) : (
-        <YStack gap="$4">
-          {groups.map(({ day, items }) => (
-            <YStack key={day} gap="$1.5">
-              <Paragraph size="$1" theme="alt2" textTransform="uppercase" fontWeight="600">
-                {format(parseISODate(day), "EEEE, MMM d")}
-              </Paragraph>
-              <TransactionList
-                items={items}
-                onPressItem={(t) => router.push(`/transactions/${t.id}`)}
-                onOpenMenu={setMenuTxn}
-              />
-            </YStack>
-          ))}
-        </YStack>
+        <TransactionDayGroups
+          items={visible}
+          onPressItem={(t) => router.push(`/transactions/${t.id}`)}
+          onOpenMenu={setMenuTxn}
+        />
       )}
 
       {/* The three ways to add a transaction. Ordered fastest-first for the common case:

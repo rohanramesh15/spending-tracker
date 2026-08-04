@@ -30,7 +30,7 @@ describe("TransactionRow", () => {
     expect(screen.getByText("$42.12")).toBeTruthy();
   });
 
-  it("caps the category chips so a busy receipt can't overrun the row", async () => {
+  it("lists categories as plain text, capped so a busy receipt can't overrun the row", async () => {
     await renderWithProviders(
       <TransactionRow
         transaction={txn({
@@ -38,8 +38,9 @@ describe("TransactionRow", () => {
         })}
       />,
     );
-    expect(screen.getByText("Food & Drinks")).toBeTruthy();
-    expect(screen.queryByText("Entertainment")).toBeNull();
+    // Names are joined into one line, and only the first three appear.
+    expect(screen.getByText("Food & Drinks · Shopping · Health")).toBeTruthy();
+    expect(screen.queryByText(/Entertainment/)).toBeNull();
   });
 
   it("reports taps and long-presses to the caller", async () => {
