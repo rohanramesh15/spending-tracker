@@ -63,15 +63,10 @@ const EXEMPT = [
  * what is actually at risk, so the cost of leaving it is visible.
  */
 const KNOWN_UNTESTED: Record<string, string> = {
-  // Requires a dev build and Plaid Sandbox credentials to exercise meaningfully; the flow
-  // cannot run in Jest because the SDK is native. Worth a mocked test of the token/exchange
-  // sequencing, which is pure orchestration.
-  "components/PlaidLink.tsx": "native SDK; needs mocked session test of token→exchange ordering",
-  // Auth gating is effect-driven and depends on expo-router segments; needs a router harness.
-  "components/AuthGate.tsx": "needs an expo-router harness to assert redirect + cache wipe",
-  "lib/useAuth.ts": "PKCE flow needs mocked WebBrowser/Linking",
-  // Screens below are covered only by their extracted logic modules, not their rendering.
-  "app/login.tsx": "renders the sign-in button; flow itself is unverified pending credentials",
+  // EMPTY — and it should stay that way. The last four entries (PlaidLink, AuthGate, useAuth,
+  // login) were closed by mocking the native/browser seam and testing the orchestration around
+  // it, which is where the real risk lived. "It needs a device" justified skipping the device
+  // leg, never the logic leg. Write the test instead of adding an entry here.
 };
 
 function walk(dir: string, out: string[] = []): string[] {

@@ -25,6 +25,24 @@ config.watchFolders = [sharedRoot];
 // "No QueryClient set". nodeModulesPaths does the same job without rewriting resolution.
 config.resolver.nodeModulesPaths = [path.resolve(projectRoot, "node_modules")];
 
+/**
+ * Keep test files out of the bundle.
+ *
+ * expo-router builds its route table from `require.context(app/, true, …)`, and that regex has
+ * no notion of test files — so a colocated `app/login.test.tsx` gets pulled in as if it were a
+ * route. It then drags @testing-library/react-native along, which requires Node's `console`
+ * module, and `expo export` dies with "Unable to resolve module console".
+ *
+ * Blocking them here fixes the export and keeps test code (and its dev-only deps) out of the
+ * shipped bundle, without giving up colocation. Jest doesn't read this config, so the tests
+ * still run. `(?!node_modules/)` keeps this scoped to our own files — several dependencies
+ * ship files named *.test.js that Metro must still be able to see.
+ */
+const escaped = projectRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+config.resolver.blockList = new RegExp(
+  `^${escaped}/(?!node_modules/).*\\.(test|spec)\\.[jt]sx?$`,
+);
+
 // Tamagui ships its source as .mjs in places; keep the default source extensions plus mjs.
 config.resolver.sourceExts = [...config.resolver.sourceExts, "mjs"];
 

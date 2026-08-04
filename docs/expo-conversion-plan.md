@@ -255,7 +255,10 @@ A step is done only when **all** of these are true. Verify them; do not assume t
    the populated case (user-flow §10, CLAUDE.md definition of done).
 6. **`pnpm typecheck` and `pnpm test` pass in `mobile/`, and `npx expo export --platform ios`
    succeeds.** The export is not redundant: it catches Metro resolution breakage — especially
-   anything touching the out-of-root `shared/` — that neither tsc nor Jest can see.
+   anything touching the out-of-root `shared/` — that neither tsc nor Jest can see. **Actually run
+   it.** It was claimed green in two consecutive entries while being red (see the 2026-08-03
+   blockList entry): adding a test file under `app/` broke the bundle without touching a single
+   thing tsc or Jest looks at, which is precisely the class of failure this check exists to catch.
 7. **The web app is still green** if `shared/` was touched: `pnpm lint && pnpm test && pnpm build`
    in `frontend/`. The baseline is 57 passed / 3 failed; those 3 are pre-existing (see §7.1).
 8. **Nothing outside the client changed.** `backend/`, `infra/`, and `website/` are out of scope.
@@ -650,3 +653,35 @@ Specific things to pin with tests, because they are easy to silently break in a 
   `backend/.env.example`. §6a now states the definition of done that was missing.
   Remaining: on-device verification of steps 3 and 11, which needs your credentials and an EAS
   build; plus the two tracked follow-ups (web DateRangePicker failures, Tamagui animation props).
+
+- **2026-08-03** — **`KNOWN_UNTESTED` emptied, and a red `expo export` found and fixed.**
+  All four remaining backlog entries were closed: `lib/useAuth.ts` (10 tests — the PKCE legs in
+  order, cancel-is-not-an-error, provider errors arriving as query params, missing code, failed
+  exchange, plus the session listener and its unsubscribe), `components/AuthGate.tsx` (9 — route
+  protection in both directions, the loading and dev-bypass guards, and the
+  cache-wipe-on-user-change **privacy control** in all four of its cases),
+  `components/PlaidLink.tsx` (9 — connect exchanges the public token, update **must not** and
+  re-syncs instead, and every failure path clears `busy`), and `app/login.tsx` (5 — the four
+  states plus the unconfigured-Supabase notice). **174 → 207 tests across 32 suites.**
+  Each entry had been justified by "it needs a device"; that only ever justified skipping the
+  device leg, not the orchestration around it, which is where the risk actually lived. The two
+  highest-value assertions were mutation-checked (breaking the cache wipe and making the update
+  flow exchange a token each fail exactly one test), because a backlog closed by vacuous tests is
+  worse than the backlog.
+
+  **`npx expo export --platform ios` was already failing on this branch** — DoD item 6 and the
+  entry above both claim it green, so it broke when screen tests were colocated under `app/`
+  during the step 10–12 audit and was not re-run. expo-router builds its route table from
+  `require.context(app/, true, …)` whose regex has no test-file exclusion, so `app/*.test.tsx`
+  was loaded as a route, pulled in @testing-library/react-native, and died on its `require("console")`.
+  Fixed with a `resolver.blockList` in `metro.config.js` that excludes our own `*.test.*`/`*.spec.*`
+  from Metro (scoped away from `node_modules`, several of which legitimately ship such files).
+  This also keeps test code and its dev-only deps out of the shipped bundle. The mobile CI job
+  runs this same export, so CI was red too. Export now green (6.2MB Hermes bundle); typecheck
+  clean; nothing outside `mobile/` touched, so `shared/` and the web app are unaffected.
+
+  Noted while verifying: Jest's "a worker process has failed to exit gracefully" warning is
+  **pre-existing** (it reproduces on the 174-test baseline), not introduced by these tests.
+
+  Still remaining, unchanged: on-device verification of steps 3 and 11 (your credentials + an EAS
+  build), and the two tracked follow-ups.
