@@ -27,11 +27,14 @@ export const BLOCK_BACKGROUND = "$blockBackground";
 export const SCREEN_BACKGROUND = "$color1";
 
 /**
- * Divider between rows inside one block. It is the PAGE colour, not a hairline: a white gap
- * slices the grey block into visibly separate rows, which reads more clearly than a grey-on-grey
- * line at this contrast. It must therefore track SCREEN_BACKGROUND, not a border token.
+ * Divider between rows inside one block: a grey hairline drawn ON the block.
+ *
+ * It used to be the page colour, which worked while the divider ran edge to edge and cut the
+ * block in two. Now that it is inset to the row padding, a white segment floating inside a grey
+ * block reads as a gap in the surface rather than a rule — so it is a border token, one step
+ * darker than the block, and theme-aware for dark mode.
  */
-export const BLOCK_SEPARATOR_COLOR = SCREEN_BACKGROUND;
+export const BLOCK_SEPARATOR_COLOR = "$color5";
 export const BLOCK_SEPARATOR_WIDTH = 1;
 
 /**

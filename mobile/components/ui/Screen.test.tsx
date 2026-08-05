@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { Paragraph } from "tamagui";
 
-import { Screen } from "@/components/ui/Screen";
+import { HEADER_LIST_GAP, Screen } from "@/components/ui/Screen";
 import { fireEvent, renderWithProviders, screen } from "@/test-utils";
 
 const HEADER_HEIGHT = 100;
@@ -62,23 +62,45 @@ describe("the collapsing header", () => {
     expect(style.position).toBeUndefined();
   });
 
-  it("clips at the screen edge so the header slides away instead of over the status bar", async () => {
+  it("clips inside the safe area, not on it, so the header cannot show in the notch band", async () => {
+    // overflow: "hidden" on the SafeAreaView clips at its border box — above the top inset — so
+    // the search bar stayed visible around the notch as it scrolled up.
     await renderWithProviders(harness());
 
-    const style = StyleSheet.flatten(screen.getByTestId("s").props.style);
-    expect(style.overflow).toBe("hidden");
+    expect(StyleSheet.flatten(screen.getByTestId("s").props.style).overflow).toBeUndefined();
+    expect(
+      StyleSheet.flatten(screen.getByTestId("screen-clip").props.style).overflow,
+    ).toBe("hidden");
   });
 
-  it("gives the list no top padding of its own — the header is a sibling, not an overlay", async () => {
+  it("pads the list by a small constant, never by the measured header height", async () => {
     // A paddingTop kept in sync with the measured height by hand is exactly what left a gap
-    // the size of the notch under the search bar.
+    // the size of the notch under the search bar. The header is a sibling, not an overlay, so
+    // all the list needs is breathing room above its first row.
     await renderWithProviders(harness());
     await measureHeader();
 
     const style = StyleSheet.flatten(
       screen.getByTestId("scroller").props.contentContainerStyle,
     );
-    expect(style.paddingTop).toBe(0);
+    expect(style.paddingTop).toBe(HEADER_LIST_GAP);
+  });
+
+  it("pads the bottom by the header height so the last row can be scrolled into view", async () => {
+    // The scroll view is grown by headerHeight and only rises by that much once the collapse has
+    // fully run. Without matching bottom padding a barely-scrollable list runs out of travel
+    // first and its last row stays clipped below the screen edge.
+    await renderWithProviders(harness());
+    const before = StyleSheet.flatten(
+      screen.getByTestId("scroller").props.contentContainerStyle,
+    ).paddingBottom;
+
+    await measureHeader();
+
+    const after = StyleSheet.flatten(
+      screen.getByTestId("scroller").props.contentContainerStyle,
+    ).paddingBottom;
+    expect(after).toBe(before + HEADER_HEIGHT);
   });
 
   it("survives scrolling in both directions without the header unmounting", async () => {

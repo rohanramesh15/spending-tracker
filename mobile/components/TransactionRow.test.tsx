@@ -1,5 +1,7 @@
+import { StyleSheet } from "react-native";
+
 import type { TransactionListItem } from "@shared/api/types";
-import { TransactionRow } from "@/components/TransactionRow";
+import { TransactionRow, VENDOR_MAX_WIDTH } from "@/components/TransactionRow";
 import { fireEvent, renderWithProviders, screen } from "@/test-utils";
 
 function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem {
@@ -32,17 +34,43 @@ describe("TransactionRow", () => {
     expect(screen.getByText("$42.12")).toBeTruthy();
   });
 
-  it("lists categories as plain text, capped so a busy receipt can't overrun the row", async () => {
+  it("truncates a long vendor name instead of running it up to the amount", async () => {
+    // Uncapped, the text column grew to the full remaining width, so the gap between the vendor
+    // and its price varied row to row.
+    await renderWithProviders(
+      <TransactionRow transaction={txn({ vendor: "A".repeat(80) })} />,
+    );
+
+    const vendor = screen.getByText("A".repeat(80));
+    expect(vendor.props.numberOfLines).toBe(1);
+    expect(StyleSheet.flatten(vendor.parent?.props.style).maxWidth).toBe(VENDOR_MAX_WIDTH);
+  });
+
+  it("shows a short, year-less date where the categories used to be", async () => {
+    await renderWithProviders(<TransactionRow transaction={txn()} />);
+
+    // Mar 2 2026 is a Monday. Parsed as UTC in a behind-UTC timezone this renders "Mar 1"
+    // (CLAUDE.md #2), which is the whole reason the row uses parseISODate.
+    expect(screen.getByText("Mar 2")).toBeTruthy();
+    expect(screen.queryByText(/2026/)).toBeNull();
+  });
+
+  it("names no category on the row — that detail belongs to the opened transaction", async () => {
+    // Categories used to be a second line here. They were the widest, least useful thing in the
+    // list; app/transactions/[id].tsx shows them per line item instead.
     await renderWithProviders(
       <TransactionRow
         transaction={txn({
-          categories: ["Food and Drinks", "Shopping", "Health", "Services", "Entertainment"],
+          categories: ["Food and Drinks", "Shopping", "Health"],
+          tax_cents: 300,
+          tip_cents: 200,
         })}
       />,
     );
-    // Names are joined into one line, and only the first three appear.
-    expect(screen.getByText("Food & Drinks · Shopping · Health")).toBeTruthy();
-    expect(screen.queryByText(/Entertainment/)).toBeNull();
+
+    for (const label of [/Food & Drinks/, /Shopping/, /Health/, /Tax/, /Tip/]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
   });
 
   it("reports taps and long-presses to the caller", async () => {
@@ -108,79 +136,6 @@ describe("TransactionRow", () => {
 
       expect(screen.queryByTestId("transaction-actions-t1")).toBeNull();
     });
-  });
-});
-
-describe("transaction-level amounts", () => {
-  // Tax and Tip never appear in `categories` (they are stored on the transaction, CLAUDE.md #8),
-  // so without this they'd be invisible on the row while having their own pie slices.
-  it("tags a row that carried tax", async () => {
-    await renderWithProviders(<TransactionRow transaction={txn({ tax_cents: 50 })} />);
-    expect(screen.getByText(/Tax/)).toBeTruthy();
-  });
-
-  it("tags a row that carried a tip", async () => {
-    await renderWithProviders(<TransactionRow transaction={txn({ tip_cents: 200 })} />);
-    expect(screen.getByText(/Tip/)).toBeTruthy();
-  });
-
-  it("does not tag a row whose tax is zero", async () => {
-    await renderWithProviders(<TransactionRow transaction={txn({ tax_cents: 0 })} />);
-    expect(screen.queryByText(/Tax/)).toBeNull();
-  });
-
-  it("shows tax alongside the line-item categories rather than replacing them", async () => {
-    await renderWithProviders(
-      <TransactionRow transaction={txn({ categories: ["Food and Drinks"], tax_cents: 50 })} />,
-    );
-    expect(screen.getByText("Food & Drinks · Tax")).toBeTruthy();
-  });
-
-  it("keeps Other behind Tax, so the least informative label is last of all", async () => {
-    await renderWithProviders(
-      <TransactionRow
-        transaction={txn({ categories: ["Food and Drinks", "Other"], tax_cents: 50 })}
-      />,
-    );
-    expect(screen.getByText("Food & Drinks · Tax · Other")).toBeTruthy();
-  });
-
-  it("keeps tax visible even when the line-item cap is already reached", async () => {
-    await renderWithProviders(
-      <TransactionRow
-        transaction={txn({
-          categories: ["Food and Drinks", "Shopping", "Health", "Services"],
-          tax_cents: 50,
-        })}
-      />,
-    );
-    expect(screen.getByText(/· Tax$/)).toBeTruthy();
-  });
-});
-
-describe("category order", () => {
-  it("puts Other last, whatever order the API returned", async () => {
-    // "Other" is the classifier's fallback and says nothing about what was bought; leading with
-    // it buries the labels that do.
-    await renderWithProviders(
-      <TransactionRow transaction={txn({ categories: ["Other", "Health"] })} />,
-    );
-    expect(screen.getByText("Health · Other")).toBeTruthy();
-  });
-
-  it("does not spend the three-category cap on Other", async () => {
-    await renderWithProviders(
-      <TransactionRow
-        transaction={txn({ categories: ["Other", "Health", "Shopping", "Services"] })}
-      />,
-    );
-    // Other sorts to the end, so it falls outside the cap rather than displacing a real one.
-    expect(screen.getByText("Health · Shopping · Services")).toBeTruthy();
-  });
-
-  it("keeps Other when it is the only category", async () => {
-    await renderWithProviders(<TransactionRow transaction={txn({ categories: ["Other"] })} />);
-    expect(screen.getByText("Other")).toBeTruthy();
   });
 });
 

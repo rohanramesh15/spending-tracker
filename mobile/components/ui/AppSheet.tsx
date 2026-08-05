@@ -64,7 +64,6 @@ export function AppSheet({
         paddingHorizontal={SHEET_PADDING_X}
         paddingTop="$4"
         paddingBottom="$6"
-        gap="$3"
         backgroundColor="$background"
         borderTopLeftRadius={BLOCK_RADIUS}
         borderTopRightRadius={BLOCK_RADIUS}
@@ -72,7 +71,7 @@ export function AppSheet({
         {title ? (
           // Absolutely-positioned accessory, like PageHeader: laid out as a flex sibling the
           // title would centre in the space the button leaves over, which is visibly off-centre.
-          <YStack paddingBottom="$2">
+          <YStack>
             <XStack alignItems="center" justifyContent="center" minHeight={32}>
               {left ? (
                 <YStack position="absolute" left={0} top={0} bottom={0} justifyContent="center">
@@ -86,10 +85,23 @@ export function AppSheet({
                 {subtitle}
               </Paragraph>
             ) : null}
+            {/* Rule under the header, so the sheet's title reads as a header rather than as the
+                first item of its own content. Inside the sheet's padding, like the dividers in a
+                grouped block. */}
+            <Separator marginTop="$3" testID="sheet-title-separator" />
           </YStack>
         ) : null}
 
-        {children}
+        {/*
+         * The gap lives here, not on the Frame, so it does NOT also apply between the header and
+         * the first row. A row's own paddingVertical is then the only thing under the rule —
+         * which makes the space above the first row in a sheet identical to the space above any
+         * row in a grouped block. With the gap on the Frame it was that plus $3 plus the header's
+         * own bottom padding, and the first row sat visibly lower than a row in the list behind.
+         */}
+        <YStack gap="$3" testID="sheet-content">
+          {children}
+        </YStack>
       </Sheet.Frame>
     </Sheet>
   );
@@ -105,6 +117,7 @@ export function SheetRow({
   onPress,
   destructive,
   icon,
+  accessory,
   testID,
 }: {
   label: string;
@@ -113,6 +126,11 @@ export function SheetRow({
   onPress: () => void;
   destructive?: boolean;
   icon?: ReactNode;
+  /**
+   * Trailing control with its own tap target, e.g. an info button. Render it as its own
+   * pressable — a nested pressable consumes the tap, so it will not also fire the row.
+   */
+  accessory?: ReactNode;
   testID?: string;
 }) {
   return (
@@ -134,6 +152,7 @@ export function SheetRow({
           {value}
         </Paragraph>
       ) : null}
+      {accessory}
     </XStack>
   );
 }

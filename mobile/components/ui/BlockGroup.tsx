@@ -3,6 +3,7 @@ import { Paragraph, YStack } from "tamagui";
 
 import {
   BLOCK_BACKGROUND,
+  BLOCK_PADDING_X,
   BLOCK_SEPARATOR_COLOR,
   BLOCK_SEPARATOR_WIDTH,
   BLOCK_TITLE_INSET,
@@ -36,13 +37,19 @@ export function BlockGroup({
     <YStack testID={testID}>
       {rows.map((row, i) => (
         <YStack key={i}>
-          {/* Page-coloured, so it cuts the block rather than drawing a line on it. */}
+          {/* Inset to the rows' own padding, so the line starts where the row's text starts and
+              stops where its right padding begins — edge-to-edge read as a cut through the block
+              rather than a divider inside it. The band keeps the block's background across the
+              full width; only the line itself is inset, page-coloured so it cuts. */}
           {i > 0 ? (
-            <YStack
-              height={BLOCK_SEPARATOR_WIDTH}
-              backgroundColor={BLOCK_SEPARATOR_COLOR}
-              testID="block-separator"
-            />
+            <YStack backgroundColor={BLOCK_BACKGROUND} testID="block-separator-band">
+              <YStack
+                height={BLOCK_SEPARATOR_WIDTH}
+                marginHorizontal={BLOCK_PADDING_X}
+                backgroundColor={BLOCK_SEPARATOR_COLOR}
+                testID="block-separator"
+              />
+            </YStack>
           ) : null}
           <YStack
             backgroundColor={BLOCK_BACKGROUND}
@@ -60,15 +67,17 @@ export function BlockGroup({
 /**
  * Heading above a BlockGroup — a day on the ledger, a section in Settings.
  *
- * Small, uppercase and lighter than body text because it is orientation rather than content,
- * and inset so its left edge lines up with the block below it.
+ * Small and lighter than body text because it is orientation rather than content, and inset so
+ * its left edge lines up with the block below it.
+ *
+ * Sentence case, NOT uppercase: these headings carry real words — a day ("Monday, Mar 2"), a
+ * count — and all-caps made them shout a label rather than name the block underneath.
  */
 export function BlockGroupTitle({ children }: { children: ReactNode }) {
   return (
     <Paragraph
       size="$1"
       color="$color10"
-      textTransform="uppercase"
       fontWeight="600"
       paddingLeft={BLOCK_TITLE_INSET}
     >

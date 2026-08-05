@@ -1,6 +1,7 @@
 import {
   BLOCK_BACKGROUND,
   BLOCK_RADIUS,
+  BLOCK_SEPARATOR_COLOR,
   SCREEN_BACKGROUND,
   blockCorners,
 } from "@/components/ui/grouped";
@@ -45,5 +46,12 @@ describe("grouped surfaces", () => {
     // Setting these equal makes every row invisible against the background while still
     // rendering, laying out and passing every other test. It has already happened once.
     expect(BLOCK_BACKGROUND).not.toBe(SCREEN_BACKGROUND);
+  });
+
+  it("draws the divider in its own colour, not the page's and not the block's", () => {
+    // Inset dividers are drawn ON the block, so a page-coloured one reads as a hole in the
+    // surface and a block-coloured one is invisible.
+    expect(BLOCK_SEPARATOR_COLOR).not.toBe(SCREEN_BACKGROUND);
+    expect(BLOCK_SEPARATOR_COLOR).not.toBe(BLOCK_BACKGROUND);
   });
 });

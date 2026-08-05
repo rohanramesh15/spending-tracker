@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
-import { Paragraph, YStack } from "tamagui";
+import { Paragraph, XStack, YStack } from "tamagui";
 
 import {
   useDeleteTransaction,
@@ -14,7 +14,7 @@ import {
   EditTransactionDialog,
   type EditTransactionValues,
 } from "@/components/EditTransactionDialog";
-import { AppSheet, ConfirmDialog, SheetList, SheetRow, useToast } from "@/components/ui";
+import { AppSheet, Button, ConfirmDialog, SheetList, SheetRow, useToast } from "@/components/ui";
 
 /**
  * Edit / Hide / Delete for a transaction: the action sheet, the edit dialog and the delete
@@ -35,6 +35,9 @@ export function useTransactionActions() {
   const [menuTxn, setMenuTxn] = useState<TransactionListItem | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<TransactionListItem | null>(null);
+  // The menu closes when the explainer opens rather than stacking a second sheet on the first:
+  // two sheets deep, the backdrop tap dismisses only the top one and the stack reads as a bug.
+  const [explainingHide, setExplainingHide] = useState(false);
 
   const { data: editingDetail } = useTransaction(editingId ?? undefined);
   const del = useDeleteTransaction();
@@ -87,6 +90,25 @@ export function useTransactionActions() {
                 label={menuTxn.hidden ? "Unhide from spending" : "Hide from spending"}
                 testID="action-hide"
                 icon={<Feather name={menuTxn.hidden ? "eye" : "eye-off"} size={18} />}
+                accessory={
+                  <XStack
+                    // Its own pressable, so it explains instead of hiding. hitSlop rather than
+                    // padding: 18px is well under the 44pt minimum touch target, and padding
+                    // here would push the icon out of line with the row's right edge.
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    pressStyle={{ opacity: 0.5 }}
+                    onPress={() => {
+                      setMenuTxn(null);
+                      setExplainingHide(true);
+                    }}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel="What does hiding do?"
+                    testID="action-hide-info"
+                  >
+                    <Feather name="info" size={17} color="#8a8a8e" />
+                  </XStack>
+                }
                 onPress={() => {
                   const t = menuTxn;
                   setMenuTxn(null);
@@ -107,6 +129,30 @@ export function useTransactionActions() {
             </SheetList>
           </>
         ) : null}
+      </AppSheet>
+
+      {/* Explainer, not a decision: a sheet in the same shape as the menu it came from, with one
+          way out. "Hidden" is the app's one non-obvious concept — the transaction stays in the
+          ledger but leaves the chart — and nothing on the row said so. */}
+      <AppSheet
+        open={explainingHide}
+        onOpenChange={setExplainingHide}
+        title="Hide from spending"
+      >
+        <YStack gap="$3" testID="hide-explainer">
+          <Paragraph>
+            Hiding keeps a transaction in your ledger but takes it out of your spending: it drops
+            off the chart and out of every total, and its row is greyed to say so.
+          </Paragraph>
+          <Paragraph theme="alt2" size="$2">
+            Use it for anything that isn't really your spending — a reimbursed expense, a
+            transfer between your own accounts, or a purchase you made for someone else. You can
+            unhide it at any time from this same menu.
+          </Paragraph>
+          <Button onPress={() => setExplainingHide(false)} testID="hide-explainer-done">
+            Got it
+          </Button>
+        </YStack>
       </AppSheet>
 
       <EditTransactionDialog

@@ -93,23 +93,22 @@ describe("HomeScreen", () => {
   });
 });
 
-describe("greeting", () => {
-  it("greets according to the time of day", async () => {
-    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 4, 9, 0));
-    try {
-      await renderScreen(<HomeScreen />);
-      expect(screen.getByText("Good morning")).toBeTruthy();
-    } finally {
-      jest.useRealTimers();
-    }
+describe("spending total", () => {
+  it("labels the amount, so a bare number can't stand alone", async () => {
+    await renderScreen(<HomeScreen />);
+    expect(screen.getByText("Amount spent")).toBeTruthy();
   });
+});
 
-  it("greets differently at night", async () => {
-    // The night slot wraps midnight, which is the one an hour-range check silently misses.
+describe("header", () => {
+  it("greets with a fixed Welcome, not a time-of-day line", async () => {
+    // The greeting used to vary by hour and name the signed-in user; it is now constant, so no
+    // part of the header depends on the clock or the session.
     jest.useFakeTimers().setSystemTime(new Date(2026, 7, 4, 23, 30));
     try {
       await renderScreen(<HomeScreen />);
-      expect(screen.getByText("Still up?")).toBeTruthy();
+      expect(screen.getByText("Welcome")).toBeTruthy();
+      expect(screen.queryByText(/Still up|Good morning|Good evening/)).toBeNull();
     } finally {
       jest.useRealTimers();
     }

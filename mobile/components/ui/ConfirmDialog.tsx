@@ -1,4 +1,4 @@
-import { AlertDialog, XStack, YStack } from "tamagui";
+import { AlertDialog, Separator, XStack, YStack } from "tamagui";
 
 import { Button } from "./Button";
 
@@ -47,6 +47,8 @@ export function ConfirmDialog({
           width="90%"
         >
           <AlertDialog.Title>{title}</AlertDialog.Title>
+          {/* Same rule as the sheets' title: every pop-up separates its heading from its body. */}
+          <Separator testID="dialog-title-separator" />
           {description ? (
             <AlertDialog.Description>{description}</AlertDialog.Description>
           ) : null}

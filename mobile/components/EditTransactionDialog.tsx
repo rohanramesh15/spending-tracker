@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertDialog, XStack, YStack } from "tamagui";
+import { AlertDialog, Separator, XStack, YStack } from "tamagui";
 
 import type { TransactionDetail } from "@shared/api/types";
 import { centsToInput, dollarsToCents } from "@shared/lib/money";
@@ -67,6 +67,7 @@ export function EditTransactionDialog({
         <AlertDialog.Overlay key="overlay" opacity={0.5} />
         <AlertDialog.Content key="content" bordered elevate gap="$3" width="90%" maxWidth={400}>
           <AlertDialog.Title>Edit transaction</AlertDialog.Title>
+          <Separator testID="edit-title-separator" />
 
           <YStack gap="$3">
             <Field label="Vendor" required>

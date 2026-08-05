@@ -61,9 +61,12 @@ export interface DateRangeValue {
 export function DateRangePicker({
   value,
   onChange,
+  height = 38,
 }: {
   value: DateRangeValue;
   onChange: (next: DateRangeValue) => void;
+  /** Trigger height, for lining the control up with whatever it sits beside. */
+  height?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"presets" | "custom">("presets");
@@ -144,12 +147,18 @@ export function DateRangePicker({
       <Button
         variant="secondary"
         size="sm"
+        // Sized by the caller to match whatever it stands beside — Home hands it the full height
+        // of the label + amount stack, so the trigger squares off that block rather than sitting
+        // at some button-scale height of its own.
+        height={height}
         icon={<Feather name="calendar" size={14} />}
         onPress={openSheet}
         accessibilityLabel="Change date range"
         testID="date-range-trigger"
       >
-        {formatRangeLabel(value.start, value.end)}
+        {/* No year: the trigger is a compact control and nothing else on Home states one. A range
+            crossing a year boundary still shows both — see formatRangeLabel. */}
+        {formatRangeLabel(value.start, value.end, { withYear: false })}
       </Button>
 
       <AppSheet

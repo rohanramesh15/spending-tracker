@@ -103,6 +103,21 @@ describe("useTransactionActions", () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith({ id: "t1", hidden: true }));
   });
 
+  it("explains hiding without hiding anything", async () => {
+    // The info button sits inside the hide row. A nested pressable must consume the tap — if it
+    // bubbled, asking what hiding does would hide the transaction.
+    const mutateAsync = jest.fn().mockResolvedValue(undefined);
+    mockHooks.useSetTransactionHidden.mockReturnValue(mutation({ mutateAsync }));
+
+    await renderScreen(<Harness item={txn()} />);
+    await fireEvent.press(screen.getByTestId("open"));
+    await fireEvent.press(screen.getByTestId("action-hide-info"));
+
+    expect(screen.getByTestId("hide-explainer")).toBeTruthy();
+    expect(screen.getByText(/drops off the chart/)).toBeTruthy();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it("does NOT delete on the first tap — deleting is irreversible", async () => {
     const mutateAsync = jest.fn().mockResolvedValue(undefined);
     mockHooks.useDeleteTransaction.mockReturnValue(mutation({ mutateAsync }));

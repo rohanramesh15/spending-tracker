@@ -13,9 +13,17 @@ import { TransactionDayGroups } from "@/components/TransactionDayGroups";
 import { useTransactionActions } from "@/components/useTransactionActions";
 import { ChartSkeleton, EmptyState, ErrorState, ListSkeleton, PageHeader, Screen, Skeleton } from "@/components/ui";
 import { filterByCategory } from "@/lib/filterByCategory";
-import { greetingFor } from "@/lib/greeting";
-import { firstNameFrom } from "@/lib/profile";
-import { useAuth } from "@/lib/useAuth";
+
+/**
+ * The label/amount stack beside the range picker, in parts.
+ *
+ * Named rather than eyeballed because the range trigger is sized from TOTAL_LINE — it stands
+ * exactly as tall as the amount, so the two line up on their bottom edge. Change the amount's
+ * line height and the control follows instead of drifting out of square.
+ */
+const TOTAL_LABEL_LINE = 18;
+const TOTAL_LINE = 38;
+const TOTAL_STACK_GAP = 2;
 
 /**
  * Home — the daily loop (user-flow §2): spending total + pie for a selectable range
@@ -25,10 +33,6 @@ export default function HomeScreen() {
   const router = useRouter();
   // Owned here, not inside the chart: dismissing the selection is a tap that lands OUTSIDE the
   // chart, so only the screen can see it.
-  // Computed during render rather than held in state: one line per slot makes it deterministic,
-  // so it can't flicker, and it stays correct if the app sits open across a time boundary.
-  const { session } = useAuth();
-  const greeting = greetingFor(new Date(), firstNameFrom(session));
   const [pieIndex, setPieIndex] = useState(-1);
   // Home shows the full ledger, so it offers the same row actions as the Transactions tab —
   // from the same hook, so the two can't drift apart.
@@ -58,9 +62,10 @@ export default function HomeScreen() {
 
   return (
     <Screen testID="home-screen" onBackgroundPress={() => setPieIndex(-1)}>
-      {/* Settings used to be a gear in this header; it is a bottom tab now, so the header is
-          just the title. */}
-      <PageHeader title={greeting} />
+      {/* A fixed "Welcome", by request — this used to be a time-of-day greeting naming the
+          signed-in user. Settings used to be a gear here too; it is a bottom tab now, so the
+          header is just the title. */}
+      <PageHeader title="Welcome" />
 
       {reviewCount > 0 ? (
         <Banner
@@ -84,20 +89,29 @@ export default function HomeScreen() {
         />
       ) : null}
 
-      <XStack alignItems="flex-start" justifyContent="space-between" gap="$3">
-        <YStack gap="$1" flex={1}>
+      <XStack alignItems="flex-end" justifyContent="space-between" gap="$3">
+        <YStack flex={1} gap={TOTAL_STACK_GAP}>
+          {/* Mini heading, in the same small type as a BlockGroupTitle — sentence case, like
+              every other heading: a bare number at this size says how much but not of what.
+              Regular weight — the amount under it is the only emphasis this block needs. */}
+          <Paragraph fontSize={13} lineHeight={TOTAL_LABEL_LINE} color="$color10">
+            Amount spent
+          </Paragraph>
           {spending.isLoading ? (
-            <Skeleton width={160} height={34} />
+            <Skeleton width={160} height={TOTAL_LINE} />
           ) : (
             // The "spent · <range>" caption is gone by request. The range is not lost: the
             // DateRangePicker sitting immediately to the right of this total states it, so the
             // caption was repeating its neighbour.
-            <Paragraph fontSize={32} fontWeight="700" lineHeight={38}>
+            <Paragraph fontSize={32} fontWeight="700" lineHeight={TOTAL_LINE}>
               {formatCents(spending.data?.total_cents ?? 0)}
             </Paragraph>
           )}
         </YStack>
-        <DateRangePicker value={range} onChange={setRange} />
+        {/* The AMOUNT's line box, not the whole label+amount stack: flex-end lines the two up on
+            their baselines, and a trigger as tall as the stack towered over the number it
+            filters. */}
+        <DateRangePicker value={range} onChange={setRange} height={TOTAL_LINE} />
       </XStack>
 
       {spending.isLoading ? (

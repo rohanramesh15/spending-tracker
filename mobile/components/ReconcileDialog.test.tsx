@@ -19,6 +19,13 @@ const incoming = { vendor: "Kroger", total_cents: 4212 };
  * none of them is taken implicitly.
  */
 describe("ReconcileDialog", () => {
+  it("rules off the title, like every other pop-up in the app", async () => {
+    await renderWithProviders(
+      <ReconcileDialog match={match} incoming={incoming} onResolve={jest.fn()} onCancel={jest.fn()} />,
+    );
+    expect(screen.getByTestId("reconcile-title-separator")).toBeTruthy();
+  });
+
   it("stays closed when there is no match", async () => {
     await renderWithProviders(
       <ReconcileDialog match={null} incoming={incoming} onResolve={jest.fn()} onCancel={jest.fn()} />,

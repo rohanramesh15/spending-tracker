@@ -64,12 +64,58 @@ describe("TransactionDetailScreen", () => {
     expect(screen.getByText("$38.00")).toBeTruthy();
     expect(screen.getByText("$2.12")).toBeTruthy();
     expect(screen.getByText("$2.00")).toBeTruthy();
-    expect(screen.getByText("$42.12")).toBeTruthy();
+  });
+
+  it("states the vendor and the total once each", async () => {
+    // The vendor was in the page title AND the hero; the total was in the hero AND the summary's
+    // Total row. On a one-item receipt that was half the screen repeating itself.
+    await renderScreen(<TransactionDetailScreen />);
+    expect(screen.getAllByText("Kroger")).toHaveLength(1);
+    expect(screen.getAllByText("$42.12")).toHaveLength(1);
+  });
+
+  it("shows no breakdown when there is nothing to break down", async () => {
+    mockHooks.useTransaction.mockReturnValue(
+      query({ data: { ...detail, subtotal_cents: null, tax_cents: 0, tip_cents: 0 } }),
+    );
+    await renderScreen(<TransactionDetailScreen />);
+    expect(screen.queryByTestId("transaction-summary")).toBeNull();
+  });
+
+  it("leads with the amount, the vendor and the grouped sections", async () => {
+    await renderScreen(<TransactionDetailScreen />);
+
+    expect(screen.getByTestId("transaction-hero")).toBeTruthy();
+    expect(screen.getByTestId("transaction-items")).toBeTruthy();
+    expect(screen.getByTestId("transaction-summary")).toBeTruthy();
+        // A single line item, counted in the section heading rather than repeated per row.
+    expect(screen.getByText("1 item")).toBeTruthy();
+  });
+
+  it("keeps a way back out while loading, not just once loaded", async () => {
+    // A header only on the happy path leaves a slow or failed load with no back button at all.
+    mockHooks.useTransaction.mockReturnValue(query({ isLoading: true }));
+    await renderScreen(<TransactionDetailScreen />);
+    expect(screen.getByLabelText("Back")).toBeTruthy();
+  });
+
+  it("keeps a way back out of a failed load", async () => {
+    mockHooks.useTransaction.mockReturnValue(query({ isError: true }));
+    await renderScreen(<TransactionDetailScreen />);
+    expect(screen.getByLabelText("Back")).toBeTruthy();
+  });
+
+  it("shows a line item's category as a chip", async () => {
+    await renderScreen(<TransactionDetailScreen />);
+    expect(screen.getByTestId("category-chip-Food and Drinks")).toBeTruthy();
   });
 
   it("renders the local purchase date, not a UTC-shifted one", async () => {
     await renderScreen(<TransactionDetailScreen />);
-    expect(screen.getByText(/Monday, Mar 2, 2026/)).toBeTruthy();
+    // Mar 2 2026 is a Monday; parsed as UTC it would render as Sunday, Mar 1. No year — the
+    // list's day headings don't carry one either.
+    expect(screen.getByText(/Monday, Mar 2/)).toBeTruthy();
+    expect(screen.queryByText(/2026/)).toBeNull();
   });
 
   it("offers to itemize an unitemized transaction", async () => {

@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import { useState } from "react";
 
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
@@ -22,9 +23,23 @@ function Harness({ initial, onChange }: { initial: DateRangeValue; onChange: jes
 const march = { start: "2026-03-01", end: "2026-03-31" };
 
 describe("DateRangePicker", () => {
+  it("takes its height from the caller, to square off what it stands beside", async () => {
+    await renderWithProviders(<DateRangePicker value={march} onChange={jest.fn()} height={58} />);
+    const style = StyleSheet.flatten(screen.getByTestId("date-range-trigger").props.style);
+    expect(style.height).toBe(58);
+  });
+
+  it("labels the range without a year", async () => {
+    // The trigger is a compact control on a screen that states no year anywhere else.
+    await renderWithProviders(<Harness initial={march} onChange={jest.fn()} />);
+    // Scoped to the trigger: the sheet behind it stays mounted while closed and its custom
+    // panel does state years, which is fine — it is a form, not a compact control.
+    expect(screen.getByTestId("date-range-trigger")).not.toHaveTextContent(/2026/);
+  });
+
   it("shows the current range on the trigger", async () => {
     await renderWithProviders(<Harness initial={march} onChange={jest.fn()} />);
-    expect(screen.getByText("Mar 1–31, 2026")).toBeTruthy();
+    expect(screen.getByText("Mar 1–31")).toBeTruthy();
   });
 
   it("renders a single day as one date, not a range", async () => {
@@ -32,7 +47,7 @@ describe("DateRangePicker", () => {
     await renderWithProviders(
       <Harness initial={{ start: "2026-03-02", end: "2026-03-02" }} onChange={jest.fn()} />,
     );
-    expect(screen.getByText("Mar 2, 2026")).toBeTruthy();
+    expect(screen.getByText("Mar 2")).toBeTruthy();
   });
 
   it("offers exactly the shared presets, so both clients agree", async () => {

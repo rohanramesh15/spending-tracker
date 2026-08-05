@@ -23,6 +23,18 @@ describe("ConfirmDialog", () => {
     expect(screen.getByText("Can't be undone.")).toBeTruthy();
   });
 
+  it("rules off the title, like every other pop-up in the app", async () => {
+    await renderWithProviders(
+      <ConfirmDialog
+        open
+        onOpenChange={jest.fn()}
+        title="Delete transaction?"
+        onConfirm={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId("dialog-title-separator")).toBeTruthy();
+  });
+
   it("confirms only on a deliberate tap", async () => {
     // A destructive dialog must never act merely by appearing.
     const onConfirm = jest.fn();

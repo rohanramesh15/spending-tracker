@@ -1,6 +1,6 @@
 import Feather from "@expo/vector-icons/Feather";
 import { format } from "date-fns";
-import { AlertDialog, Paragraph, XStack, YStack } from "tamagui";
+import { AlertDialog, Paragraph, Separator, XStack, YStack } from "tamagui";
 
 import { Button } from "@/components/ui";
 
@@ -50,6 +50,7 @@ export function ReconcileDialog({
           testID="reconcile-dialog"
         >
           <AlertDialog.Title>Looks like a duplicate</AlertDialog.Title>
+          <Separator testID="reconcile-title-separator" />
           <AlertDialog.Description>
             You already have a {match ? (sourceLabel[match.source] ?? "transaction") : "transaction"}{" "}
             that looks like this one. What should happen?

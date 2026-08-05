@@ -19,10 +19,26 @@ export function todayISO(): string {
   return toISODate(new Date());
 }
 
-/** Human label for a range, e.g. "Mar 3 – Apr 1, 2026" (or a single day). */
-export function formatRangeLabel(start: string, end: string): string {
+/**
+ * Human label for a range, e.g. "Mar 3 – Apr 1, 2026" (or a single day).
+ *
+ * `withYear: false` drops the year entirely — for a compact control (the mobile range trigger)
+ * sitting on a screen that never states a year anywhere else. A range spanning a year boundary
+ * keeps both years regardless: without them "Dec 28 – Jan 3" is genuinely ambiguous.
+ */
+export function formatRangeLabel(
+  start: string,
+  end: string,
+  { withYear = true }: { withYear?: boolean } = {},
+): string {
   const s = parseISODate(start);
   const e = parseISODate(end);
+  const crossesYears = s.getFullYear() !== e.getFullYear();
+  if (!withYear && !crossesYears) {
+    if (start === end) return format(s, "MMM d");
+    if (s.getMonth() === e.getMonth()) return `${format(s, "MMM d")}–${format(e, "d")}`;
+    return `${format(s, "MMM d")} – ${format(e, "MMM d")}`;
+  }
   if (start === end) return format(s, "MMM d, yyyy");
 
   // Within one month, name the month once: "Aug 1 – Aug 31, 2026" becomes "Aug 1–31, 2026".

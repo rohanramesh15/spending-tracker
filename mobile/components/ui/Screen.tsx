@@ -10,6 +10,9 @@ import { useTheme, YStack } from "tamagui";
 
 import { SCREEN_BACKGROUND, SCREEN_PADDING_X } from "./grouped";
 
+/** Breathing room between a collapsing header and the first row of the list below it. */
+export const HEADER_LIST_GAP = 36;
+
 /**
  * Standard screen frame: safe-area insets, consistent padding, optional scrolling.
  *
@@ -113,12 +116,17 @@ export function Screen({
 
   return (
     <SafeAreaView
-      // Clips the header as its negative margin carries it up past the top edge, so it slides
-      // away instead of continuing on over the status bar.
-      style={{ flex: 1, backgroundColor: pageBackground, overflow: "hidden" }}
+      style={{ flex: 1, backgroundColor: pageBackground }}
       edges={["top"]}
       testID={testID}
     >
+      {/*
+       * The clip has to live INSIDE the safe-area padding, not on the SafeAreaView itself.
+       * overflow: "hidden" clips at the border box — which sits above the inset — so a header
+       * translated upward stayed visible in the notch band. This wrapper's box starts exactly
+       * at the bottom of the inset, so the header disappears the moment it passes it.
+       */}
+      <YStack flex={1} overflow="hidden" testID="screen-clip">
       {collapsingHeader ? (
         /*
          * A NORMAL flex child with an animated negative top margin — deliberately not absolutely
@@ -169,11 +177,27 @@ export function Screen({
           }
           contentContainerStyle={{
             padding: padded ? SCREEN_PADDING_X : 0,
-            // The header is a sibling above the list, not an overlay, so the list needs no
-            // top padding of its own when one is present.
-            paddingTop: collapsingHeader ? 0 : padded ? SCREEN_PADDING_X : 0,
+            // The header is a sibling above the list, not an overlay, so this is only breathing
+            // room under it — a small constant, never the measured header height (that is what
+            // left a notch-sized gap).
+            paddingTop: collapsingHeader
+              ? HEADER_LIST_GAP
+              : padded
+                ? SCREEN_PADDING_X
+                : 0,
             gap: onBackgroundPress ? 0 : 16,
-            paddingBottom: 32,
+            /*
+             * The extra headerHeight is what makes the LAST row reachable.
+             *
+             * The scroll view is grown by headerHeight (marginBottom, above) and slides up by the
+             * same amount as the header collapses — so its bottom headerHeight sits below the
+             * screen edge until the collapse has fully run. The collapse is driven by scroll
+             * offset, so if the content is only a little taller than the viewport the scroll ends
+             * before the translation completes and that band never comes up: the last transaction
+             * stays clipped with no scroll left to reveal it. Padding the content by the same
+             * headerHeight guarantees there is always enough travel to finish the collapse.
+             */
+            paddingBottom: 32 + (collapsingHeader ? headerHeight : 0),
           }}
           keyboardShouldPersistTaps="handled"
           onScroll={
@@ -193,6 +217,7 @@ export function Screen({
           {body}
         </YStack>
       )}
+      </YStack>
     </SafeAreaView>
   );
 }

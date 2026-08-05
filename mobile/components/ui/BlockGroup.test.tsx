@@ -1,7 +1,8 @@
+import { StyleSheet } from "react-native";
 import { Paragraph } from "tamagui";
 
 import { BlockGroup, BlockGroupTitle } from "@/components/ui/BlockGroup";
-import { BLOCK_RADIUS, BLOCK_TITLE_INSET } from "@/components/ui/grouped";
+import { BLOCK_PADDING_X, BLOCK_RADIUS, BLOCK_TITLE_INSET } from "@/components/ui/grouped";
 import { renderWithProviders, screen } from "@/test-utils";
 
 function Row({ label }: { label: string }) {
@@ -62,6 +63,19 @@ describe("BlockGroup", () => {
     );
 
     expect(screen.getAllByTestId("block-separator")).toHaveLength(2);
+  });
+
+  it("insets the separator to the row padding instead of running it edge to edge", async () => {
+    await renderWithProviders(
+      <BlockGroup>
+        <Row label="a" />
+        <Row label="b" />
+      </BlockGroup>,
+    );
+
+    const style = StyleSheet.flatten(screen.getByTestId("block-separator").props.style);
+    expect(style.marginHorizontal ?? style.marginLeft).toBe(BLOCK_PADDING_X);
+    expect(style.marginHorizontal ?? style.marginRight).toBe(BLOCK_PADDING_X);
   });
 
   it("ignores absent children when deciding which corners to round", async () => {

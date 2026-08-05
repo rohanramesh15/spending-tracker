@@ -22,6 +22,13 @@ function detail(overrides: Partial<TransactionDetail> = {}): TransactionDetail {
 }
 
 describe("EditTransactionDialog", () => {
+  it("rules off the title, like every other pop-up in the app", async () => {
+    await renderWithProviders(
+      <EditTransactionDialog open txn={detail()} onOpenChange={jest.fn()} onSave={jest.fn()} />,
+    );
+    expect(screen.getByTestId("edit-title-separator")).toBeTruthy();
+  });
+
   it("prefills from the transaction", async () => {
     await renderWithProviders(
       <EditTransactionDialog open txn={detail()} onOpenChange={jest.fn()} onSave={jest.fn()} />,

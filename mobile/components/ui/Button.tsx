@@ -60,6 +60,7 @@ export function Button({
   disabled = false,
   circular = false,
   align = "center",
+  height,
   labelTestID,
   onPress,
   accessibilityLabel,
@@ -83,13 +84,19 @@ export function Button({
    * (a select showing its current value, with a chevron). "center" is the normal button.
    */
   align?: "center" | "between";
+  /**
+   * Overrides the size preset's height, for the rare control that has to line up with something
+   * outside the button scale — the date-range trigger matches the spending total's 38px line box
+   * beside it. Alignment only: reach for a different `size` before reaching for this.
+   */
+  height?: number;
   /** Addresses the label itself, for triggers whose text also appears in the sheet they open. */
   labelTestID?: string;
   onPress?: () => void;
   accessibilityLabel?: string;
   testID?: string;
 }) {
-  const s = SIZES[size];
+  const s = { ...SIZES[size], ...(height != null ? { height } : {}) };
   const v = VARIANTS[variant];
   const iconOnly = children == null;
 
