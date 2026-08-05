@@ -4,9 +4,15 @@ import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import { configureApi } from "@shared/api/client";
 import "./lib/supabase"; // initializes the Supabase auth client + wires the JWT into the API client
 import { queryPersister, QUERY_CACHE_BUSTER, QUERY_CACHE_MAX_AGE } from "./lib/queryPersistence";
 import "./index.css";
+
+// The shared API client no longer reads import.meta.env directly (Metro/React Native has no
+// import.meta), so each app injects its own base URL at startup. Empty string = same-origin,
+// which is what local dev uses via the Vite /api proxy.
+configureApi({ baseUrl: import.meta.env.VITE_API_BASE_URL ?? "" });
 
 const queryClient = new QueryClient({
   defaultOptions: {

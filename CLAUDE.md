@@ -14,7 +14,7 @@ This file is the operating summary. If this file and the docs ever disagree, the
 
 - **Frontend:** React + Vite SPA, TypeScript strict, Tailwind, shadcn/ui, TanStack Query, React Hook Form + Zod, Recharts. Hosted on Cloudflare Pages. Typed API client generated from the backend OpenAPI schema (orval or openapi-typescript).
 - **Backend:** FastAPI (Python 3.12+) on **AWS Lambda** via Mangum, behind a **Lambda Function URL** (not API Gateway — its ~29s cap can't hold a slow Gemini call). Background jobs: **SQS + worker Lambda** (no Redis, no Celery). Scheduling: **EventBridge Scheduler**. IaC: **AWS SAM**, one template. Package manager: **uv**. Lint: Ruff + Black. Tests: pytest.
-- **Data:** Supabase — Postgres (SQLModel + Alembic), Auth (magic link, JWT), Storage (transient receipt images only).
+- **Data:** Supabase — Postgres (SQLModel + Alembic), Auth (Google OAuth, JWT), Storage (transient receipt images only).
 - **DB connections from Lambda:** ALWAYS through Supabase's Supavisor transaction pooler (port 6543) with SQLAlchemy `NullPool`. Never direct Postgres.
 - **External services:** Gemini 2.5 Flash (free tier for now) for receipt extraction behind one `extract_receipt()` function; plaid-python for bank sync; Google Places + Kroger APIs for the store finder (Phase 5); SerpApi deliberately NOT integrated (deferred).
 

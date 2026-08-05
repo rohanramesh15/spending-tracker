@@ -2,6 +2,14 @@
 
 A single-user web app that captures purchases (by scanning receipts, manual entry, or bank sync), categorizes and charts spending, and suggests cheaper stores for items you buy repeatedly. Built web-first, with the architecture deliberately shaped so Apple Card auto-sync can be added later without touching the web app.
 
+> **In progress (2026-08-03): conversion to a native app on Expo.** The client layer is being
+> ported to React Native; the backend, data model, and phase order in this document are
+> unchanged. The web SPA keeps working during the transition and is **retired** once the mobile
+> app reaches parity — so "web-first" above describes how this was built, not where it's going.
+> Framework-agnostic client code now lives in `shared/`, imported by both `frontend/` and
+> `mobile/`. See **`docs/expo-conversion-plan.md`** for the step-by-step status, the decisions
+> behind it, and the handoff notes.
+
 ---
 
 ## 1. Guiding principles

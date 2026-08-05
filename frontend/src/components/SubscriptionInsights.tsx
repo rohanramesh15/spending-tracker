@@ -1,9 +1,9 @@
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format } from "date-fns";
-import { useSubscriptionSummary } from "@/api/hooks";
-import type { Subscription } from "@/api/types";
-import { formatCents } from "@/lib/utils";
-import { parseISODate } from "@/lib/dates";
+import { useSubscriptionSummary } from "@shared/api/hooks";
+import type { Subscription } from "@shared/api/types";
+import { formatCents } from "@shared/lib/money";
+import { parseISODate } from "@shared/lib/dates";
 
 /**
  * Insights for the Agents page (docs/subscriptions-plan.md §6, v5): annualized spend, a

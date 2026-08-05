@@ -1,4 +1,4 @@
-import { categoryColor, categoryInk, categoryLabel } from "@/lib/categories";
+import { categoryColor, categoryInk, categoryLabel } from "@shared/lib/categories";
 
 /** Small colored pills for a transaction's line-item categories (row short-view). Colors
  *  match the spending pie. Caps the count and shows "+N" so long receipts stay tidy. */

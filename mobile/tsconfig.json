@@ -1,0 +1,26 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    // Jest globals (describe/it/expect) for the *.test.tsx files. jest-expo provides the
+    // runtime; these are the types only.
+    "types": ["jest", "node"],
+    "paths": {
+      "@/*": ["./*"],
+      "@shared/*": ["../shared/*"],
+      // shared/ sits above mobile/node_modules, so TypeScript can't resolve its bare imports
+      // by walking up from those files. Mirror what metro.config.js does at runtime, exactly
+      // as frontend/tsconfig.app.json does for Vite.
+      "date-fns": ["./node_modules/date-fns"],
+      "@tanstack/*": ["./node_modules/@tanstack/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../shared/**/*.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": ["../shared/**/*.test.ts"]
+}

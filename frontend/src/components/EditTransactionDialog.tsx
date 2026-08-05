@@ -9,8 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { centsToInput, dollarsToCents } from "@/lib/utils";
-import type { TransactionDetail } from "@/api/types";
+import { centsToInput, dollarsToCents } from "@shared/lib/money";
+import type { TransactionDetail } from "@shared/api/types";
 
 export function EditTransactionDialog({
   open,

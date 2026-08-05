@@ -42,3 +42,7 @@ packaged.yaml
 *.local.md
 docs/*-plan.md
 !docs/implementation-plan.md
+# The Expo conversion plan is a shared handoff record, not a personal working note: it tracks
+# which conversion steps are done and carries the non-obvious findings the next agent needs.
+# It has to be in the repo to do that job.
+!docs/expo-conversion-plan.md

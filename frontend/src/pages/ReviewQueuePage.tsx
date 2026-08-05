@@ -2,10 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Layers, Copy, Replace, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useReviews, useResolveReview } from "@/api/hooks";
-import type { Resolution, Review, ReviewTxn } from "@/api/types";
-import { formatCents } from "@/lib/utils";
-import { parseISODate } from "@/lib/dates";
+import { useReviews, useResolveReview } from "@shared/api/hooks";
+import type { Resolution, Review, ReviewTxn } from "@shared/api/types";
+import { formatCents } from "@shared/lib/money";
+import { parseISODate } from "@shared/lib/dates";
 
 const sourceLabel: Record<string, string> = {
   plaid: "Bank",

@@ -18,6 +18,7 @@ jobs:
     outputs:
       backend: ${{ steps.f.outputs.backend }}
       frontend: ${{ steps.f.outputs.frontend }}
+      mobile: ${{ steps.f.outputs.mobile }}
       infra: ${{ steps.f.outputs.infra }}
       website: ${{ steps.f.outputs.website }}
     steps:
@@ -27,7 +28,9 @@ jobs:
         with:
           filters: |
             backend: ['backend/**']
-            frontend: ['frontend/**']
+            # shared/ is imported by both clients, so a change there must run both suites.
+            frontend: ['frontend/**', 'shared/**']
+            mobile: ['mobile/**', 'shared/**']
             infra: ['infra/**']
             website: ['website/**']
 
@@ -90,6 +93,33 @@ jobs:
       - run: pnpm test
       - run: pnpm build # tsc -b + vite build (catches type errors the dev server skips)
 
+  # The Expo app. Runs the same checks the web client does, plus the screen-inventory
+  # guard (mobile/screen-inventory.test.ts), which fails when a screen or component ships
+  # without a test — the mobile counterpart of the backend's route-inventory guard.
+  mobile:
+    needs: changes
+    if: ${{ needs.changes.outputs.mobile == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0 # explicit: action runs at repo root (no root package.json to read)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      # Proves the app still bundles for a device. Catches Metro resolution breakage that
+      # neither tsc nor Jest sees — notably anything involving the out-of-root shared/ dir.
+      - run: npx expo export --platform ios --output-dir /tmp/expo-ci-export
+
   # The marketing site (TrackIt landing page). Independent of the app: its own
   # lockfile, its own Cloudflare Pages project, no shared code.
   website:
@@ -130,16 +160,16 @@ jobs:
   # block a PR forever on a skipped job. This gate always runs and fails only if a job
   # that actually ran ended in failure/cancelled — skipped is fine.
   ci-success:
-    needs: [changes, backend, frontend, website, infra]
+    needs: [changes, backend, frontend, mobile, website, infra]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require all triggered jobs to have succeeded
         run: |
-          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}" "${{ needs.website.result }}" "${{ needs.infra.result }}"; do
+          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}" "${{ needs.mobile.result }}" "${{ needs.website.result }}" "${{ needs.infra.result }}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
-              echo "A required CI job did not pass (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} website=${{ needs.website.result }} infra=${{ needs.infra.result }})"
+              echo "A required CI job did not pass (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} mobile=${{ needs.mobile.result }} website=${{ needs.website.result }} infra=${{ needs.infra.result }})"
               exit 1
             fi
           done
-          echo "CI gate OK (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} website=${{ needs.website.result }} infra=${{ needs.infra.result }})"
+          echo "CI gate OK (backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} mobile=${{ needs.mobile.result }} website=${{ needs.website.result }} infra=${{ needs.infra.result }})"

@@ -9,16 +9,17 @@ import {
   useDeleteTransaction,
   useUpdateTransaction,
   useSetTransactionHidden,
-} from "@/api/hooks";
+} from "@shared/api/hooks";
 import { Button } from "@/components/ui/button";
-import { cn, formatCents } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatCents } from "@shared/lib/money";
 import { ListSkeleton } from "@/components/Skeletons";
 import { ActionSheet } from "@/components/ActionSheet";
 import { TransactionRow } from "@/components/TransactionRow";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EditTransactionDialog } from "@/components/EditTransactionDialog";
-import { parseISODate } from "@/lib/dates";
-import type { TransactionListItem } from "@/api/types";
+import { parseISODate } from "@shared/lib/dates";
+import type { TransactionListItem } from "@shared/api/types";
 
 type Filter = "all" | "needs_review";
 

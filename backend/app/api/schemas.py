@@ -146,6 +146,13 @@ class TransactionListItem(BaseModel):
     review_status: ReviewStatus
     item_count: int
     categories: list[str] = Field(default_factory=list)  # distinct line-item categories, for chips
+    # Transaction-level amounts (CLAUDE.md #8: Tax and Tip are their own categories, stored on
+    # the transaction rather than as line items). Exposed on the LIST, not just the detail, so a
+    # client can tag rows that carry tax/tip and can resolve the Tax/Tip pie slices back to the
+    # transactions behind them — neither is answerable from `categories`, which is line-items only.
+    # No extra query: both are columns on the rows this endpoint already loads.
+    tax_cents: int = 0
+    tip_cents: int = 0
     # Excluded from pie-chart aggregation; still listed in the ledger (dimmed in the UI).
     hidden: bool = False
     # Reported by Plaid before it posts. Also excluded from pie-chart aggregation until it

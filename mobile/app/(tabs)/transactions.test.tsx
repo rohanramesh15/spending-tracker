@@ -1,0 +1,202 @@
+import TransactionsScreen from "@/app/(tabs)/transactions";
+import type { TransactionListItem } from "@shared/api/types";
+import { fireEvent, mutation, query, renderScreen, screen } from "@/test-screen";
+
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
+
+const mockHooks = {
+  useTransactions: jest.fn(),
+  useTransaction: jest.fn(),
+  useDeleteTransaction: jest.fn(),
+  useUpdateTransaction: jest.fn(),
+  useSetTransactionHidden: jest.fn(),
+};
+jest.mock("@shared/api/hooks", () => ({
+  useTransactions: () => mockHooks.useTransactions(),
+  useTransaction: () => mockHooks.useTransaction(),
+  useDeleteTransaction: () => mockHooks.useDeleteTransaction(),
+  useUpdateTransaction: () => mockHooks.useUpdateTransaction(),
+  useSetTransactionHidden: () => mockHooks.useSetTransactionHidden(),
+  // Inlined rather than using the `query` helper: a jest.mock factory is hoisted above the
+  // imports, so it can't reference out-of-scope variables.
+  useCategories: () => ({ data: [], isLoading: false, isError: false, refetch: jest.fn() }),
+}));
+
+function txn(overrides: Partial<TransactionListItem> = {}): TransactionListItem {
+  return {
+    id: "t1",
+    vendor: "Kroger",
+    purchased_on: "2026-03-02",
+    source: "manual",
+    total_cents: 4212,
+    currency: "USD",
+    review_status: "confirmed",
+    item_count: 2,
+    categories: [],
+    tax_cents: 0,
+    tip_cents: 0,
+    hidden: false,
+    pending: false,
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockHooks.useTransactions.mockReturnValue(query({ data: [txn()] }));
+  mockHooks.useTransaction.mockReturnValue(query());
+  mockHooks.useDeleteTransaction.mockReturnValue(mutation());
+  mockHooks.useUpdateTransaction.mockReturnValue(mutation());
+  mockHooks.useSetTransactionHidden.mockReturnValue(mutation());
+});
+
+describe("TransactionsScreen", () => {
+  it("shows a skeleton while loading", async () => {
+    mockHooks.useTransactions.mockReturnValue(query({ isLoading: true }));
+    await renderScreen(<TransactionsScreen />);
+    expect(screen.getByTestId("list-skeleton")).toBeTruthy();
+  });
+
+  it("shows an error with a retry", async () => {
+    mockHooks.useTransactions.mockReturnValue(query({ isError: true }));
+    await renderScreen(<TransactionsScreen />);
+    expect(screen.getByTestId("error-state")).toBeTruthy();
+  });
+
+  it("shows an empty state with a way out", async () => {
+    mockHooks.useTransactions.mockReturnValue(query({ data: [] }));
+    await renderScreen(<TransactionsScreen />);
+    expect(screen.getByText("No transactions yet")).toBeTruthy();
+  });
+
+  it("groups transactions under a day heading", async () => {
+    await renderScreen(<TransactionsScreen />);
+    expect(screen.getByText("Monday, Mar 2")).toBeTruthy();
+    expect(screen.getByText("Kroger")).toBeTruthy();
+  });
+
+
+  /** Two transactions, so a filter can be seen to exclude one. */
+  function seedTwo() {
+    mockHooks.useTransactions.mockReturnValue(
+      query({
+        data: [
+          txn({ id: "a", vendor: "Kroger" }),
+          txn({ id: "b", vendor: "Zelle", review_status: "needs_review" }),
+        ],
+      }),
+    );
+  }
+
+  it("finds a needs-review transaction by searching for it", async () => {
+    // The All / Needs review chips are gone; search answers the same question and more.
+    seedTwo();
+    await renderScreen(<TransactionsScreen />);
+
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "needs review");
+
+    expect(screen.getByText("Zelle")).toBeTruthy();
+    expect(screen.queryByText("Kroger")).toBeNull();
+  });
+
+  it("searches by vendor", async () => {
+    seedTwo();
+    await renderScreen(<TransactionsScreen />);
+
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "kroger");
+
+    expect(screen.getByText("Kroger")).toBeTruthy();
+    expect(screen.queryByText("Zelle")).toBeNull();
+  });
+
+  it("says so when nothing matches, naming what was searched for", async () => {
+    await renderScreen(<TransactionsScreen />);
+
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "nonsense");
+
+    expect(screen.getByText("No matches")).toBeTruthy();
+    expect(screen.getByText(/nonsense/)).toBeTruthy();
+  });
+
+  it("restores the full list when the search is cleared", async () => {
+    seedTwo();
+    await renderScreen(<TransactionsScreen />);
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "kroger");
+    await fireEvent.changeText(screen.getByTestId("transaction-search"), "");
+
+    expect(screen.getByText("Kroger")).toBeTruthy();
+    expect(screen.getByText("Zelle")).toBeTruthy();
+  });
+
+  it("opens the detail screen on tap", async () => {
+    await renderScreen(<TransactionsScreen />);
+    await fireEvent.press(screen.getByTestId("transaction-row-t1"));
+    expect(mockPush).toHaveBeenCalledWith("/transactions/t1");
+  });
+
+  it("opens the action sheet on long press rather than navigating", async () => {
+    await renderScreen(<TransactionsScreen />);
+    await fireEvent(screen.getByTestId("transaction-row-t1"), "longPress");
+
+    expect(screen.getByTestId("action-delete")).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("requires confirmation before deleting", async () => {
+    // Delete must never fire straight off the action sheet.
+    const mutateAsync = jest.fn();
+    mockHooks.useDeleteTransaction.mockReturnValue(mutation({ mutateAsync }));
+
+    await renderScreen(<TransactionsScreen />);
+    await fireEvent(screen.getByTestId("transaction-row-t1"), "longPress");
+    await fireEvent.press(screen.getByTestId("action-delete"));
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText("Delete transaction?")).toBeTruthy();
+  });
+  describe("the Add menu", () => {
+    // Scanning used to be a bottom tab, which framed it as a destination and left manual entry
+    // and the photo library with no shared home. All three sources now sit behind Add.
+    it("offers all three ways to add a transaction", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+
+      expect(screen.getByTestId("add-manual")).toBeTruthy();
+      expect(screen.getByTestId("add-scan-camera")).toBeTruthy();
+      expect(screen.getByTestId("add-scan-library")).toBeTruthy();
+    });
+
+    it("does not navigate until a source is chosen", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("routes manual entry to the add screen", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+      await fireEvent.press(screen.getByTestId("add-manual"));
+
+      expect(mockPush).toHaveBeenCalledWith("/add");
+    });
+
+    it("routes the camera option to scan with the camera source", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+      await fireEvent.press(screen.getByTestId("add-scan-camera"));
+
+      // The source travels in the URL so scan opens the right picker without asking again.
+      expect(mockPush).toHaveBeenCalledWith("/scan?source=camera");
+    });
+
+    it("routes the library option to scan with the library source", async () => {
+      await renderScreen(<TransactionsScreen />);
+      await fireEvent.press(screen.getByTestId("add-transaction"));
+      await fireEvent.press(screen.getByTestId("add-scan-library"));
+
+      expect(mockPush).toHaveBeenCalledWith("/scan?source=library");
+    });
+  });
+});

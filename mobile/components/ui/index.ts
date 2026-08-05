@@ -1,0 +1,26 @@
+/** Design-system barrel. Screens should import from here, not from individual files. */
+export { Screen } from "./Screen";
+export { Card } from "./Card";
+export { Field, TextField } from "./Field";
+export { Skeleton, ChartSkeleton, ListSkeleton } from "./Skeleton";
+export { EmptyState, ErrorState } from "./States";
+export { AppSheet, SheetList, SheetRow } from "./AppSheet";
+export { ConfirmDialog } from "./ConfirmDialog";
+export { ToastProvider, useToast } from "./Toast";
+export {
+  BLOCK_BACKGROUND,
+  BLOCK_RADIUS,
+  BLOCK_SEPARATOR_COLOR,
+  BLOCK_PADDING_X,
+  BLOCK_SEPARATOR_WIDTH,
+  BLOCK_TITLE_INSET,
+  SCREEN_BACKGROUND,
+  SCREEN_PADDING_X,
+  SHEET_PADDING_X,
+  blockCorners,
+} from "./grouped";
+export { BlockGroup, BlockGroupTitle } from "./BlockGroup";
+export { Button, type ButtonSize, type ButtonVariant } from "./Button";
+export { PageHeader } from "./PageHeader";
+export { PageTitle } from "./PageTitle";
+export { SearchField } from "./SearchField";

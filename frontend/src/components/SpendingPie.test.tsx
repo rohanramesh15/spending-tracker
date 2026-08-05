@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { SpendingPie } from "./SpendingPie";
-import { CATEGORY_COLORS } from "@/lib/categories";
+import { CATEGORY_COLORS } from "@shared/lib/categories";
 
 // Recharts' ResponsiveContainer measures its parent, which jsdom reports as 0x0 — so it
 // renders nothing. Swap it for a fixed-size box so the chart actually draws its slices.

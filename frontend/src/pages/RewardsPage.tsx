@@ -7,9 +7,9 @@ import {
   useRewardProfiles,
   useRewardsOptimization,
   useSetCardProfile,
-} from "@/api/hooks";
-import type { Card, RewardRecommendation } from "@/api/types";
-import { formatCents } from "@/lib/utils";
+} from "@shared/api/hooks";
+import type { Card, RewardRecommendation } from "@shared/api/types";
+import { formatCents } from "@shared/lib/money";
 
 /** Reward-category → display label (mirrors backend REWARD_CATEGORIES). */
 const CATEGORY_LABELS: Record<string, string> = {
