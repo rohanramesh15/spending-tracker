@@ -49,7 +49,7 @@ export function AppShell() {
 
   return (
     <div className="mx-auto flex h-full min-h-dvh w-full max-w-3xl flex-col">
-      <main className="flex-1 overflow-y-auto px-4 pb-24 pt-4">
+      <main className="flex-1 overflow-y-auto px-4 pb-24 pt-[max(4rem,calc(env(safe-area-inset-top)+1rem))]">
         <Outlet />
       </main>
 
