@@ -8,15 +8,15 @@ import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/components/CategorySelect";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
 import { ScanLoader } from "@/components/ScanLoader";
-import { useExtractReceipt, useIngest } from "@/api/hooks";
+import { useExtractReceipt, useIngest } from "@shared/api/hooks";
 import type {
   IngestRequest,
   IngestResult,
   ReceiptDraft,
   ReconcileMatch,
   Resolution,
-} from "@/api/types";
-import { centsToInput, dollarsToCents, formatCents } from "@/lib/utils";
+} from "@shared/api/types";
+import { centsToInput, dollarsToCents, formatCents } from "@shared/lib/money";
 import { takePendingReceipt } from "@/lib/scanFile";
 
 type Stage = "idle" | "extracting" | "confirm" | "error";

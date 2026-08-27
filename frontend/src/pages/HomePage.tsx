@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { AlertTriangle, Settings, Sparkles } from "lucide-react";
-import { useReviews, useSpending, useTransactions, useNotifications } from "@/api/hooks";
+import { useReviews, useSpending, useTransactions, useNotifications } from "@shared/api/hooks";
 import { SpendingPie } from "@/components/SpendingPie";
 import { DateRangePicker, type DateRangeValue } from "@/components/DateRangePicker";
 import { TotalSkeleton, ChartSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
-import { formatCents } from "@/lib/utils";
+import { formatCents } from "@shared/lib/money";
 import { CategoryChips } from "@/components/CategoryChips";
-import { parseISODate, rangePresets, formatRangeLabel } from "@/lib/dates";
+import { parseISODate, rangePresets, formatRangeLabel } from "@shared/lib/dates";
 
 /**
  * Home — the daily loop (user-flow §2): spending total + pie for a selectable date range

@@ -165,6 +165,8 @@ def list_transactions(
             review_status=t.review_status,
             item_count=counts.get(str(t.id), 0),
             categories=cats.get(str(t.id), []),
+            tax_cents=t.tax_cents,
+            tip_cents=t.tip_cents,
             hidden=t.hidden,
             pending=t.pending,
         )

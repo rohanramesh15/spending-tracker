@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { DateRangePicker, type DateRangeValue } from "./DateRangePicker";
-import { rangePresets, formatRangeLabel } from "@/lib/dates";
+import { rangePresets, formatRangeLabel } from "@shared/lib/dates";
 
 const presets = rangePresets();
 const thisMonth = presets[0];

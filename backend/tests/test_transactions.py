@@ -429,6 +429,39 @@ def test_pending_transaction_is_listed_and_flagged(client) -> None:
     assert detail["pending"] is True
 
 
+def test_list_exposes_transaction_level_tax_and_tip(client) -> None:
+    """Tax and Tip are transaction-level amounts, not line items (CLAUDE.md #8).
+
+    `categories` holds LINE-ITEM categories only, so a client cannot tell from it whether a
+    transaction carried tax, nor resolve the Tax/Tip pie slices back to the transactions behind
+    them. The list therefore carries the amounts themselves.
+    """
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c, tax_cents=50, tip_cents=125, subtotal_cents=800, total_cents=975)
+
+    listed = c.get("/api/transactions").json()
+    row = next(t for t in listed if t["id"] == txn["id"])
+
+    assert row["tax_cents"] == 50
+    assert row["tip_cents"] == 125
+    # Tax/Tip must NOT leak into the line-item category list.
+    assert "Tax" not in row["categories"]
+    assert "Tip" not in row["categories"]
+
+
+def test_list_reports_zero_tax_and_tip_rather_than_omitting_them(client) -> None:
+    # A client tagging rows with tax must be able to trust the field's absence-of-tax case.
+    c, uid = client
+    _seed_categories(uid)
+    txn = _create(c, tax_cents=0, tip_cents=0, subtotal_cents=800, total_cents=800)
+
+    row = next(t for t in c.get("/api/transactions").json() if t["id"] == txn["id"])
+
+    assert row["tax_cents"] == 0
+    assert row["tip_cents"] == 0
+
+
 def test_insights_spending_excludes_pending_transaction_entirely(client) -> None:
     c, uid = client
     _seed_categories(uid)

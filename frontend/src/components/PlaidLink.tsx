@@ -10,13 +10,13 @@ import { usePlaidLink } from "react-plaid-link";
 import { toast } from "sonner";
 import { Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { AccountStatus } from "@/api/types";
+import type { AccountStatus } from "@shared/api/types";
 import {
   useAccountReconnected,
   useCreateLinkToken,
   useCreateUpdateLinkToken,
   useExchangePublicToken,
-} from "@/api/hooks";
+} from "@shared/api/hooks";
 
 // The active flow is stashed here so it survives the full-page OAuth redirect out to the
 // bank and back (Chase/BofA/Amex): the link token, which flow it is, and — for an update —

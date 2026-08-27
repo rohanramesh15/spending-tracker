@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TransactionRow } from "./TransactionRow";
-import type { TransactionListItem } from "@/api/types";
+import type { TransactionListItem } from "@shared/api/types";
 
 const base: TransactionListItem = {
   id: "t1",
@@ -14,6 +14,8 @@ const base: TransactionListItem = {
   item_count: 3,
   review_status: "confirmed",
   pending: false,
+  tax_cents: 0,
+  tip_cents: 0,
   hidden: false,
   categories: [],
 };

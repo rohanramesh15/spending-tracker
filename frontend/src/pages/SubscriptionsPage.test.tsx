@@ -10,10 +10,10 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
   useSubscriptionSummary,
-} from "@/api/hooks";
-import type { AppNotification, Subscription, SubscriptionSummary } from "@/api/types";
+} from "@shared/api/hooks";
+import type { AppNotification, Subscription, SubscriptionSummary } from "@shared/api/types";
 
-vi.mock("@/api/hooks", () => ({
+vi.mock("@shared/api/hooks", () => ({
   useSubscriptions: vi.fn(),
   useRecomputeSubscriptions: vi.fn(),
   useSetSubscriptionStatus: vi.fn(),

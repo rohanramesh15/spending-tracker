@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/components/CategorySelect";
-import { centsToInput, dollarsToCents } from "@/lib/utils";
-import type { LineItem } from "@/api/types";
+import { centsToInput, dollarsToCents } from "@shared/lib/money";
+import type { LineItem } from "@shared/api/types";
 
 export function EditLineItemDialog({
   item,

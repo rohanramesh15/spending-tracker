@@ -4,7 +4,7 @@ import { Home, Receipt, PiggyBank, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { setPendingReceipt } from "@/lib/scanFile";
-import { useReviews, useNotifications } from "@/api/hooks";
+import { useReviews, useNotifications } from "@shared/api/hooks";
 
 // Bottom tabs. "Scan" isn't a route — it opens the camera directly (replacing the old
 // floating FAB), so the single most important control lives in the nav itself.

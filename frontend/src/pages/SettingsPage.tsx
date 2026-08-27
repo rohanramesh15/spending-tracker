@@ -19,8 +19,8 @@ import {
   PlaidLinkProvider,
 } from "@/components/PlaidLink";
 import { ListSkeleton } from "@/components/Skeletons";
-import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@/api/hooks";
-import type { AccountStatus } from "@/api/types";
+import { useImportAppleCard, useLinkedAccounts, useSyncBank } from "@shared/api/hooks";
+import type { AccountStatus } from "@shared/api/types";
 import { signOut, useAuth } from "@/lib/useAuth";
 import { clearPersistedCache } from "@/lib/queryPersistence";
 

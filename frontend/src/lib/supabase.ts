@@ -1,5 +1,5 @@
 import { createClient, type Session } from "@supabase/supabase-js";
-import { configureAuth } from "@/api/client";
+import { configureAuth } from "@shared/api/client";
 
 /**
  * Supabase browser client — AUTH ONLY (magic-link login + session/JWT).

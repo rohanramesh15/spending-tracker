@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import RewardsPage from "./RewardsPage";
-import type { Card, RewardProfile, RewardsOptimization } from "@/api/types";
+import type { Card, RewardProfile, RewardsOptimization } from "@shared/api/types";
 
 const matchedCard: Card = {
   id: "c1",

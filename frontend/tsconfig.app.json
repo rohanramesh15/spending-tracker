@@ -21,8 +21,15 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["../shared/*"],
+      // shared/ sits above frontend/node_modules, so TypeScript can't resolve its bare
+      // imports by walking up from those files (same reason vite.config.ts aliases them).
+      // Mirror the runtime aliases here so type-checking and bundling agree.
+      "date-fns": ["./node_modules/date-fns"],
+      "@tanstack/*": ["./node_modules/@tanstack/*"],
+      "vitest": ["./node_modules/vitest"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../shared"]
 }
